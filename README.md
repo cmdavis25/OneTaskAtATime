@@ -18,7 +18,7 @@ Note: In a true dogmatic GTD system, a user would have an inbox for all of their
 - Priority will be scored on a 3-point scale, where High = 3, Medium = 2, and Low = 1
 - Urgency will be scored based on a count of days until the task due date. The task(s) with the lowest counts (including negative values for overdue tasks) shall be assigned an urgency score of 3, with the other tasks scored on a normalized scale (latest due date = 1).
 
-1. **Problem/Background:** Tasks that are not immediately actionable or low-priority/low-urgency tend to end up in a purgatory state, left to rot and fester. GTD argues that these tasks should be sorted into the following states:
+2. **Problem/Background:** Tasks that are not immediately actionable or low-priority/low-urgency tend to end up in a purgatory state, left to rot and fester. GTD argues that these tasks should be sorted into the following states:
 - Deferred Tasks, which can only be completed after a specified Start Date
 - Delegated Tasks, which are assigned to another person and require a scheduled follow-up conversation (which in and of itself is a separate Deferred Task)
 - Someday/Maybe, for tasks that are not currently actionable, but *might* become actionable at an unknown date in the future
@@ -26,11 +26,11 @@ Note: In a true dogmatic GTD system, a user would have an inbox for all of their
 The problem with this bucketing approach is that most apps fail to routinely resurface tasks in those buckets to the user. 
 **Proposed Solution:** This app will attempt to fix that problem by resurfacing tasks in those buckets strategically.
 
-1. **Problem/Background:** In attempting to execute the Next Action, GTD practitioners often find that their next task is comprised of multiple complex steps -- and therefore must be considered as a collection of tasks within a "Project". The heirarchy imposed can lead to difficulties with both prioritization and navigation, as tasks become buried within Projects, Phases, and ever-deeper levels of "organization". Task heirarchies add needless complexity and are detrimental to productivity.
+3. **Problem/Background:** In attempting to execute the Next Action, GTD practitioners often find that their next task is comprised of multiple complex steps -- and therefore must be considered as a collection of tasks within a "Project". The heirarchy imposed can lead to difficulties with both prioritization and navigation, as tasks become buried within Projects, Phases, and ever-deeper levels of "organization". Task heirarchies add needless complexity and are detrimental to productivity.
 **Proposed Solution:** While there may be some value in tracking Projects as a form of tag meta-data (for filtering purposes), the structure of the master task list should be kept flat.
 Similarly, organizing tasks by work environment "Context" should also be done with tagging, rather than a hierarchy. A task may have only one Context, while a given Context may apply to as many tasks as the user desires.
 
-1. **Problem/Background:** Tasks can also be difficult to complete due to various blockers and/or dependencies on other tasks. In failing to confront users when they delay a task, most to-do list apps fail to capture the user's reason for doing so. 
+4. **Problem/Background:** Tasks can also be difficult to complete due to various blockers and/or dependencies on other tasks. In failing to confront users when they delay a task, most to-do list apps fail to capture the user's reason for doing so. 
 **Proposed Solution:** This app proposes to fix this problem by presenting users with prompts to explain their decision when they delay a task.
 - If a user responds (with a button) that a delayed task involves multiple subtasks, the interface should prompt them to enter those tasks, pick the Next Action and then delete the original task. Again, the goal here is to reduce task heirarchy.
 - If a user responds (with a button) that they encountered a blocker, the interface should prompt the user to create a new task to log and address that blocker.
