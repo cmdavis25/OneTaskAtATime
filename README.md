@@ -1,13 +1,17 @@
 # OneTaskAtATime
-A project to create a focused, no-frills to-do list GUI desktop app
+**A project to create a focused, no-frills to-do list GUI desktop app**
 
 Many users spend too much time managing task *lists*, when they should just pick a single task and execute it. The overarching goal of this app is to aid the user in focusing on one task.
--------
+
+---
+
 In David Allen's popular "Getting Things Done" (GTD) system, strong emphasis is placed on filtering a to-do list to determine the "Next Action" that is appropriate for your current working environment (referred to as "Context"). In theory, this makes perfect sense: it is well-known that "multitasking" is counter-productive, and therefore people should strive to focus on doing one thing at a time. Therefore, THE core feature of this app is a Focus Mode that presents the user with one task at a time, hence the app's name-sake.
 
 Note: In a true dogmatic GTD system, a user would have an inbox for all of their informational inputs, which would then be sorted into Actionable Inputs and Non-Actionable Inputs. This is why many practitioners of GTD insist on incorporating their system into an email inbox or filing system. In my opinion, this sorting just adds an unnecessary step for most people. This app assumes that users are inputting actual tasks, not unsorted Inputs.
--------
-Several usability problems need to be addressed in this app:
+
+---
+
+**Several usability problems need to be addressed in this app:**
 
 1. **Problem/Background:** Many do-to apps allow users to rank priority and urgency in an attempt to enforce a logical order of presentation, but in practice users often end up with a lot of high-priority / high-urgency tasks, defeating the purpose of ranking tasks in the first place.
 **Proposed Solution:** The app will attempt to resolve this issue by presenting the user with a list of two tasks that have equal top-ranked importance (highest priority and highest urgency), asking them to choose the task that is higher priority. The app will then decrement the other task's priority (by half a point by default, or by a user-specified value > 0). The app will continue this process, comparing the top-ranked tasks until the user has only one option or completes a task.
