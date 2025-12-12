@@ -32,9 +32,15 @@ Note: In a true dogmatic GTD system, a user would have an inbox for all of their
 
 1. **Problem/Background:** Many do-to apps allow users to rank priority and urgency in an attempt to enforce a logical order of presentation, but in practice users often end up with a lot of high-priority / high-urgency tasks, defeating the purpose of ranking tasks in the first place.
 
-   **Proposed Solution:** The app will attempt to resolve this issue by presenting the user with a list of two tasks that have equal top-ranked importance (highest priority and highest urgency), asking them to choose the task that is higher priority. The app will then decrement the other task's priority (by half a point by default, or by a user-specified value > 0). The app will continue this process, comparing the top-ranked tasks until the user has only one option or completes a task.
-    - Priority will be scored on a 3-point scale, where High = 3, Medium = 2, and Low = 1
-    - Urgency will be scored based on a count of days until the task due date. The task(s) with the lowest counts (including negative values for overdue tasks) shall be assigned an urgency score of 3, with the other tasks scored on a normalized scale (latest due date = 1).
+   **Proposed Solution:** The app resolves ties by presenting pairs of tasks with equal top-rank importance for comparison. When the user selects the higher-priority task, the losing task's Priority Adjustment is incremented using exponential decay: **PA += 0.5^N** (where N = number of comparison losses). This approach leverages Zeno's Paradox to ensure Priority Adjustment never reaches 1, preventing Effective Priority from reaching zero while progressively deprioritizing tasks that consistently lose comparisons.
+
+   **Importance Calculation:**
+   - **Effective Priority** = Base Priority - Priority Adjustment
+   - **Base Priority**: User-configurable 3-point scale (High = 3, Medium = 2, Low = 1)
+   - **Urgency**: Based on remaining days until due date (tasks with lowest day counts including overdue = 3, latest due date = 1)
+   - **Importance** = Effective Priority × Urgency (max = 9)
+
+   When Base Priority is changed, both Priority Adjustment and comparison loss count reset to zero. See [CLAUDE.md](CLAUDE.md) for complete algorithmic details.
 
 2. **Problem/Background:** Tasks that are not immediately actionable or low-priority/low-urgency tend to end up in a purgatory state, left to rot and fester. GTD argues that these tasks should be sorted into the following states:
     - Deferred Tasks, which can only be completed after a specified Start Date
