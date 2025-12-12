@@ -81,9 +81,49 @@ When users delay a task, prompt for reason:
 - **Blocker encountered**: Create new task to address the blocker
 - **Dependencies**: Link to upstream task(s) that must complete first
 
-## Development Status
+## Development Environment
 
-This is an early-stage project. The codebase currently contains only project documentation. When implementing:
+**CRITICAL: All development must be done inside the `onetask_env` virtual environment.**
+
+### Virtual Environment Rules
+
+1. **Always activate the virtual environment BEFORE installing dependencies or running code**
+   ```bash
+   # Windows
+   onetask_env\Scripts\activate
+
+   # Linux/Mac
+   source onetask_env/bin/activate
+   ```
+
+2. **Never install packages globally** - All pip installations must happen inside the active virtual environment
+
+3. **Verify environment is active** - The prompt should show `(onetask_env)` prefix
+
+4. **Install dependencies within the virtual environment**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Running the Application
+
+```bash
+# Activate virtual environment first
+onetask_env\Scripts\activate
+
+# Seed database with sample data (first time)
+python -m src.database.seed_data
+
+# Launch application
+python -m src.main
+
+# Run tests
+python -m pytest tests/ -v
+```
+
+## Development Guidelines
+
+When implementing features:
 
 - Focus on simplicity and minimalism in UI/UX
 - Prioritize the single-task Focus Mode as the core user experience

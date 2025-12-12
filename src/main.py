@@ -7,7 +7,7 @@ executing one task at a time using GTD-inspired principles.
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from ui.main_window import MainWindow
+from .ui.main_window import MainWindow
 
 
 def main():

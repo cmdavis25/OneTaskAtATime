@@ -210,13 +210,26 @@ The database layer is fully functional with:
 
 See [PHASE1_STATUS.md](PHASE1_STATUS.md) for details.
 
-**Next Phase: Phase 2 - MVP Focus Mode**
+**Phase 2: MVP Focus Mode** ✅ COMPLETE
 
-Implementing the core Focus Mode feature with:
-- Priority and urgency calculation algorithms
-- Task ranking system
-- Single-task display UI
-- Action buttons (Complete, Defer, Delegate, etc.)
-- Basic task creation
+The core Focus Mode feature is now functional with:
+- Priority and urgency calculation algorithms (Importance = Priority × Urgency)
+- Task ranking system with tie detection
+- Single-task display UI with clean, distraction-free design
+- Action buttons (Complete, Defer, Delegate, Someday, Trash)
+- Postpone dialogs with reason capture
+- Basic task creation form
+- Service layer coordinating business logic
+- 43 comprehensive unit tests (100% pass rate)
+
+See [PHASE2_STATUS.md](PHASE2_STATUS.md) for details.
+
+**Next Phase: Phase 3 - Comparison UI**
+
+Implementing comparison-based priority resolution:
+- Side-by-side task comparison dialog
+- Exponential decay priority adjustment (0.5^N)
+- Comparison history tracking
+- Manual priority reset functionality
 
 See [implementation_plan.md](implementation_plan.md) for the full development roadmap.

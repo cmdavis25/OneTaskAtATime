@@ -1,0 +1,224 @@
+"""
+Task ranking algorithms for OneTaskAtATime.
+
+This module handles:
+- Ranking tasks by importance score
+- Detecting ties that require user comparison
+- Filtering tasks eligible for Focus Mode
+"""
+
+from datetime import date
+from typing import List, Optional, Tuple
+from ..models.task import Task
+from ..models.enums import TaskState
+from .priority import calculate_importance_for_tasks
+
+
+# Epsilon for floating-point comparison (tasks within this range are "tied")
+IMPORTANCE_EPSILON = 0.01
+
+
+def get_actionable_tasks(tasks: List[Task]) -> List[Task]:
+    """
+    Filter tasks that should appear in Focus Mode.
+
+    Rules:
+    - Must be in ACTIVE state
+    - Must not have unresolved dependencies (not blocked)
+    - Must not have a start_date in the future (deferred tasks should be DEFERRED state)
+
+    Args:
+        tasks: List of all tasks
+
+    Returns:
+        List of tasks eligible for Focus Mode
+    """
+    actionable = []
+    today = date.today()
+
+    for task in tasks:
+        # Must be active
+        if task.state != TaskState.ACTIVE:
+            continue
+
+        # Must not be blocked
+        if task.is_blocked():
+            continue
+
+        # If it has a start_date in the future, skip it
+        # (These should be in DEFERRED state, but double-check)
+        if task.start_date is not None and task.start_date > today:
+            continue
+
+        actionable.append(task)
+
+    return actionable
+
+
+def rank_tasks(tasks: List[Task], today: Optional[date] = None) -> List[Tuple[Task, float]]:
+    """
+    Rank tasks by importance score in descending order.
+
+    Args:
+        tasks: List of tasks to rank
+        today: Reference date for urgency calculation (defaults to today)
+
+    Returns:
+        List of (task, importance_score) tuples, sorted highest to lowest
+    """
+    if not tasks:
+        return []
+
+    # Calculate importance for all tasks
+    importance_scores = calculate_importance_for_tasks(tasks, today)
+
+    # Create list of (task, score) tuples
+    ranked = []
+    for task in tasks:
+        if task.id is not None:
+            score = importance_scores.get(task.id, 0.0)
+            ranked.append((task, score))
+
+    # Sort by importance descending
+    ranked.sort(key=lambda x: x[1], reverse=True)
+
+    return ranked
+
+
+def get_top_ranked_tasks(tasks: List[Task], today: Optional[date] = None) -> List[Task]:
+    """
+    Get all tasks tied for highest importance score.
+
+    If multiple tasks have importance scores within IMPORTANCE_EPSILON of the top score,
+    they are all considered "tied" and require user comparison.
+
+    Args:
+        tasks: List of tasks to rank
+        today: Reference date for urgency calculation (defaults to today)
+
+    Returns:
+        List of tasks tied for top rank (could be 1 or many)
+    """
+    ranked = rank_tasks(tasks, today)
+
+    if not ranked:
+        return []
+
+    # Get the top score
+    top_score = ranked[0][1]
+
+    # Find all tasks within epsilon of top score
+    top_tasks = []
+    for task, score in ranked:
+        if abs(score - top_score) <= IMPORTANCE_EPSILON:
+            top_tasks.append(task)
+        else:
+            # Since list is sorted, we can stop once score drops below threshold
+            break
+
+    return top_tasks
+
+
+def get_next_focus_task(tasks: List[Task], today: Optional[date] = None) -> Optional[Task]:
+    """
+    Get the single next task to display in Focus Mode.
+
+    If multiple tasks are tied, this function returns None to signal that
+    user comparison is needed.
+
+    Args:
+        tasks: List of all tasks
+        today: Reference date for urgency calculation (defaults to today)
+
+    Returns:
+        Single task to focus on, or None if tie requires resolution
+    """
+    # First filter to actionable tasks only
+    actionable = get_actionable_tasks(tasks)
+
+    if not actionable:
+        return None
+
+    # Get top-ranked tasks
+    top_tasks = get_top_ranked_tasks(actionable, today)
+
+    if not top_tasks:
+        return None
+
+    # If exactly one task is on top, return it
+    if len(top_tasks) == 1:
+        return top_tasks[0]
+
+    # Multiple tied tasks require user comparison
+    return None
+
+
+def get_tied_tasks(tasks: List[Task], today: Optional[date] = None) -> List[Task]:
+    """
+    Get list of tasks tied for highest importance (if any).
+
+    This is used to determine if comparison dialog should be shown.
+
+    Args:
+        tasks: List of all tasks
+        today: Reference date for urgency calculation (defaults to today)
+
+    Returns:
+        List of tied tasks (empty if no ties, or if < 2 actionable tasks)
+    """
+    # First filter to actionable tasks only
+    actionable = get_actionable_tasks(tasks)
+
+    if len(actionable) < 2:
+        return []
+
+    # Get top-ranked tasks
+    top_tasks = get_top_ranked_tasks(actionable, today)
+
+    # Only return if there's an actual tie (2+ tasks)
+    if len(top_tasks) >= 2:
+        return top_tasks
+
+    return []
+
+
+def has_tied_tasks(tasks: List[Task], today: Optional[date] = None) -> bool:
+    """
+    Check if there are tasks tied for top priority.
+
+    Args:
+        tasks: List of all tasks
+        today: Reference date for urgency calculation (defaults to today)
+
+    Returns:
+        True if multiple tasks are tied for top rank
+    """
+    return len(get_tied_tasks(tasks, today)) >= 2
+
+
+def get_ranking_summary(tasks: List[Task], today: Optional[date] = None, top_n: int = 10) -> str:
+    """
+    Generate a human-readable ranking summary for debugging.
+
+    Args:
+        tasks: List of tasks to rank
+        today: Reference date (defaults to today)
+        top_n: Number of top tasks to include in summary
+
+    Returns:
+        Multi-line string summary of task rankings
+    """
+    actionable = get_actionable_tasks(tasks)
+    ranked = rank_tasks(actionable, today)
+
+    lines = [f"Task Rankings (showing top {top_n} of {len(ranked)} actionable tasks)"]
+    lines.append("=" * 70)
+
+    for i, (task, score) in enumerate(ranked[:top_n], 1):
+        eff_pri = task.get_effective_priority()
+        lines.append(
+            f"{i:2d}. [{score:.2f}] {task.title[:40]:<40} "
+            f"(Pri: {eff_pri:.2f}, Due: {task.due_date or 'None'})"
+        )
+
+    return "\n".join(lines)

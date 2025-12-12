@@ -160,6 +160,8 @@ OneTaskAtATime/
 
 **Deliverable**: Fully functional database layer
 
+**Status**: ✅ Complete - See [PHASE1_STATUS.md](PHASE1_STATUS.md) for details
+
 ### Phase 2: MVP Focus Mode
 - Implement priority/urgency algorithms
 - Implement task ranking algorithm
@@ -170,6 +172,10 @@ OneTaskAtATime/
 - Test with various scenarios
 
 **Success Criteria**: User sees top-priority task, can complete it, see next task appear
+
+**Deliverable**: Functional MVP Focus Mode
+
+**Status**: ✅ Complete - See [PHASE2_STATUS.md](PHASE2_STATUS.md) for details
 
 ### Phase 3: Comparison UI
 - Implement tie detection
