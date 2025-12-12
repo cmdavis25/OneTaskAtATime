@@ -11,7 +11,7 @@ from ..models.enums import TaskState, PostponeReasonType, ActionTaken
 from ..models.postpone_record import PostponeRecord
 from ..database.task_dao import TaskDAO
 from ..database.connection import DatabaseConnection
-from ..algorithms.ranking import get_next_focus_task, get_actionable_tasks
+from ..algorithms.ranking import get_next_focus_task, get_actionable_tasks, get_tied_tasks
 
 
 class TaskService:
@@ -58,6 +58,16 @@ class TaskService:
         """
         all_tasks = self.task_dao.get_all()
         return get_next_focus_task(all_tasks)
+
+    def get_tied_tasks(self) -> List[Task]:
+        """
+        Get all tasks tied for top priority.
+
+        Returns:
+            List of tied tasks (empty if no ties)
+        """
+        all_tasks = self.task_dao.get_all()
+        return get_tied_tasks(all_tasks)
 
     def create_task(self, task: Task) -> Task:
         """

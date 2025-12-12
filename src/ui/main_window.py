@@ -13,7 +13,9 @@ from PyQt5.QtGui import QFont
 from .focus_mode import FocusModeWidget
 from .task_form_dialog import TaskFormDialog
 from .postpone_dialog import DeferDialog, DelegateDialog
+from .comparison_dialog import ComparisonDialog, MultipleComparisonDialog
 from ..services.task_service import TaskService
+from ..services.comparison_service import ComparisonService
 from ..database.connection import DatabaseConnection
 
 
@@ -33,6 +35,7 @@ class MainWindow(QMainWindow):
         # Initialize database and services
         self.db_connection = DatabaseConnection()
         self.task_service = TaskService(self.db_connection)
+        self.comparison_service = ComparisonService(self.db_connection)
 
         self._init_ui()
         self._create_menu_bar()
@@ -93,6 +96,14 @@ class MainWindow(QMainWindow):
         refresh_action.triggered.connect(self._refresh_focus_task)
         view_menu.addAction(refresh_action)
 
+        # Tools Menu
+        tools_menu = menubar.addMenu("&Tools")
+
+        reset_adjustments_action = QAction("Reset &Priority Adjustments", self)
+        reset_adjustments_action.setStatusTip("Reset all comparison-based priority adjustments")
+        reset_adjustments_action.triggered.connect(self._reset_all_priority_adjustments)
+        tools_menu.addAction(reset_adjustments_action)
+
         # Help Menu
         help_menu = menubar.addMenu("&Help")
 
@@ -118,9 +129,17 @@ class MainWindow(QMainWindow):
 
     def _refresh_focus_task(self):
         """Refresh the task displayed in Focus Mode."""
-        task = self.task_service.get_focus_task()
-        self.focus_mode.set_task(task)
-        self._update_status_bar()
+        # First check if there are tied tasks
+        tied_tasks = self.task_service.get_tied_tasks()
+
+        if len(tied_tasks) >= 2:
+            # Show comparison dialog
+            self._handle_tied_tasks(tied_tasks)
+        else:
+            # No tie, get the top task
+            task = self.task_service.get_focus_task()
+            self.focus_mode.set_task(task)
+            self._update_status_bar()
 
     def _on_new_task(self):
         """Handle New Task action."""
@@ -188,6 +207,60 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Task moved to trash", 3000)
         self._refresh_focus_task()
 
+    def _handle_tied_tasks(self, tied_tasks):
+        """
+        Handle tied tasks by showing comparison dialog.
+
+        Args:
+            tied_tasks: List of tasks tied for top priority
+        """
+        if len(tied_tasks) == 2:
+            # Simple pairwise comparison
+            dialog = ComparisonDialog(tied_tasks[0], tied_tasks[1], self)
+            if dialog.exec_():
+                result = dialog.get_comparison_result()
+                if result:
+                    winner, loser = result
+                    self.comparison_service.record_comparison(winner, loser)
+                    self.statusBar().showMessage(
+                        f"Comparison recorded: '{winner.title}' prioritized", 3000
+                    )
+                    # Refresh to show winner
+                    self._refresh_focus_task()
+        else:
+            # Multiple tasks tied
+            dialog = MultipleComparisonDialog(tied_tasks, self)
+            if dialog.exec_():
+                results = dialog.get_comparison_results()
+                if results:
+                    self.comparison_service.record_multiple_comparisons(results)
+                    self.statusBar().showMessage(
+                        f"{len(results)} comparisons recorded", 3000
+                    )
+                    # Refresh to show winner
+                    self._refresh_focus_task()
+
+    def _reset_all_priority_adjustments(self):
+        """Reset all priority adjustments for all tasks."""
+        reply = QMessageBox.warning(
+            self,
+            "Reset Priority Adjustments",
+            "This will reset all comparison-based priority adjustments to zero "
+            "and delete all comparison history.\n\n"
+            "Tasks that were deprioritized through comparisons will return to "
+            "their base priority, which may create new ties requiring re-comparison.\n\n"
+            "Are you sure you want to continue?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            count = self.comparison_service.reset_all_priority_adjustments()
+            self.statusBar().showMessage(
+                f"Reset {count} task priority adjustments", 5000
+            )
+            self._refresh_focus_task()
+
     def _show_about(self):
         """Show about dialog."""
         QMessageBox.about(
@@ -197,7 +270,7 @@ class MainWindow(QMainWindow):
             "A focused to-do list application designed to help users\n"
             "concentrate on executing one task at a time using\n"
             "GTD-inspired principles.\n\n"
-            "Phase 2: MVP Focus Mode Complete"
+            "Phase 3: Comparison UI Complete"
         )
 
     def closeEvent(self, event):

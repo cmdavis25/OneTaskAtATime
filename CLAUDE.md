@@ -130,3 +130,9 @@ When implementing features:
 - Implement the comparison-based priority resolution algorithm
 - Build systems to resurface deferred/delegated/someday tasks
 - Design interfaces that capture delay reasons and dependencies
+
+## Phase Progress Reporting
+
+When completing a development phase, create a status report following the standardized format documented in [phase_progress_report_instructions.md](phase_progress_report_instructions.md). This ensures consistent documentation across all phases and provides clear reference material for project state and progress.
+
+See [PHASE0_STATUS.md](PHASE0_STATUS.md) for an example of a properly formatted phase report.

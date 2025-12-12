@@ -44,17 +44,18 @@ class TaskDAO:
         cursor.execute(
             """
             INSERT INTO tasks (
-                title, description, base_priority, priority_adjustment,
+                title, description, base_priority, priority_adjustment, comparison_losses,
                 due_date, state, start_date, delegated_to, follow_up_date,
                 completed_at, context_id, last_resurfaced_at, resurface_count,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task.title,
                 task.description,
                 task.base_priority,
                 task.priority_adjustment,
+                task.comparison_losses,
                 task.due_date.isoformat() if task.due_date else None,
                 task.state.value,
                 task.start_date.isoformat() if task.start_date else None,
@@ -93,7 +94,7 @@ class TaskDAO:
         cursor = self.db.cursor()
         cursor.execute(
             """
-            SELECT id, title, description, base_priority, priority_adjustment,
+            SELECT id, title, description, base_priority, priority_adjustment, comparison_losses,
                    due_date, state, start_date, delegated_to, follow_up_date,
                    completed_at, context_id, last_resurfaced_at, resurface_count,
                    created_at, updated_at
@@ -132,7 +133,7 @@ class TaskDAO:
         if state:
             cursor.execute(
                 """
-                SELECT id, title, description, base_priority, priority_adjustment,
+                SELECT id, title, description, base_priority, priority_adjustment, comparison_losses,
                        due_date, state, start_date, delegated_to, follow_up_date,
                        completed_at, context_id, last_resurfaced_at, resurface_count,
                        created_at, updated_at
@@ -145,7 +146,7 @@ class TaskDAO:
         else:
             cursor.execute(
                 """
-                SELECT id, title, description, base_priority, priority_adjustment,
+                SELECT id, title, description, base_priority, priority_adjustment, comparison_losses,
                        due_date, state, start_date, delegated_to, follow_up_date,
                        completed_at, context_id, last_resurfaced_at, resurface_count,
                        created_at, updated_at
@@ -186,7 +187,7 @@ class TaskDAO:
             """
             UPDATE tasks SET
                 title = ?, description = ?, base_priority = ?,
-                priority_adjustment = ?, due_date = ?, state = ?,
+                priority_adjustment = ?, comparison_losses = ?, due_date = ?, state = ?,
                 start_date = ?, delegated_to = ?, follow_up_date = ?,
                 completed_at = ?, context_id = ?, last_resurfaced_at = ?,
                 resurface_count = ?, updated_at = ?
@@ -197,6 +198,7 @@ class TaskDAO:
                 task.description,
                 task.base_priority,
                 task.priority_adjustment,
+                task.comparison_losses,
                 task.due_date.isoformat() if task.due_date else None,
                 task.state.value,
                 task.start_date.isoformat() if task.start_date else None,
@@ -258,7 +260,7 @@ class TaskDAO:
         cursor = self.db.cursor()
         cursor.execute(
             """
-            SELECT id, title, description, base_priority, priority_adjustment,
+            SELECT id, title, description, base_priority, priority_adjustment, comparison_losses,
                    due_date, state, start_date, delegated_to, follow_up_date,
                    completed_at, context_id, last_resurfaced_at, resurface_count,
                    created_at, updated_at
@@ -295,7 +297,7 @@ class TaskDAO:
         cursor = self.db.cursor()
         cursor.execute(
             """
-            SELECT id, title, description, base_priority, priority_adjustment,
+            SELECT id, title, description, base_priority, priority_adjustment, comparison_losses,
                    due_date, state, start_date, delegated_to, follow_up_date,
                    completed_at, context_id, last_resurfaced_at, resurface_count,
                    created_at, updated_at
@@ -331,17 +333,18 @@ class TaskDAO:
             description=row[2],
             base_priority=row[3],
             priority_adjustment=row[4],
-            due_date=date.fromisoformat(row[5]) if row[5] else None,
-            state=TaskState(row[6]),
-            start_date=date.fromisoformat(row[7]) if row[7] else None,
-            delegated_to=row[8],
-            follow_up_date=date.fromisoformat(row[9]) if row[9] else None,
-            completed_at=datetime.fromisoformat(row[10]) if row[10] else None,
-            context_id=row[11],
-            last_resurfaced_at=datetime.fromisoformat(row[12]) if row[12] else None,
-            resurface_count=row[13],
-            created_at=datetime.fromisoformat(row[14]) if row[14] else None,
-            updated_at=datetime.fromisoformat(row[15]) if row[15] else None
+            comparison_losses=row[5],
+            due_date=date.fromisoformat(row[6]) if row[6] else None,
+            state=TaskState(row[7]),
+            start_date=date.fromisoformat(row[8]) if row[8] else None,
+            delegated_to=row[9],
+            follow_up_date=date.fromisoformat(row[10]) if row[10] else None,
+            completed_at=datetime.fromisoformat(row[11]) if row[11] else None,
+            context_id=row[12],
+            last_resurfaced_at=datetime.fromisoformat(row[13]) if row[13] else None,
+            resurface_count=row[14],
+            created_at=datetime.fromisoformat(row[15]) if row[15] else None,
+            updated_at=datetime.fromisoformat(row[16]) if row[16] else None
         )
 
     def _get_project_tag_ids(self, task_id: int) -> List[int]:

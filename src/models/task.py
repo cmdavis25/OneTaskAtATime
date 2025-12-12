@@ -43,6 +43,7 @@ class Task:
     # Priority system
     base_priority: int = 2  # Default to Medium
     priority_adjustment: float = 0.0
+    comparison_losses: int = 0  # Count of comparison losses for exponential decay
 
     # Urgency system
     due_date: Optional[date] = None

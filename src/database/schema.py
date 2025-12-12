@@ -65,7 +65,9 @@ class DatabaseSchema:
                 base_priority INTEGER NOT NULL DEFAULT 2 CHECK(base_priority IN (1, 2, 3)),
                 -- 1=Low, 2=Medium, 3=High
                 priority_adjustment REAL DEFAULT 0.0,
-                -- Decremented through comparisons
+                -- Accumulated penalty from comparisons
+                comparison_losses INTEGER DEFAULT 0,
+                -- Count of comparison losses (used for exponential decay: 0.5^N)
 
                 -- Urgency system (based on due date)
                 due_date DATE,
