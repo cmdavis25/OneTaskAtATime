@@ -15,7 +15,7 @@ Stores all task data regardless of state (active, deferred, completed, etc.)
 - `description` - Optional detailed notes
 - **Priority System:**
   - `base_priority` - 1 (Low), 2 (Medium), 3 (High)
-  - `priority_adjustment` - Cumulative decrements from losing comparisons (default 0.0)
+  - `priority_adjustment` - Cumulative increments from losing comparisons (default 0.0)
   - Effective Priority = base_priority - priority_adjustment
 - **Urgency System:**
   - `due_date` - Optional deadline for urgency calculation
@@ -289,7 +289,7 @@ WHERE t.id = task_b_id;
 -- 1. Find top-ranked tasks
 SELECT * FROM tasks
 WHERE state = 'active'
-ORDER BY (base_priority - priority_adjustment) + urgency_score DESC
+ORDER BY (base_priority - priority_adjustment) * urgency_score DESC
 LIMIT 2;
 
 -- 2. User chooses Task A over Task B

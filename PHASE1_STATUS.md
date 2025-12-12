@@ -62,7 +62,7 @@ Created comprehensive data models using Python dataclasses:
 
 **Core Models**:
 - **Task** ([task.py](src/models/task.py)) - Complete task model with:
-  - Priority system (base + adjustments)
+  - Priority system (base - adjustments)
   - Urgency tracking (due dates)
   - State management
   - Deferred/Delegated fields

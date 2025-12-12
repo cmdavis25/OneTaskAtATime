@@ -15,6 +15,7 @@ Many users spend too much time managing task *lists*, when they should just pick
   - [Installation](#installation)
   - [Manual Setup](#manual-setup)
 - [Development](#development)
+  - [Database Architecture](#database-architecture)
   - [Running Tests](#running-tests)
   - [Project Structure](#project-structure)
   - [Current Development Status](#current-development-status)
@@ -114,6 +115,30 @@ python src\main.py
 ```
 
 ## Development
+
+### Database Architecture
+
+The application uses an **SQLite database** with **8 tables** that work together to support the GTD-inspired workflow:
+
+**Core Entities:**
+- **tasks** - Main task storage with priority system, urgency tracking, and state management
+- **contexts** - Work environment filters (@computer, @phone, @errands, etc.)
+- **project_tags** - Flat project organization using tags (no hierarchies)
+
+**Relationships & History:**
+- **task_project_tags** - Many-to-many junction for tasks and projects
+- **dependencies** - Task blocker tracking with circular dependency prevention
+- **task_comparisons** - History of priority adjustments from user comparisons
+- **postpone_history** - Tracks when/why tasks were delayed to surface blockers
+- **settings** - Type-safe application configuration storage
+
+**Key Features:**
+- Importance scoring: `(base_priority - priority_adjustment) × urgency_score`
+- Automatic resurfacing of deferred, delegated, and someday tasks
+- Circular dependency detection using depth-first search
+- 12 strategic indexes for query performance
+
+See [database_explanation.md](database_explanation.md) for complete schema details, relationship diagrams, and data flow examples.
 
 ### Running Tests
 
