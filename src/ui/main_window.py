@@ -6,12 +6,16 @@ Provides the main application container with menu bar and navigation.
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel,
-    QMenuBar, QMenu, QAction, QStatusBar, QMessageBox
+    QMenuBar, QMenu, QAction, QStatusBar, QMessageBox, QStackedWidget
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from .focus_mode import FocusModeWidget
 from .task_form_dialog import TaskFormDialog
+from .task_form_enhanced import EnhancedTaskFormDialog
+from .task_list_view import TaskListView
+from .context_management_dialog import ContextManagementDialog
+from .project_tag_management_dialog import ProjectTagManagementDialog
 from .postpone_dialog import DeferDialog, DelegateDialog
 from .comparison_dialog import ComparisonDialog, MultipleComparisonDialog
 from ..services.task_service import TaskService
@@ -23,14 +27,14 @@ class MainWindow(QMainWindow):
     """
     Main application window.
 
-    Phase 2: Integrates Focus Mode with full task lifecycle support.
+    Phase 4: Full task management interface with multiple views.
     """
 
     def __init__(self):
         """Initialize the main window."""
         super().__init__()
         self.setWindowTitle("OneTaskAtATime")
-        self.setGeometry(100, 100, 900, 700)
+        self.setGeometry(100, 100, 1000, 700)
 
         # Initialize database and services
         self.db_connection = DatabaseConnection()
@@ -46,7 +50,7 @@ class MainWindow(QMainWindow):
 
     def _init_ui(self):
         """Initialize the user interface."""
-        # Central widget
+        # Central widget with stacked layout for multiple views
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
@@ -54,17 +58,33 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout()
         central_widget.setLayout(layout)
 
+        # Stacked widget for switching views
+        self.stacked_widget = QStackedWidget()
+        layout.addWidget(self.stacked_widget)
+
         # Focus Mode widget
         self.focus_mode = FocusModeWidget()
-        layout.addWidget(self.focus_mode)
+        self.stacked_widget.addWidget(self.focus_mode)
 
-        # Connect signals
+        # Task List View
+        self.task_list_view = TaskListView(self.db_connection)
+        self.stacked_widget.addWidget(self.task_list_view)
+
+        # Connect Focus Mode signals
         self.focus_mode.task_completed.connect(self._on_task_completed)
         self.focus_mode.task_deferred.connect(self._on_task_deferred)
         self.focus_mode.task_delegated.connect(self._on_task_delegated)
         self.focus_mode.task_someday.connect(self._on_task_someday)
         self.focus_mode.task_trashed.connect(self._on_task_trashed)
         self.focus_mode.task_refreshed.connect(self._refresh_focus_task)
+
+        # Connect Task List View signals
+        self.task_list_view.task_created.connect(self._on_task_list_changed)
+        self.task_list_view.task_updated.connect(self._on_task_list_changed)
+        self.task_list_view.task_deleted.connect(self._on_task_list_changed)
+
+        # Start with Focus Mode
+        self.stacked_widget.setCurrentWidget(self.focus_mode)
 
     def _create_menu_bar(self):
         """Create the application menu bar."""
@@ -90,11 +110,38 @@ class MainWindow(QMainWindow):
         # View Menu
         view_menu = menubar.addMenu("&View")
 
+        focus_mode_action = QAction("&Focus Mode", self)
+        focus_mode_action.setShortcut("Ctrl+F")
+        focus_mode_action.setStatusTip("Switch to Focus Mode")
+        focus_mode_action.triggered.connect(self._show_focus_mode)
+        view_menu.addAction(focus_mode_action)
+
+        task_list_action = QAction("&Task List", self)
+        task_list_action.setShortcut("Ctrl+L")
+        task_list_action.setStatusTip("Switch to Task List view")
+        task_list_action.triggered.connect(self._show_task_list)
+        view_menu.addAction(task_list_action)
+
+        view_menu.addSeparator()
+
         refresh_action = QAction("&Refresh", self)
         refresh_action.setShortcut("F5")
-        refresh_action.setStatusTip("Refresh current task")
-        refresh_action.triggered.connect(self._refresh_focus_task)
+        refresh_action.setStatusTip("Refresh current view")
+        refresh_action.triggered.connect(self._refresh_current_view)
         view_menu.addAction(refresh_action)
+
+        # Manage Menu (New in Phase 4)
+        manage_menu = menubar.addMenu("&Manage")
+
+        contexts_action = QAction("&Contexts...", self)
+        contexts_action.setStatusTip("Manage contexts")
+        contexts_action.triggered.connect(self._manage_contexts)
+        manage_menu.addAction(contexts_action)
+
+        tags_action = QAction("Project &Tags...", self)
+        tags_action.setStatusTip("Manage project tags")
+        tags_action.triggered.connect(self._manage_project_tags)
+        manage_menu.addAction(tags_action)
 
         # Tools Menu
         tools_menu = menubar.addMenu("&Tools")
@@ -261,6 +308,48 @@ class MainWindow(QMainWindow):
             )
             self._refresh_focus_task()
 
+    def _show_focus_mode(self):
+        """Switch to Focus Mode view."""
+        self.stacked_widget.setCurrentWidget(self.focus_mode)
+        self._refresh_focus_task()
+        self.statusBar().showMessage("Switched to Focus Mode", 2000)
+
+    def _show_task_list(self):
+        """Switch to Task List view."""
+        self.stacked_widget.setCurrentWidget(self.task_list_view)
+        self.task_list_view.refresh_tasks()
+        self.statusBar().showMessage("Switched to Task List", 2000)
+
+    def _refresh_current_view(self):
+        """Refresh the currently visible view."""
+        current_widget = self.stacked_widget.currentWidget()
+        if current_widget == self.focus_mode:
+            self._refresh_focus_task()
+        elif current_widget == self.task_list_view:
+            self.task_list_view.refresh_tasks()
+
+    def _on_task_list_changed(self, task_id: int):
+        """
+        Handle changes from task list view.
+
+        Args:
+            task_id: ID of task that was changed
+        """
+        self._update_status_bar()
+        # Refresh focus mode in case the change affects it
+        if self.stacked_widget.currentWidget() == self.focus_mode:
+            self._refresh_focus_task()
+
+    def _manage_contexts(self):
+        """Open context management dialog."""
+        dialog = ContextManagementDialog(self.db_connection, self)
+        dialog.exec_()
+
+    def _manage_project_tags(self):
+        """Open project tag management dialog."""
+        dialog = ProjectTagManagementDialog(self.db_connection, self)
+        dialog.exec_()
+
     def _show_about(self):
         """Show about dialog."""
         QMessageBox.about(
@@ -270,7 +359,7 @@ class MainWindow(QMainWindow):
             "A focused to-do list application designed to help users\n"
             "concentrate on executing one task at a time using\n"
             "GTD-inspired principles.\n\n"
-            "Phase 3: Comparison UI Complete"
+            "Phase 4: Task Management Interface Complete"
         )
 
     def closeEvent(self, event):

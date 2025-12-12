@@ -185,6 +185,8 @@ OneTaskAtATime/
 
 **Deliverable**: Functional priority conflict resolution
 
+**Status**: ✅ Complete - See [PHASE3_STATUS.md](PHASE3_STATUS.md) for details
+
 ### Phase 4: Task Management Interface
 - Build task list view (QTableView with sorting/filtering)
 - Build comprehensive task edit form (QFormLayout)
@@ -194,6 +196,8 @@ OneTaskAtATime/
 - Search and bulk actions
 
 **Deliverable**: Full task CRUD interface
+
+**Status**: ✅ Complete - See [PHASE4_STATUS.md](PHASE4_STATUS.md) for details
 
 ### Phase 5: Dependency & Blocker System
 - Dependency graph visualization
