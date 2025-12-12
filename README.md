@@ -66,7 +66,9 @@ Note: In a true dogmatic GTD system, a user would have an inbox for all of their
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/OneTaskAtATime.git
+git clone https://github.com/cmdavis25/OneTaskAtATime.git
+```
+```bash
 cd OneTaskAtATime
 ```
 
@@ -97,13 +99,16 @@ If you prefer manual setup:
 ```bash
 # Create virtual environment
 python -m venv onetask_env
-
+```
+```bash
 # Activate virtual environment
 onetask_env\Scripts\activate
-
+```
+```bash
 # Install dependencies
 pip install -r requirements.txt
-
+```
+```bash
 # Run application
 python src\main.py
 ```
@@ -115,13 +120,19 @@ python src\main.py
 ```bash
 # Activate virtual environment
 onetask_env\Scripts\activate
-
+```
+```bash
 # Run all tests with coverage
 pytest
-
+```
+```bash
 # Run specific test categories
 pytest -m unit          # Unit tests only
+```
+```bash
 pytest -m integration   # Integration tests only
+```
+```bash
 pytest -m ui            # UI tests only
 ```
 
