@@ -1,0 +1,304 @@
+"""
+SQLite database schema for OneTaskAtATime application.
+
+This module defines all database tables, indexes, and schema management.
+Based on the GTD-inspired task management system with flat structure and tags.
+"""
+
+from typing import List
+import sqlite3
+
+
+class DatabaseSchema:
+    """Manages the database schema creation and migrations."""
+
+    # Schema version for migration tracking
+    CURRENT_VERSION = 1
+
+    @staticmethod
+    def get_create_tables_sql() -> List[str]:
+        """
+        Returns SQL statements to create all database tables.
+
+        Tables:
+        1. tasks - Main task storage
+        2. contexts - Work environment filters (e.g., @computer, @phone)
+        3. project_tags - Project organization tags
+        4. task_project_tags - Many-to-many relationship for tasks and projects
+        5. dependencies - Task dependencies (blockers)
+        6. task_comparisons - History of comparison-based priority adjustments
+        7. postpone_history - Track when/why tasks were postponed
+        8. settings - Application configuration
+        """
+        return [
+            # Table 1: Contexts (work environment filters)
+            """
+            CREATE TABLE IF NOT EXISTS contexts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+
+            # Table 2: Project Tags
+            """
+            CREATE TABLE IF NOT EXISTS project_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                color TEXT,  -- Hex color code for UI display
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+
+            # Table 3: Tasks (main table)
+            """
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+
+                -- Priority system
+                base_priority INTEGER NOT NULL DEFAULT 2 CHECK(base_priority IN (1, 2, 3)),
+                -- 1=Low, 2=Medium, 3=High
+                priority_adjustment REAL DEFAULT 0.0,
+                -- Decremented through comparisons
+
+                -- Urgency system (based on due date)
+                due_date DATE,
+                -- NULL = no due date
+
+                -- Task state
+                state TEXT NOT NULL DEFAULT 'active' CHECK(state IN (
+                    'active', 'deferred', 'delegated', 'someday', 'completed', 'trash'
+                )),
+
+                -- Deferred task fields
+                start_date DATE,
+                -- When deferred task becomes actionable
+
+                -- Delegated task fields
+                delegated_to TEXT,
+                -- Person/system task is delegated to
+                follow_up_date DATE,
+                -- When to follow up on delegated task
+
+                -- Completion tracking
+                completed_at TIMESTAMP,
+
+                -- Organization
+                context_id INTEGER,
+                -- Single context per task (optional)
+
+                -- Resurfacing tracking
+                last_resurfaced_at TIMESTAMP,
+                -- Last time this task was shown to user
+                resurface_count INTEGER DEFAULT 0,
+                -- How many times task has been resurfaced
+
+                -- Metadata
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (context_id) REFERENCES contexts(id) ON DELETE SET NULL
+            )
+            """,
+
+            # Table 4: Task-Project Tags (many-to-many)
+            """
+            CREATE TABLE IF NOT EXISTS task_project_tags (
+                task_id INTEGER NOT NULL,
+                project_tag_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                PRIMARY KEY (task_id, project_tag_id),
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (project_tag_id) REFERENCES project_tags(id) ON DELETE CASCADE
+            )
+            """,
+
+            # Table 5: Dependencies (task blockers)
+            """
+            CREATE TABLE IF NOT EXISTS dependencies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                blocked_task_id INTEGER NOT NULL,
+                -- The task that is blocked
+                blocking_task_id INTEGER NOT NULL,
+                -- The task that must complete first
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (blocked_task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (blocking_task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                CHECK (blocked_task_id != blocking_task_id)
+                -- Prevent self-dependencies
+            )
+            """,
+
+            # Table 6: Task Comparisons (priority adjustment history)
+            """
+            CREATE TABLE IF NOT EXISTS task_comparisons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                winner_task_id INTEGER NOT NULL,
+                loser_task_id INTEGER NOT NULL,
+                adjustment_amount REAL NOT NULL,
+                -- Amount subtracted from loser
+                compared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (winner_task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (loser_task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            )
+            """,
+
+            # Table 7: Postpone History (track delay reasons)
+            """
+            CREATE TABLE IF NOT EXISTS postpone_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL,
+                reason_type TEXT NOT NULL CHECK(reason_type IN (
+                    'multiple_subtasks', 'blocker', 'dependency', 'not_ready', 'other'
+                )),
+                reason_notes TEXT,
+                -- User's explanation
+                action_taken TEXT,
+                -- What was done: 'broke_down', 'created_blocker', 'added_dependency', 'deferred', 'none'
+                postponed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            )
+            """,
+
+            # Table 8: Settings (application configuration)
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                value_type TEXT NOT NULL CHECK(value_type IN ('string', 'integer', 'float', 'boolean', 'json')),
+                description TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        ]
+
+    @staticmethod
+    def get_create_indexes_sql() -> List[str]:
+        """Returns SQL statements to create database indexes for performance."""
+        return [
+            # Tasks table indexes
+            "CREATE INDEX IF NOT EXISTS idx_tasks_state ON tasks(state)",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_start_date ON tasks(start_date)",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_follow_up_date ON tasks(follow_up_date)",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_context_id ON tasks(context_id)",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_base_priority ON tasks(base_priority)",
+
+            # Dependencies indexes
+            "CREATE INDEX IF NOT EXISTS idx_dependencies_blocked_task ON dependencies(blocked_task_id)",
+            "CREATE INDEX IF NOT EXISTS idx_dependencies_blocking_task ON dependencies(blocking_task_id)",
+
+            # Task comparisons index
+            "CREATE INDEX IF NOT EXISTS idx_comparisons_winner ON task_comparisons(winner_task_id)",
+            "CREATE INDEX IF NOT EXISTS idx_comparisons_loser ON task_comparisons(loser_task_id)",
+
+            # Postpone history index
+            "CREATE INDEX IF NOT EXISTS idx_postpone_task_id ON postpone_history(task_id)",
+
+            # Task-project tags index (already has PRIMARY KEY, but index for reverse lookup)
+            "CREATE INDEX IF NOT EXISTS idx_task_project_tags_project ON task_project_tags(project_tag_id)"
+        ]
+
+    @staticmethod
+    def get_default_settings() -> List[tuple]:
+        """
+        Returns default application settings as (key, value, value_type, description) tuples.
+        """
+        return [
+            ('comparison_decrement', '0.5', 'float',
+             'Amount to subtract from loser priority in comparisons'),
+            ('someday_review_days', '7', 'integer',
+             'Days between automatic someday task reviews'),
+            ('delegated_remind_days', '1', 'integer',
+             'Days before follow-up date to remind about delegated tasks'),
+            ('deferred_check_hours', '1', 'integer',
+             'Hours between checks for deferred tasks becoming active'),
+            ('theme', 'light', 'string',
+             'UI theme (light/dark)'),
+            ('enable_notifications', 'true', 'boolean',
+             'Enable Windows toast notifications'),
+            ('score_epsilon', '0.01', 'float',
+             'Threshold for considering task scores equal (for tie detection)')
+        ]
+
+    @staticmethod
+    def initialize_database(db_connection: sqlite3.Connection) -> None:
+        """
+        Initialize the database with schema and default data.
+
+        Args:
+            db_connection: Active SQLite database connection
+        """
+        cursor = db_connection.cursor()
+
+        # Create all tables
+        for sql in DatabaseSchema.get_create_tables_sql():
+            cursor.execute(sql)
+
+        # Create all indexes
+        for sql in DatabaseSchema.get_create_indexes_sql():
+            cursor.execute(sql)
+
+        # Insert default settings
+        for key, value, value_type, description in DatabaseSchema.get_default_settings():
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO settings (key, value, value_type, description)
+                VALUES (?, ?, ?, ?)
+                """,
+                (key, value, value_type, description)
+            )
+
+        db_connection.commit()
+
+    @staticmethod
+    def get_schema_version(db_connection: sqlite3.Connection) -> int:
+        """
+        Get the current schema version from the database.
+
+        Args:
+            db_connection: Active SQLite database connection
+
+        Returns:
+            Schema version number, or 0 if not set
+        """
+        cursor = db_connection.cursor()
+        try:
+            result = cursor.execute(
+                "SELECT value FROM settings WHERE key = 'schema_version'"
+            ).fetchone()
+            if result:
+                return int(result[0])
+        except sqlite3.OperationalError:
+            # Table doesn't exist yet
+            pass
+        return 0
+
+    @staticmethod
+    def set_schema_version(db_connection: sqlite3.Connection, version: int) -> None:
+        """
+        Set the schema version in the database.
+
+        Args:
+            db_connection: Active SQLite database connection
+            version: Version number to set
+        """
+        cursor = db_connection.cursor()
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO settings (key, value, value_type, description)
+            VALUES ('schema_version', ?, 'integer', 'Database schema version')
+            """,
+            (str(version),)
+        )
+        db_connection.commit()

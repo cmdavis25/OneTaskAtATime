@@ -164,6 +164,28 @@ The project skeleton is now in place with:
 - Basic main window with menu bar
 - pytest configuration and test framework
 
-**Next Phase: Phase 1 - Data Layer (Weeks 2-3)**
+See [PHASE0_STATUS.md](PHASE0_STATUS.md) for details.
+
+**Phase 1: Data Layer** ✅ COMPLETE
+
+The database layer is fully functional with:
+- Complete SQLite schema (8 tables, 12 indexes)
+- Data models (Task, Context, ProjectTag, Dependency, etc.)
+- Full DAO layer with CRUD operations
+- Circular dependency detection
+- Type-safe settings storage
+- 59 comprehensive unit tests
+- Seed data script for development
+
+See [PHASE1_STATUS.md](PHASE1_STATUS.md) for details.
+
+**Next Phase: Phase 2 - MVP Focus Mode**
+
+Implementing the core Focus Mode feature with:
+- Priority and urgency calculation algorithms
+- Task ranking system
+- Single-task display UI
+- Action buttons (Complete, Defer, Delegate, etc.)
+- Basic task creation
 
 See [implementation_plan.md](implementation_plan.md) for the full development roadmap.
