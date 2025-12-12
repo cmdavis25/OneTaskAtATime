@@ -6,7 +6,40 @@ This document outlines the comprehensive implementation plan for **OneTaskAtATim
 
 **Current State**: Documentation-only repository
 **Target**: Production-ready Windows desktop application (v1.0.0)
-**Timeline**: 17 weeks to release
+
+## Table of Contents
+
+- [Executive Summary](#executive-summary)
+- [Technology Stack](#technology-stack)
+  - [Core Technologies](#core-technologies)
+  - [Key Dependencies](#key-dependencies)
+  - [Rationale](#rationale)
+- [Application Architecture](#application-architecture)
+  - [File Structure](#file-structure)
+  - [Key Components](#key-components)
+- [Core Algorithms](#core-algorithms)
+  - [Priority Calculation](#priority-calculation)
+  - [Comparison Resolution](#comparison-resolution)
+  - [Task Resurfacing](#task-resurfacing)
+- [Implementation Phases](#implementation-phases)
+  - [Phase 0: Project Setup](#phase-0-project-setup)
+  - [Phase 1: Data Layer](#phase-1-data-layer)
+  - [Phase 2: MVP Focus Mode](#phase-2-mvp-focus-mode)
+  - [Phase 3: Comparison UI](#phase-3-comparison-ui)
+  - [Phase 4: Task Management Interface](#phase-4-task-management-interface)
+  - [Phase 5: Dependency & Blocker System](#phase-5-dependency--blocker-system)
+  - [Phase 6: Resurfacing System](#phase-6-resurfacing-system)
+  - [Phase 7: Settings & Customization](#phase-7-settings--customization)
+  - [Phase 8: Polish & UX](#phase-8-polish--ux)
+  - [Phase 9: Testing & QA](#phase-9-testing--qa)
+  - [Phase 10: Release](#phase-10-release)
+- [Critical Files to Implement](#critical-files-to-implement)
+- [Testing Strategy](#testing-strategy)
+  - [Unit Tests](#unit-tests-pytest)
+  - [UI Tests](#ui-tests-pytest-qt)
+  - [Integration Tests](#integration-tests)
+- [Key Design Decisions](#key-design-decisions)
+- [Success Metrics](#success-metrics)
 
 ---
 
@@ -106,7 +139,7 @@ OneTaskAtATime/
 
 ## Implementation Phases
 
-### Phase 0: Project Setup (Week 1)
+### Phase 0: Project Setup
 - Set up Python virtual environment
 - Install PyQt5 and dependencies
 - Create project structure
@@ -116,7 +149,9 @@ OneTaskAtATime/
 
 **Deliverable**: Skeleton app with empty window
 
-### Phase 1: Data Layer (Week 2-3)
+**Status**: ✅ Complete - See [PHASE0_STATUS.md](PHASE0_STATUS.md) for details
+
+### Phase 1: Data Layer
 - Create SQLite schema (8 tables with indexes)
 - Build Task, Context, ProjectTag DAOs
 - Implement all CRUD operations
@@ -125,7 +160,7 @@ OneTaskAtATime/
 
 **Deliverable**: Fully functional database layer
 
-### Phase 2: MVP Focus Mode (Week 4-6)
+### Phase 2: MVP Focus Mode
 - Implement priority/urgency algorithms
 - Implement task ranking algorithm
 - Build Focus Mode UI (QWidget with task card)
@@ -136,7 +171,7 @@ OneTaskAtATime/
 
 **Success Criteria**: User sees top-priority task, can complete it, see next task appear
 
-### Phase 3: Comparison UI (Week 7)
+### Phase 3: Comparison UI
 - Implement tie detection
 - Build side-by-side comparison dialog (QHBoxLayout)
 - Store comparison history in database
@@ -144,7 +179,7 @@ OneTaskAtATime/
 
 **Deliverable**: Functional priority conflict resolution
 
-### Phase 4: Task Management Interface (Week 8-9)
+### Phase 4: Task Management Interface
 - Build task list view (QTableView with sorting/filtering)
 - Build comprehensive task edit form (QFormLayout)
 - Context management dialog
@@ -154,7 +189,7 @@ OneTaskAtATime/
 
 **Deliverable**: Full task CRUD interface
 
-### Phase 5: Dependency & Blocker System (Week 10)
+### Phase 5: Dependency & Blocker System
 - Dependency graph visualization
 - Blocker creation from postpone dialog
 - Subtask breakdown workflow
@@ -162,7 +197,7 @@ OneTaskAtATime/
 
 **Deliverable**: Complete dependency management
 
-### Phase 6: Resurfacing System (Week 11-12)
+### Phase 6: Resurfacing System
 - Implement APScheduler background jobs
 - Build Windows notification system (win10toast)
 - In-app notification panel
@@ -171,14 +206,14 @@ OneTaskAtATime/
 
 **Deliverable**: Automated task resurfacing
 
-### Phase 7: Settings & Customization (Week 13)
+### Phase 7: Settings & Customization
 - Settings dialog (comparison decrement, intervals, theme)
 - Import/export (JSON backup)
 - Data reset functionality
 
 **Deliverable**: User configuration system
 
-### Phase 8: Polish & UX (Week 14-15)
+### Phase 8: Polish & UX
 - Keyboard shortcuts
 - Undo/redo
 - Task history
@@ -189,14 +224,14 @@ OneTaskAtATime/
 
 **Deliverable**: Production-ready UX
 
-### Phase 9: Testing & QA (Week 16)
+### Phase 9: Testing & QA
 - E2E tests for critical flows
 - Performance testing (10,000+ tasks)
 - Bug fixing sprint
 
 **Deliverable**: Stable, tested application
 
-### Phase 10: Release (Week 17)
+### Phase 10: Release
 - User documentation
 - Create Windows installer
 - Demo video/screenshots
@@ -260,15 +295,3 @@ OneTaskAtATime/
 ✅ **Blocker awareness**: Capture postpone reasons and create dependencies
 
 **Ultimate Goal**: Users spend more time executing tasks, less time managing lists.
-
----
-
-## Next Steps
-
-1. Install Python 3.10+
-2. Create virtual environment
-3. Set up project structure
-4. Install dependencies (requirements.txt)
-5. Begin Phase 0 (Week 1)
-
-This plan provides a clear path from documentation to production-ready Windows desktop application in 17 weeks.
