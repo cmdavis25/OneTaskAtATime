@@ -96,7 +96,7 @@ onetask_env\Scripts\activate
 
 4. Run the application:
 ```bash
-python src\main.py
+python -m src.main
 ```
 
 ### Manual Setup
@@ -117,7 +117,7 @@ pip install -r requirements.txt
 ```
 ```bash
 # Run application
-python src\main.py
+python -m src.main
 ```
 
 ## Development
