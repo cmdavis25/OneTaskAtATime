@@ -117,7 +117,7 @@ OneTaskAtATime/
 
 ### Importance Calculation
 - **Base Priority**: 1 (Low), 2 (Medium), 3 (High)
-- **Priority Adjustment**: Incremented through comparison (default 0.5 added per loss)
+- **Priority Adjustment**: Incremented through comparison as detailed in [CLAUDE.md](CLAUDE.md)
 - **Effective Priority**: base_priority - priority_adjustment
 - **Urgency Score**: 1-3 based on days until due date (earliest = 3, latest = 1)
 - **Importance Score**: effective_priority x urgency_score (max = 9)
