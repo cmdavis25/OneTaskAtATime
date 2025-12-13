@@ -195,9 +195,25 @@ OneTaskAtATime/
 - Dependency selection dialog
 - Search and bulk actions
 
-**Deliverable**: Full task CRUD interface
+**Additional Tasks (In Progress)**:
+1. Add project tag and context tag assignment UI to New Task and Edit Task forms
+   - Allow selection of multiple project tags per task
+   - Allow selection of one context tag per task
+   - Provide intuitive UI for adding/removing tags directly in the form
+2. Add dependency assignment UI to New Task and Edit Task forms
+   - Allow selection of multiple existing tasks as predecessors (blocking tasks)
+   - Allow creation of new tasks as predecessors directly from the form
+   - Display clear indication of which tasks must be completed first
+3. Add Context Tag column to task list view showing assigned context for each task
+4. Enhance State filter to support multiple state selections simultaneously
+5. Add UI element for filtering task list by selected context tags
+6. Add Importance column to task list for sorting by calculated importance score
+7. Add Start Date column to task list for sorting by start date
+8. Implement multi-column sorting (e.g., sort by State, then by Importance)
 
-**Status**: ✅ Complete - See [PHASE4_STATUS.md](PHASE4_STATUS.md) for details
+**Deliverable**: Full task CRUD interface with enhanced filtering and tag management
+
+**Status**: 🔄 In Progress - See [PHASE4_STATUS.md](PHASE4_STATUS.md) for details
 
 ### Phase 5: Dependency & Blocker System
 - Dependency graph visualization

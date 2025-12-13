@@ -1,8 +1,10 @@
-# Phase 4: Task Management Interface - COMPLETE ✅
+# Phase 4: Task Management Interface - IN PROGRESS 🔄
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Status Update](#status-update)
+- [Additional Tasks In Progress](#additional-tasks-in-progress)
 - [Deliverables Completed](#deliverables-completed)
   - [1. Task List View](#1-task-list-view-)
   - [2. Enhanced Task Form](#2-enhanced-task-form-)
@@ -26,9 +28,64 @@
 
 ## Overview
 
-Phase 4 has been successfully completed. The OneTaskAtATime application now features a comprehensive task management interface with multiple views, advanced filtering, and full CRUD operations for tasks, contexts, and project tags.
+Phase 4 initial deliverables have been completed. The OneTaskAtATime application now features a comprehensive task management interface with multiple views, advanced filtering, and full CRUD operations for tasks, contexts, and project tags.
 
-**Completion Date**: December 12, 2025
+**Initial Completion Date**: December 12, 2025
+**Status**: Additional enhancements in progress
+
+## Status Update
+
+The core Phase 4 functionality is complete and functional. However, additional enhancements have been identified to improve usability and feature completeness:
+
+- ✅ **Core functionality complete**: Task list, forms, context/tag management, dependency selection
+- 🔄 **Enhancements in progress**: Tag assignment UI, dependency UI in forms, additional columns, multi-filter/sort capabilities
+
+## Additional Tasks In Progress
+
+The following tasks are currently being added to enhance Phase 4:
+
+1. **Tag Assignment UI in Task Forms** 🔄
+   - Add project tag selection UI to New Task and Edit Task forms
+   - Add context tag selection UI to New Task and Edit Task forms
+   - Allow multiple project tags per task
+   - Allow one context tag per task
+   - Provide intuitive UI for adding/removing tags directly in the form
+
+2. **Dependency Assignment UI in Task Forms** 🔄
+   - Add dependency selection UI to New Task and Edit Task forms
+   - Allow selection of multiple existing tasks as predecessors (blocking tasks)
+   - Allow creation of new tasks as predecessors directly from the form
+   - Display clear indication of which tasks must be completed first
+
+3. **Context Tag Column in Task List** 🔄
+   - Add a Context Tag column to the task list view
+   - Display the assigned context tag for each task
+   - Enable sorting by context tag
+
+4. **Multi-State Selection Filter** 🔄
+   - Enhance State filter to support multiple state selections simultaneously
+   - Replace single-select dropdown with multi-select UI element
+   - Allow filtering by multiple states at once (e.g., Active + Deferred)
+
+5. **Context Tag Filter** 🔄
+   - Add UI element for filtering task list by selected context tags
+   - Support multi-select for context filtering
+   - Integrate with existing filter system
+
+6. **Importance Column** 🔄
+   - Add Importance column to task list for displaying calculated importance score
+   - Enable sorting by importance (Effective Priority × Urgency)
+   - Display formatted importance value
+
+7. **Start Date Column** 🔄
+   - Add Start Date column to task list
+   - Enable sorting by start date
+   - Display formatted date value
+
+8. **Multi-Column Sorting** 🔄
+   - Implement ability to sort by multiple columns
+   - Example: Sort by State, then by Importance
+   - Provide UI for selecting primary and secondary sort columns
 
 ## Deliverables Completed
 
@@ -430,9 +487,11 @@ Created test suite for Phase 4 components:
 - [x] All 19 Phase 4 tests passing (100% pass rate)
 - [x] Integration with existing Phase 2-3 features maintained
 
-## What's Next: Phase 5 - Dependency & Blocker System
+## What's Next
 
-The next phase will enhance dependency management:
+**Immediate**: Complete the 8 additional tasks listed above to fully finish Phase 4.
+
+**Then Phase 5 - Dependency & Blocker System**:
 1. Dependency graph visualization
 2. Blocker creation from postpone dialog
 3. Subtask breakdown workflow
@@ -540,6 +599,7 @@ src/ui/dependency_selection_dialog.py         283    283     0%  (UI - Phase 9)
 
 ---
 
-**Phase 4 Status: COMPLETE** ✅
+**Phase 4 Status: IN PROGRESS** 🔄
 
-Ready to proceed with Phase 5: Dependency & Blocker System
+**Core functionality complete** ✅
+**Additional enhancements in progress** (8 tasks remaining)

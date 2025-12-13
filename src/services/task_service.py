@@ -49,6 +49,18 @@ class TaskService:
         """
         return self.task_dao.get_all(state=TaskState.ACTIVE)
 
+    def get_task_by_id(self, task_id: int) -> Optional[Task]:
+        """
+        Get a task by its ID.
+
+        Args:
+            task_id: ID of the task to retrieve
+
+        Returns:
+            Task with the given ID, or None if not found
+        """
+        return self.task_dao.get_by_id(task_id)
+
     def get_focus_task(self) -> Optional[Task]:
         """
         Get the single task to display in Focus Mode.
