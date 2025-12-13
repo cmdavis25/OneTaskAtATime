@@ -7,6 +7,8 @@
 
 Many users spend too much time managing task *lists*, when they should just pick a single task and execute it. The overarching goal of this app is to aid the user in focusing on one task.
 
+⚠ **Warning (!!!)** ⚠ : **This project was vibe-coded (with love and care) using Claude Code. Do NOT assume that this code is bug-free... it very likely isn't. Use at your own risk!**
+
 ## Table of Contents
 
 - [About the Project](#about-the-project)
