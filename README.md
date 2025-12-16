@@ -253,7 +253,7 @@ The comprehensive task management interface is fully functional with:
 - Context tag filtering UI element with dropdown selection
 - Importance column displaying calculated priority scores
 - Start Date column for deferred task visibility
-- Multi-column sorting capability with Shift+Click
+- Multi-column sorting capability
 - View switching between Focus Mode and Task List (Ctrl+F/Ctrl+L)
 - Management menu for contexts and tags
 - 18 comprehensive UI tests (100% pass rate)
