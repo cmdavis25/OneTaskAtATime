@@ -19,6 +19,7 @@ from ..database.connection import DatabaseConnection
 from ..services.task_service import TaskService
 from ..database.context_dao import ContextDAO
 from ..database.project_tag_dao import ProjectTagDAO
+from ..database.dependency_dao import DependencyDAO
 from ..algorithms.priority import calculate_urgency_for_tasks, calculate_importance
 
 
@@ -57,6 +58,28 @@ class TaskListView(QWidget):
         self.tasks: List[Task] = []
         self.contexts = {}  # Map of context_id -> context_name
         self.project_tags = {}  # Map of tag_id -> tag_name
+        self.active_context_filters = set()  # Set of active context filter IDs (can include 'NONE')
+        self.active_tag_filters = set()  # Set of active project tag filter IDs
+
+        # Column configuration
+        self.all_columns = {
+            "ID": "ID",
+            "Title": "Title",
+            "Dependencies": "Dependencies",
+            "Importance": "Importance",
+            "Priority": "Priority",
+            "Effective Priority": "Effective Priority",
+            "Start Date": "Start Date",
+            "Due Date": "Due Date",
+            "State": "State",
+            "Context": "Context",
+            "Project Tags": "Project Tags",
+            "Delegated To": "Delegated To",
+            "Follow-Up Date": "Follow-Up Date"
+        }
+        self.visible_columns = list(self.all_columns.keys())  # All visible by default
+        self.column_indices = {col: idx for idx, col in enumerate(self.visible_columns)}  # Initialize mapping
+
         self._load_contexts()
         self._load_project_tags()
         self._init_ui()
@@ -96,6 +119,11 @@ class TaskListView(QWidget):
         header_layout.addWidget(title_label)
 
         header_layout.addStretch()
+
+        # Manage Columns button
+        manage_cols_btn = QPushButton("Manage Columns")
+        manage_cols_btn.clicked.connect(self._on_manage_columns)
+        header_layout.addWidget(manage_cols_btn)
 
         # New Task button
         new_task_btn = QPushButton("+ New Task")
@@ -141,13 +169,20 @@ class TaskListView(QWidget):
 
         # State and Context filters
         filters_group = QGroupBox("Filters")
-        filters_layout = QGridLayout()
-        filters_layout.setSpacing(5)
+        filters_main_layout = QVBoxLayout()
+        filters_main_layout.setSpacing(8)
+        filters_main_layout.setContentsMargins(10, 10, 10, 10)
 
         # State filter checkboxes
+        state_filter_layout = QVBoxLayout()
+        state_filter_layout.setSpacing(5)
+
         state_filter_label = QLabel("State:")
         state_filter_label.setStyleSheet("font-weight: bold;")
-        filters_layout.addWidget(state_filter_label, 0, 0)
+        state_filter_layout.addWidget(state_filter_label)
+
+        state_checkboxes_layout = QHBoxLayout()
+        state_checkboxes_layout.setSpacing(10)
 
         self.state_checkboxes = {}
         states = [
@@ -159,53 +194,74 @@ class TaskListView(QWidget):
             ("Trash", TaskState.TRASH)
         ]
 
-        for idx, (label, state) in enumerate(states):
+        for label, state in states:
             checkbox = QCheckBox(label)
             checkbox.setChecked(True)  # All states shown by default
             checkbox.stateChanged.connect(self._on_filter_changed)
             self.state_checkboxes[state] = checkbox
-            # Arrange in 2 rows
-            row = (idx // 3) + 1
-            col = idx % 3
-            filters_layout.addWidget(checkbox, row, col)
+            state_checkboxes_layout.addWidget(checkbox)
+
+        state_checkboxes_layout.addStretch()
+        state_filter_layout.addLayout(state_checkboxes_layout)
+        filters_main_layout.addLayout(state_filter_layout)
 
         # Context filter
+        context_filter_container = QVBoxLayout()
+        context_filter_container.setSpacing(5)
+
         context_filter_label = QLabel("Context:")
         context_filter_label.setStyleSheet("font-weight: bold;")
-        filters_layout.addWidget(context_filter_label, 3, 0)
+        context_filter_container.addWidget(context_filter_label)
 
-        self.context_filter_combo = QComboBox()
-        self.context_filter_combo.addItem("All Contexts", None)
-        self.context_filter_combo.addItem("No Context", "NONE")
-        for ctx_id, ctx_name in self.contexts.items():
-            self.context_filter_combo.addItem(ctx_name, ctx_id)
-        self.context_filter_combo.currentIndexChanged.connect(self._on_filter_changed)
-        filters_layout.addWidget(self.context_filter_combo, 3, 1, 1, 2)
+        context_filter_layout = QHBoxLayout()
+        context_filter_layout.setSpacing(5)
+
+        self.context_filter_label = QLabel("All Contexts")
+        self.context_filter_label.setStyleSheet("padding: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        self.context_filter_label.setMinimumWidth(150)
+        context_filter_layout.addWidget(self.context_filter_label)
+
+        context_filter_btn = QPushButton("Manage Filters...")
+        context_filter_btn.clicked.connect(self._on_manage_context_filters)
+        context_filter_layout.addWidget(context_filter_btn)
+
+        clear_context_btn = QPushButton("Clear Context Filters")
+        clear_context_btn.clicked.connect(self._on_clear_context_filters)
+        context_filter_layout.addWidget(clear_context_btn)
+
+        context_filter_layout.addStretch()
+        context_filter_container.addLayout(context_filter_layout)
+        filters_main_layout.addLayout(context_filter_container)
 
         # Project Tags filter
+        tags_filter_container = QVBoxLayout()
+        tags_filter_container.setSpacing(5)
+
         tags_filter_label = QLabel("Project Tags:")
         tags_filter_label.setStyleSheet("font-weight: bold;")
-        filters_layout.addWidget(tags_filter_label, 4, 0)
+        tags_filter_container.addWidget(tags_filter_label)
 
-        # Create scrollable area for project tag checkboxes
-        tags_widget = QWidget()
-        tags_layout = QHBoxLayout()
-        tags_layout.setSpacing(5)
-        tags_layout.setContentsMargins(0, 0, 0, 0)
+        tags_filter_layout = QHBoxLayout()
+        tags_filter_layout.setSpacing(5)
 
-        self.tag_checkboxes = {}
-        for tag_id, tag_name in sorted(self.project_tags.items(), key=lambda x: x[1]):
-            checkbox = QCheckBox(tag_name)
-            checkbox.setChecked(True)  # All tags shown by default
-            checkbox.stateChanged.connect(self._on_filter_changed)
-            self.tag_checkboxes[tag_id] = checkbox
-            tags_layout.addWidget(checkbox)
+        self.tags_filter_label = QLabel("All Project Tags")
+        self.tags_filter_label.setStyleSheet("padding: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        self.tags_filter_label.setMinimumWidth(150)
+        tags_filter_layout.addWidget(self.tags_filter_label)
 
-        tags_layout.addStretch()
-        tags_widget.setLayout(tags_layout)
-        filters_layout.addWidget(tags_widget, 4, 1, 1, 2)
+        tags_filter_btn = QPushButton("Manage Filters...")
+        tags_filter_btn.clicked.connect(self._on_manage_tag_filters)
+        tags_filter_layout.addWidget(tags_filter_btn)
 
-        filters_group.setLayout(filters_layout)
+        clear_tags_btn = QPushButton("Clear Project Tag Filters")
+        clear_tags_btn.clicked.connect(self._on_clear_tag_filters)
+        tags_filter_layout.addWidget(clear_tags_btn)
+
+        tags_filter_layout.addStretch()
+        tags_filter_container.addLayout(tags_filter_layout)
+        filters_main_layout.addLayout(tags_filter_container)
+
+        filters_group.setLayout(filters_main_layout)
         layout.addWidget(filters_group)
 
         # Sort controls
@@ -244,9 +300,9 @@ class TaskListView(QWidget):
 
         # Task table
         self.task_table = QTableWidget()
-        self.task_table.setColumnCount(10)
+        self.task_table.setColumnCount(13)
         self.task_table.setHorizontalHeaderLabels([
-            "ID", "Title", "Priority", "Effective Priority", "Importance", "Due Date", "Start Date", "State", "Context", "Project Tags"
+            "ID", "Title", "Dependencies", "Importance", "Priority", "Effective Priority", "Start Date", "Due Date", "State", "Context", "Project Tags", "Delegated To", "Follow-Up Date"
         ])
 
         # Configure table appearance
@@ -255,18 +311,27 @@ class TaskListView(QWidget):
         self.task_table.setAlternatingRowColors(True)
         self.task_table.setSortingEnabled(False)  # Use custom multi-column sorting
 
-        # Set column widths
+        # Set column widths - use Interactive to allow user resizing
         header = self.task_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID
-        header.setSectionResizeMode(1, QHeaderView.Stretch)  # Title
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Priority
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Effective Priority
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Importance
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Due Date
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Start Date
-        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # State
-        header.setSectionResizeMode(8, QHeaderView.ResizeToContents)  # Context
-        header.setSectionResizeMode(9, QHeaderView.ResizeToContents)  # Project Tags
+        header.setSectionResizeMode(QHeaderView.Interactive)  # Allow manual resizing for all columns
+
+        # Set initial column widths
+        header.resizeSection(0, 50)   # ID
+        header.resizeSection(1, 300)  # Title
+        header.resizeSection(2, 100)  # Dependencies
+        header.resizeSection(3, 100)  # Importance
+        header.resizeSection(4, 80)   # Priority
+        header.resizeSection(5, 120)  # Effective Priority
+        header.resizeSection(6, 100)  # Start Date
+        header.resizeSection(7, 100)  # Due Date
+        header.resizeSection(8, 100)  # State
+        header.resizeSection(9, 100)  # Context
+        header.resizeSection(10, 120) # Project Tags
+        header.resizeSection(11, 120) # Delegated To
+        header.resizeSection(12, 120) # Follow-Up Date
+
+        # Make the last visible column stretch to fill remaining space
+        header.setStretchLastSection(True)
 
         # Enable context menu
         self.task_table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -319,19 +384,32 @@ class TaskListView(QWidget):
         self._apply_filters()
 
     def _update_context_filter(self):
-        """Update the context filter combo with current contexts."""
-        current_selection = self.context_filter_combo.currentData()
-        self.context_filter_combo.clear()
-        self.context_filter_combo.addItem("All Contexts", None)
-        self.context_filter_combo.addItem("No Context", "NONE")
-        for ctx_id, ctx_name in self.contexts.items():
-            self.context_filter_combo.addItem(ctx_name, ctx_id)
-        # Try to restore previous selection
-        if current_selection is not None:
-            for i in range(self.context_filter_combo.count()):
-                if self.context_filter_combo.itemData(i) == current_selection:
-                    self.context_filter_combo.setCurrentIndex(i)
-                    break
+        """Update the context filter label with current filters."""
+        self._update_filter_labels()
+
+    def _update_filter_labels(self):
+        """Update the filter labels to show active filters."""
+        # Update context filter label
+        if not self.active_context_filters:
+            self.context_filter_label.setText("All Contexts")
+        else:
+            filter_names = []
+            if "NONE" in self.active_context_filters:
+                filter_names.append("(No Context)")
+            for ctx_id in self.active_context_filters:
+                if ctx_id != "NONE" and ctx_id in self.contexts:
+                    filter_names.append(self.contexts[ctx_id])
+            self.context_filter_label.setText(", ".join(filter_names) if filter_names else "All Contexts")
+
+        # Update tag filter label
+        if not self.active_tag_filters:
+            self.tags_filter_label.setText("All Project Tags")
+        else:
+            filter_names = []
+            for tag_id in self.active_tag_filters:
+                if tag_id in self.project_tags:
+                    filter_names.append(self.project_tags[tag_id])
+            self.tags_filter_label.setText(", ".join(filter_names) if filter_names else "All Project Tags")
 
     def _apply_filters(self):
         """Apply current filters and update the table."""
@@ -344,15 +422,6 @@ class TaskListView(QWidget):
             if checkbox.isChecked()
         ]
 
-        # Get selected context
-        context_filter = self.context_filter_combo.currentData()
-
-        # Get selected project tags from checkboxes
-        selected_tags = [
-            tag_id for tag_id, checkbox in self.tag_checkboxes.items()
-            if checkbox.isChecked()
-        ]
-
         # Filter tasks
         filtered_tasks = self.tasks
 
@@ -360,19 +429,19 @@ class TaskListView(QWidget):
         if selected_states:
             filtered_tasks = [t for t in filtered_tasks if t.state in selected_states]
 
-        # Filter by context
-        if context_filter == "NONE":
-            # Show only tasks with no context
-            filtered_tasks = [t for t in filtered_tasks if t.context_id is None]
-        elif context_filter is not None:
-            # Show only tasks with the selected context
-            filtered_tasks = [t for t in filtered_tasks if t.context_id == context_filter]
-
-        # Filter by project tags (show tasks that have at least one selected tag, or no tags if no tags selected)
-        if selected_tags:
+        # Filter by context (if any filters are active)
+        if self.active_context_filters:
             filtered_tasks = [
                 t for t in filtered_tasks
-                if not t.project_tags or any(tag_id in selected_tags for tag_id in t.project_tags)
+                if (t.context_id is None and "NONE" in self.active_context_filters) or
+                   (t.context_id in self.active_context_filters)
+            ]
+
+        # Filter by project tags (if any filters are active)
+        if self.active_tag_filters:
+            filtered_tasks = [
+                t for t in filtered_tasks
+                if not t.project_tags or any(tag_id in self.active_tag_filters for tag_id in t.project_tags)
             ]
 
         # Filter by search text
@@ -475,79 +544,66 @@ class TaskListView(QWidget):
         urgency_scores = calculate_urgency_for_tasks(tasks) if tasks else {}
 
         for row, task in enumerate(tasks):
-            # ID
-            id_item = QTableWidgetItem(str(task.id))
-            id_item.setData(Qt.UserRole, task.id)
-            id_item.setFlags(id_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 0, id_item)
-
-            # Title
-            title_item = QTableWidgetItem(task.title)
-            title_item.setFlags(title_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 1, title_item)
-
-            # Base Priority
-            priority_names = {1: "Low", 2: "Medium", 3: "High"}
-            priority_item = QTableWidgetItem(priority_names.get(task.base_priority, "Unknown"))
-            priority_item.setData(Qt.UserRole, task.base_priority)
-            priority_item.setFlags(priority_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 2, priority_item)
-
-            # Effective Priority
-            eff_priority = task.get_effective_priority()
-            eff_priority_item = QTableWidgetItem(f"{eff_priority:.2f}")
-            eff_priority_item.setData(Qt.UserRole, eff_priority)
-            eff_priority_item.setFlags(eff_priority_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 3, eff_priority_item)
-
-            # Importance (Effective Priority × Urgency)
+            # Calculate shared values
             urgency = urgency_scores.get(task.id, 1.0) if task.id else 1.0
             importance = calculate_importance(task, urgency)
-            importance_item = QTableWidgetItem(f"{importance:.2f}")
-            importance_item.setData(Qt.UserRole, importance)
-            importance_item.setFlags(importance_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 4, importance_item)
+            priority_names = {1: "Low", 2: "Medium", 3: "High"}
 
-            # Due Date
-            due_date_str = task.due_date.strftime("%Y-%m-%d") if task.due_date else ""
-            due_date_item = QTableWidgetItem(due_date_str)
-            due_date_item.setData(Qt.UserRole, task.due_date if task.due_date else date.max)
-            due_date_item.setFlags(due_date_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 5, due_date_item)
+            # Prepare all column data
+            column_data = {
+                "ID": (str(task.id), task.id),
+                "Title": (task.title, None),
+                "Dependencies": (self._get_dependencies_str(task), None),
+                "Importance": (f"{importance:.2f}", importance),
+                "Priority": (priority_names.get(task.base_priority, "Unknown"), task.base_priority),
+                "Effective Priority": (f"{task.get_effective_priority():.2f}", task.get_effective_priority()),
+                "Start Date": (task.start_date.strftime("%Y-%m-%d") if task.start_date else "", task.start_date if task.start_date else date.max),
+                "Due Date": (task.due_date.strftime("%Y-%m-%d") if task.due_date else "", task.due_date if task.due_date else date.max),
+                "State": (task.state.value.title(), None),
+                "Context": (self.contexts.get(task.context_id, "") if task.context_id else "", None),
+                "Project Tags": (", ".join([self.project_tags.get(tag_id, f"Tag#{tag_id}") for tag_id in task.project_tags]), None),
+                "Delegated To": (task.delegated_to if task.delegated_to else "", None),
+                "Follow-Up Date": (task.follow_up_date.strftime("%Y-%m-%d") if task.follow_up_date else "", task.follow_up_date if task.follow_up_date else date.max)
+            }
 
-            # Start Date
-            start_date_str = task.start_date.strftime("%Y-%m-%d") if task.start_date else ""
-            start_date_item = QTableWidgetItem(start_date_str)
-            start_date_item.setData(Qt.UserRole, task.start_date if task.start_date else date.max)
-            start_date_item.setFlags(start_date_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 6, start_date_item)
+            # Populate only visible columns
+            for col_name in self.visible_columns:
+                if col_name not in column_data:
+                    continue
 
-            # State
-            state_item = QTableWidgetItem(task.state.value.title())
-            state_item.setFlags(state_item.flags() & ~Qt.ItemIsEditable)
+                col_idx = self.column_indices[col_name]
+                text, user_data = column_data[col_name]
 
-            # Color-code by state
-            if task.state == TaskState.COMPLETED:
-                state_item.setBackground(QBrush(QColor("#d4edda")))
-            elif task.state == TaskState.TRASH:
-                state_item.setBackground(QBrush(QColor("#f8d7da")))
-            elif task.state == TaskState.ACTIVE:
-                state_item.setBackground(QBrush(QColor("#d1ecf1")))
+                item = QTableWidgetItem(text)
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
-            self.task_table.setItem(row, 7, state_item)
+                if user_data is not None:
+                    item.setData(Qt.UserRole, user_data)
 
-            # Context
-            context_name = self.contexts.get(task.context_id, "") if task.context_id else ""
-            context_item = QTableWidgetItem(context_name)
-            context_item.setFlags(context_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 8, context_item)
+                # Special formatting for State column
+                if col_name == "State":
+                    if task.state == TaskState.COMPLETED:
+                        item.setBackground(QBrush(QColor("#d4edda")))
+                    elif task.state == TaskState.TRASH:
+                        item.setBackground(QBrush(QColor("#f8d7da")))
+                    elif task.state == TaskState.ACTIVE:
+                        item.setBackground(QBrush(QColor("#d1ecf1")))
 
-            # Project Tags
-            tag_names = [self.project_tags.get(tag_id, f"Tag#{tag_id}") for tag_id in task.project_tags]
-            tags_str = ", ".join(tag_names) if tag_names else ""
-            tags_item = QTableWidgetItem(tags_str)
-            tags_item.setFlags(tags_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 9, tags_item)
+                self.task_table.setItem(row, col_idx, item)
+
+    def _get_dependencies_str(self, task: Task) -> str:
+        """Get dependencies as a comma-separated string of IDs."""
+        dependencies_str = ""
+        if task.id:
+            try:
+                dependency_dao = DependencyDAO(self.db_connection.get_connection())
+                dependencies = dependency_dao.get_dependencies_for_task(task.id)
+                if dependencies:
+                    dep_ids = [str(dep.blocking_task_id) for dep in dependencies]
+                    dependencies_str = ", ".join(dep_ids)
+            except Exception as e:
+                print(f"Error loading dependencies for task {task.id}: {e}")
+        return dependencies_str
 
     def _on_filter_changed(self):
         """Handle filter changes."""
@@ -616,6 +672,108 @@ class TaskListView(QWidget):
             self.task_service.delete_task(task_id)
             self.refresh_tasks()
             self.task_deleted.emit(task_id)
+
+    def _on_manage_context_filters(self):
+        """Open the context filter management dialog."""
+        from .context_filter_dialog import ContextFilterDialog
+
+        dialog = ContextFilterDialog(
+            active_filter_ids=self.active_context_filters,
+            db_connection=self.db_connection,
+            parent=self
+        )
+
+        if dialog.exec_():
+            # Update active filters
+            self.active_context_filters = dialog.get_active_filter_ids()
+            # Update label and apply filters
+            self._update_filter_labels()
+            self._apply_filters()
+
+    def _on_manage_tag_filters(self):
+        """Open the project tag filter management dialog."""
+        from .project_tag_filter_dialog import ProjectTagFilterDialog
+
+        dialog = ProjectTagFilterDialog(
+            active_filter_ids=self.active_tag_filters,
+            db_connection=self.db_connection,
+            parent=self
+        )
+
+        if dialog.exec_():
+            # Update active filters
+            self.active_tag_filters = dialog.get_active_filter_ids()
+            # Update label and apply filters
+            self._update_filter_labels()
+            self._apply_filters()
+
+    def _on_clear_context_filters(self):
+        """Clear all active context filters."""
+        self.active_context_filters.clear()
+        self._update_filter_labels()
+        self._apply_filters()
+
+    def _on_clear_tag_filters(self):
+        """Clear all active project tag filters."""
+        self.active_tag_filters.clear()
+        self._update_filter_labels()
+        self._apply_filters()
+
+    def _on_manage_columns(self):
+        """Open the column manager dialog."""
+        from .column_manager_dialog import ColumnManagerDialog
+
+        dialog = ColumnManagerDialog(
+            visible_columns=self.visible_columns,
+            all_columns=self.all_columns,
+            parent=self
+        )
+
+        if dialog.exec_():
+            # Update visible columns with new configuration
+            self.visible_columns = dialog.get_visible_columns()
+            self._update_column_visibility()
+
+    def _update_column_visibility(self):
+        """Update table columns based on visible_columns configuration."""
+        # Update column count and headers
+        self.task_table.setColumnCount(len(self.visible_columns))
+        self.task_table.setHorizontalHeaderLabels([
+            self.all_columns[col] for col in self.visible_columns
+        ])
+
+        # Update column indices mapping
+        self.column_indices = {col: idx for idx, col in enumerate(self.visible_columns)}
+
+        # Configure column resize modes - allow user resizing
+        header = self.task_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Interactive)
+
+        # Set initial widths for each visible column
+        default_widths = {
+            "ID": 50,
+            "Title": 300,
+            "Dependencies": 100,
+            "Importance": 100,
+            "Priority": 80,
+            "Effective Priority": 120,
+            "Start Date": 100,
+            "Due Date": 100,
+            "State": 100,
+            "Context": 100,
+            "Project Tags": 120,
+            "Delegated To": 120,
+            "Follow-Up Date": 120
+        }
+        for idx, col in enumerate(self.visible_columns):
+            width = default_widths.get(col, 100)
+            header.resizeSection(idx, width)
+
+        # Make the last visible column stretch to fill remaining space
+        header.setStretchLastSection(True)
+
+        # Refresh the table data
+        self._apply_filters()
 
     def _show_context_menu(self, position):
         """

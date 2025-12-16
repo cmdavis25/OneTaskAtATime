@@ -100,6 +100,25 @@ class DependencySelectionDialog(QDialog):
         self.available_list.setSelectionMode(QListWidget.SingleSelection)
         available_layout.addWidget(self.available_list)
 
+        # Button layout for Add and New Task
+        button_layout = QHBoxLayout()
+
+        new_task_btn = QPushButton("+ New Task")
+        new_task_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                padding: 6px 12px;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+        """)
+        new_task_btn.clicked.connect(self._on_new_task)
+        button_layout.addWidget(new_task_btn)
+
         add_btn = QPushButton("Add Dependency →")
         add_btn.setStyleSheet("""
             QPushButton {
@@ -114,7 +133,9 @@ class DependencySelectionDialog(QDialog):
             }
         """)
         add_btn.clicked.connect(self._on_add_dependency)
-        available_layout.addWidget(add_btn)
+        button_layout.addWidget(add_btn)
+
+        available_layout.addLayout(button_layout)
 
         content_layout.addLayout(available_layout, 1)
 
@@ -222,6 +243,42 @@ class DependencySelectionDialog(QDialog):
     def _filter_available_tasks(self):
         """Filter available tasks based on search text."""
         self._refresh_available_tasks()
+
+    def _on_new_task(self):
+        """Handle creating a new task from the dependency dialog."""
+        from .task_form_enhanced import EnhancedTaskFormDialog
+
+        dialog = EnhancedTaskFormDialog(
+            task=None,
+            db_connection=self.db_connection,
+            parent=self
+        )
+
+        if dialog.exec_():
+            new_task = dialog.get_updated_task()
+            if new_task:
+                # Save the task to the database
+                try:
+                    created_task = self.task_dao.create(new_task)
+
+                    # Save project tags if any
+                    if created_task.project_tags:
+                        self.task_dao.set_project_tags(created_task.id, created_task.project_tags)
+
+                    # Reload the task list to include the new task
+                    self._load_data()
+
+                    QMessageBox.information(
+                        self,
+                        "Success",
+                        f"Task '{created_task.title}' created successfully."
+                    )
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Error",
+                        f"Failed to create task: {str(e)}"
+                    )
 
     def _on_add_dependency(self):
         """Handle add dependency button click."""

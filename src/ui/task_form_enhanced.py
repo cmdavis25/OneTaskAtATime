@@ -185,13 +185,23 @@ class EnhancedTaskFormDialog(QDialog):
         org_layout.setSpacing(10)
 
         # Context
+        context_layout = QHBoxLayout()
         self.context_combo = QComboBox()
         self.context_combo.addItem("(No Context)", None)
         for context in self.contexts:
             self.context_combo.addItem(context.name, context.id)
-        org_layout.addRow("Context:", self.context_combo)
+        context_layout.addWidget(self.context_combo)
+
+        new_context_btn = QPushButton("+ New")
+        new_context_btn.setMaximumWidth(60)
+        new_context_btn.clicked.connect(self._on_new_context)
+        context_layout.addWidget(new_context_btn)
+
+        org_layout.addRow("Context:", context_layout)
 
         # Project Tags
+        tags_container = QVBoxLayout()
+
         self.tags_list = QListWidget()
         self.tags_list.setSelectionMode(QListWidget.MultiSelection)
         self.tags_list.setMaximumHeight(100)
@@ -199,7 +209,13 @@ class EnhancedTaskFormDialog(QDialog):
             item = QListWidgetItem(tag.name)
             item.setData(Qt.UserRole, tag.id)
             self.tags_list.addItem(item)
-        org_layout.addRow("Project Tags:", self.tags_list)
+        tags_container.addWidget(self.tags_list)
+
+        new_tag_btn = QPushButton("+ New Project Tag")
+        new_tag_btn.clicked.connect(self._on_new_project_tag)
+        tags_container.addWidget(new_tag_btn)
+
+        org_layout.addRow("Project Tags:", tags_container)
 
         org_group.setLayout(org_layout)
         form_layout.addWidget(org_group)
@@ -440,6 +456,145 @@ class EnhancedTaskFormDialog(QDialog):
             # Reload dependencies after changes
             self._load_dependencies()
             self._update_dependencies_display()
+
+    def _on_new_context(self):
+        """Handle creating a new context."""
+        from PyQt5.QtWidgets import QInputDialog
+
+        name, ok = QInputDialog.getText(
+            self,
+            "New Context",
+            "Enter context name (e.g., @computer, @home):"
+        )
+
+        if not ok or not name.strip():
+            return
+
+        name = name.strip()
+
+        # Check if context already exists
+        if not self.db_connection:
+            QMessageBox.warning(self, "Error", "Database connection not available.")
+            return
+
+        try:
+            context_dao = ContextDAO(self.db_connection.get_connection())
+            existing = context_dao.get_by_name(name)
+
+            if existing:
+                QMessageBox.warning(
+                    self,
+                    "Duplicate Context",
+                    f"A context named '{name}' already exists."
+                )
+                return
+
+            # Create new context
+            new_context = Context(name=name)
+            created_context = context_dao.create(new_context)
+
+            # Reload contexts
+            self._load_reference_data()
+
+            # Rebuild context combo
+            current_selection = self.context_combo.currentData()
+            self.context_combo.clear()
+            self.context_combo.addItem("(No Context)", None)
+            for context in self.contexts:
+                self.context_combo.addItem(context.name, context.id)
+
+            # Select the newly created context
+            for i in range(self.context_combo.count()):
+                if self.context_combo.itemData(i) == created_context.id:
+                    self.context_combo.setCurrentIndex(i)
+                    break
+
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Context '{name}' created successfully."
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to create context: {str(e)}"
+            )
+
+    def _on_new_project_tag(self):
+        """Handle creating a new project tag."""
+        from PyQt5.QtWidgets import QInputDialog, QColorDialog
+
+        name, ok = QInputDialog.getText(
+            self,
+            "New Project Tag",
+            "Enter project tag name:"
+        )
+
+        if not ok or not name.strip():
+            return
+
+        name = name.strip()
+
+        # Check if tag already exists
+        if not self.db_connection:
+            QMessageBox.warning(self, "Error", "Database connection not available.")
+            return
+
+        try:
+            tag_dao = ProjectTagDAO(self.db_connection.get_connection())
+            existing = tag_dao.get_by_name(name)
+
+            if existing:
+                QMessageBox.warning(
+                    self,
+                    "Duplicate Project Tag",
+                    f"A project tag named '{name}' already exists."
+                )
+                return
+
+            # Optionally select a color
+            color = QColorDialog.getColor()
+            color_hex = None
+            if color.isValid():
+                color_hex = color.name()
+
+            # Create new project tag
+            new_tag = ProjectTag(name=name, color=color_hex)
+            created_tag = tag_dao.create(new_tag)
+
+            # Reload project tags
+            self._load_reference_data()
+
+            # Rebuild tags list
+            selected_tags = []
+            for i in range(self.tags_list.count()):
+                item = self.tags_list.item(i)
+                if item.isSelected():
+                    selected_tags.append(item.data(Qt.UserRole))
+
+            self.tags_list.clear()
+            for tag in self.project_tags:
+                item = QListWidgetItem(tag.name)
+                item.setData(Qt.UserRole, tag.id)
+                # Restore selection state
+                if tag.id in selected_tags or tag.id == created_tag.id:
+                    item.setSelected(True)
+                self.tags_list.addItem(item)
+
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Project tag '{name}' created successfully."
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to create project tag: {str(e)}"
+            )
 
     def _update_dependencies_display(self):
         """Update the dependencies label with current dependencies."""
