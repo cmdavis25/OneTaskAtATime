@@ -213,8 +213,12 @@ OneTaskAtATime/
 - Blocker creation from postpone dialog
 - Subtask breakdown workflow
 - Circular dependency detection
+- Postpone analytics dashboard
+- Smart postpone suggestions
 
 **Deliverable**: Complete dependency management
+
+**Detailed Plan**: See [phase_5_plan.md](phase_5_plan.md)
 
 ### Phase 6: Resurfacing System
 - Implement APScheduler background jobs
