@@ -10,6 +10,7 @@ from ..models.task import Task
 from ..models.enums import TaskState, PostponeReasonType, ActionTaken
 from ..models.postpone_record import PostponeRecord
 from ..database.task_dao import TaskDAO
+from ..database.postpone_history_dao import PostponeHistoryDAO
 from ..database.connection import DatabaseConnection
 from ..algorithms.ranking import get_next_focus_task, get_actionable_tasks, get_tied_tasks
 
@@ -30,6 +31,7 @@ class TaskService:
         """
         self.db = db_connection
         self.task_dao = TaskDAO(db_connection.get_connection())
+        self.postpone_dao = PostponeHistoryDAO(db_connection.get_connection())
 
     def get_all_tasks(self) -> List[Task]:
         """
@@ -154,11 +156,18 @@ class TaskService:
             return None
 
         task.defer_until(start_date)
+        updated_task = self.task_dao.update(task)
 
-        # Record postpone reason (for future analysis)
-        # TODO: Save postpone record to database
+        # Record postpone reason after successful state change
+        postpone_record = PostponeRecord(
+            task_id=task_id,
+            reason_type=reason,
+            reason_notes=notes,
+            action_taken=ActionTaken.DEFERRED
+        )
+        self.postpone_dao.create(postpone_record)
 
-        return self.task_dao.update(task)
+        return updated_task
 
     def delegate_task(self, task_id: int, delegated_to: str,
                      follow_up_date: date, notes: Optional[str] = None) -> Optional[Task]:
@@ -179,8 +188,18 @@ class TaskService:
             return None
 
         task.delegate_to(delegated_to, follow_up_date)
+        updated_task = self.task_dao.update(task)
 
-        return self.task_dao.update(task)
+        # Record postpone reason after successful state change
+        postpone_record = PostponeRecord(
+            task_id=task_id,
+            reason_type=PostponeReasonType.OTHER,  # Delegation is a form of postponement
+            reason_notes=notes,
+            action_taken=ActionTaken.DELEGATED
+        )
+        self.postpone_dao.create(postpone_record)
+
+        return updated_task
 
     def move_to_someday(self, task_id: int) -> Optional[Task]:
         """

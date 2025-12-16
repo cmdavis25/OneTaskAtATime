@@ -589,21 +589,78 @@ class TaskListView(QWidget):
                     elif task.state == TaskState.ACTIVE:
                         item.setBackground(QBrush(QColor("#d1ecf1")))
 
+                # Special formatting for Dependencies column
+                if col_name == "Dependencies":
+                    if text.startswith("⛔"):
+                        # Red foreground for blocked tasks
+                        item.setForeground(QBrush(QColor("#dc3545")))
+                    else:
+                        # Gray for tasks without dependencies
+                        item.setForeground(QBrush(QColor("#6c757d")))
+                    # Add tooltip showing blocking task titles
+                    tooltip = self._get_dependency_tooltip(task)
+                    item.setToolTip(tooltip)
+
                 self.task_table.setItem(row, col_idx, item)
 
     def _get_dependencies_str(self, task: Task) -> str:
-        """Get dependencies as a comma-separated string of IDs."""
-        dependencies_str = ""
-        if task.id:
-            try:
-                dependency_dao = DependencyDAO(self.db_connection.get_connection())
-                dependencies = dependency_dao.get_dependencies_for_task(task.id)
-                if dependencies:
-                    dep_ids = [str(dep.blocking_task_id) for dep in dependencies]
-                    dependencies_str = ", ".join(dep_ids)
-            except Exception as e:
-                print(f"Error loading dependencies for task {task.id}: {e}")
-        return dependencies_str
+        """
+        Get dependencies as a formatted string with visual indicator.
+
+        Returns:
+            String showing blocking task count with indicator (e.g., "⛔ 2" or "—")
+        """
+        if not task.id:
+            return "—"
+
+        try:
+            dependency_dao = DependencyDAO(self.db_connection.get_connection())
+            dependencies = dependency_dao.get_dependencies_for_task(task.id)
+            blocking_count = len(dependencies)
+
+            if blocking_count > 0:
+                return f"⛔ {blocking_count}"
+            else:
+                return "—"
+        except Exception as e:
+            print(f"Error loading dependencies for task {task.id}: {e}")
+            return "—"
+
+    def _get_dependency_tooltip(self, task: Task) -> str:
+        """
+        Get tooltip text showing titles of blocking tasks.
+
+        Args:
+            task: Task to get dependency info for
+
+        Returns:
+            Tooltip string with blocking task titles
+        """
+        if not task.id:
+            return ""
+
+        try:
+            from ..database.task_dao import TaskDAO
+            dependency_dao = DependencyDAO(self.db_connection.get_connection())
+            task_dao = TaskDAO(self.db_connection.get_connection())
+            dependencies = dependency_dao.get_dependencies_for_task(task.id)
+
+            if not dependencies:
+                return "No dependencies"
+
+            blocking_tasks = []
+            for dep in dependencies:
+                blocking_task = task_dao.get_by_id(dep.blocking_task_id)
+                if blocking_task:
+                    blocking_tasks.append(blocking_task.title)
+
+            if blocking_tasks:
+                return "Blocked by:\n" + "\n".join(f"• {title}" for title in blocking_tasks)
+            else:
+                return "Dependencies found but tasks not loaded"
+
+        except Exception as e:
+            return f"Error loading dependencies: {e}"
 
     def _on_filter_changed(self):
         """Handle filter changes."""

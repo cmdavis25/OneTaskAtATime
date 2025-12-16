@@ -20,6 +20,7 @@ from .postpone_dialog import DeferDialog, DelegateDialog
 from .comparison_dialog import ComparisonDialog, MultipleComparisonDialog
 from ..services.task_service import TaskService
 from ..services.comparison_service import ComparisonService
+from ..services.postpone_workflow_service import PostponeWorkflowService
 from ..database.connection import DatabaseConnection
 
 
@@ -40,6 +41,7 @@ class MainWindow(QMainWindow):
         self.db_connection = DatabaseConnection()
         self.task_service = TaskService(self.db_connection)
         self.comparison_service = ComparisonService(self.db_connection)
+        self.postpone_workflow_service = PostponeWorkflowService(self.db_connection.get_connection())
 
         self._init_ui()
         self._create_menu_bar()
@@ -205,21 +207,33 @@ class MainWindow(QMainWindow):
         self._refresh_focus_task()
 
     def _on_task_deferred(self, task_id: int):
-        """Handle task deferral."""
+        """Handle task deferral and associated workflows."""
         current_task = self.focus_mode.get_current_task()
         if not current_task:
             return
 
-        dialog = DeferDialog(current_task.title, parent=self)
+        # Pass task and db_connection to enable workflows
+        dialog = DeferDialog(
+            current_task.title,
+            task=current_task,
+            db_connection=self.db_connection,
+            parent=self
+        )
+
         if dialog.exec_():
             result = dialog.get_result()
             if result:
+                # Defer the task
                 self.task_service.defer_task(
                     task_id,
                     result['start_date'],
                     result.get('reason'),
                     result.get('notes')
                 )
+
+                # Handle workflow results
+                self._handle_postpone_workflows(result, task_id, result.get('notes', ''))
+
                 self.statusBar().showMessage("Task deferred", 3000)
                 self._refresh_focus_task()
 
@@ -253,6 +267,44 @@ class MainWindow(QMainWindow):
         self.task_service.move_to_trash(task_id)
         self.statusBar().showMessage("Task moved to trash", 3000)
         self._refresh_focus_task()
+
+    def _handle_postpone_workflows(self, postpone_result: dict, task_id: int, notes: str):
+        """
+        Process workflow results from postpone dialog.
+
+        Args:
+            postpone_result: Dictionary from PostponeDialog.get_result()
+            task_id: ID of the postponed task
+            notes: User notes about postponement
+        """
+        # Handle blocker workflow
+        if blocker_result := postpone_result.get('blocker_result'):
+            result = self.postpone_workflow_service.handle_blocker_workflow(
+                task_id,
+                notes,
+                blocker_task_id=blocker_result.get('blocker_task_id'),
+                new_blocker_title=blocker_result.get('new_blocker_title')
+            )
+            if result['success']:
+                QMessageBox.information(self, "Blocker Created", result['message'])
+            else:
+                QMessageBox.warning(self, "Blocker Failed", result['message'])
+
+        # Handle subtask workflow
+        if subtask_result := postpone_result.get('subtask_result'):
+            result = self.postpone_workflow_service.handle_subtask_breakdown(
+                task_id,
+                notes,
+                subtask_result['subtask_titles'],
+                subtask_result['delete_original']
+            )
+            if result['success']:
+                QMessageBox.information(self, "Tasks Created", result['message'])
+            else:
+                QMessageBox.warning(self, "Breakdown Failed", result['message'])
+
+        # Note: Dependency workflow doesn't need handling here because
+        # DependencySelectionDialog saves dependencies directly
 
     def _handle_tied_tasks(self, tied_tasks):
         """

@@ -12,7 +12,9 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QDate
 from datetime import date
 from typing import Optional, Dict, Any
+from ..models.task import Task
 from ..models.enums import PostponeReasonType
+from ..database.connection import DatabaseConnection
 
 
 class PostponeDialog(QDialog):
@@ -24,18 +26,30 @@ class PostponeDialog(QDialog):
     - Delegate: Person name and follow-up date
     """
 
-    def __init__(self, task_title: str, action_type: str = "defer", parent=None):
+    def __init__(self, task_title: str, action_type: str = "defer",
+                 task: Optional[Task] = None, db_connection: Optional[DatabaseConnection] = None,
+                 parent=None):
         """
         Initialize the postpone dialog.
 
         Args:
             task_title: Title of the task being postponed
             action_type: Either "defer" or "delegate"
+            task: Full Task object (optional, needed for workflows)
+            db_connection: DatabaseConnection wrapper (optional, needed for workflows)
             parent: Parent widget
         """
         super().__init__(parent)
         self.task_title = task_title
         self.action_type = action_type
+        self.task = task
+        self.db_connection = db_connection
+
+        # Workflow result storage
+        self.blocker_result = None
+        self.subtask_result = None
+        self.dependency_added = False
+
         self._init_ui()
 
     def _init_ui(self):
@@ -116,11 +130,12 @@ class PostponeDialog(QDialog):
         self.reason_subtasks = QRadioButton("Needs to be broken into smaller tasks")
         self.reason_other = QRadioButton("Other reason")
 
-        self.reason_group.addButton(self.reason_not_ready, PostponeReasonType.NOT_READY.value)
-        self.reason_group.addButton(self.reason_blocker, PostponeReasonType.BLOCKER.value)
-        self.reason_group.addButton(self.reason_dependency, PostponeReasonType.DEPENDENCY.value)
-        self.reason_group.addButton(self.reason_subtasks, PostponeReasonType.MULTIPLE_SUBTASKS.value)
-        self.reason_group.addButton(self.reason_other, PostponeReasonType.OTHER.value)
+        # Use integer IDs for button group
+        self.reason_group.addButton(self.reason_not_ready, 0)
+        self.reason_group.addButton(self.reason_blocker, 1)
+        self.reason_group.addButton(self.reason_dependency, 2)
+        self.reason_group.addButton(self.reason_subtasks, 3)
+        self.reason_group.addButton(self.reason_other, 4)
 
         # Set default
         self.reason_not_ready.setChecked(True)
@@ -141,6 +156,62 @@ class PostponeDialog(QDialog):
 
         date_layout.addRow("Start date:", self.start_date_edit)
         layout.addLayout(date_layout)
+
+    def accept(self):
+        """
+        Handle acceptance and trigger workflows based on postpone reason.
+
+        Shows follow-up dialogs for BLOCKER, DEPENDENCY, and MULTIPLE_SUBTASKS reasons.
+        """
+        # Only trigger workflows for defer action with task and db_connection
+        if self.action_type == "defer" and self.task and self.db_connection:
+            reason = self._get_selected_reason()
+
+            # Import here to avoid circular dependency
+            from .blocker_selection_dialog import BlockerSelectionDialog
+            from .subtask_breakdown_dialog import SubtaskBreakdownDialog
+            from .dependency_selection_dialog import DependencySelectionDialog
+
+            if reason == PostponeReasonType.BLOCKER:
+                # Show blocker selection dialog
+                blocker_dialog = BlockerSelectionDialog(self.task, self.db_connection, self)
+                if blocker_dialog.exec_() != QDialog.Accepted:
+                    return  # User canceled blocker creation
+                self.blocker_result = blocker_dialog.get_result()
+
+            elif reason == PostponeReasonType.DEPENDENCY:
+                # Reuse existing dependency selection dialog
+                dep_dialog = DependencySelectionDialog(self.task, self.db_connection, self)
+                if dep_dialog.exec_() != QDialog.Accepted:
+                    return  # User canceled dependency selection
+                # Dependencies are saved by the dialog itself
+                self.dependency_added = True
+
+            elif reason == PostponeReasonType.MULTIPLE_SUBTASKS:
+                # Show subtask breakdown dialog
+                subtask_dialog = SubtaskBreakdownDialog(self.task, self)
+                if subtask_dialog.exec_() != QDialog.Accepted:
+                    return  # User canceled subtask breakdown
+                self.subtask_result = subtask_dialog.get_result()
+
+        # Proceed with normal dialog acceptance
+        super().accept()
+
+    def _get_selected_reason(self) -> PostponeReasonType:
+        """Get the currently selected postpone reason."""
+        if not hasattr(self, 'reason_group'):
+            return PostponeReasonType.OTHER
+
+        # Map integer IDs to enum values
+        selected_id = self.reason_group.checkedId()
+        id_to_reason = {
+            0: PostponeReasonType.NOT_READY,
+            1: PostponeReasonType.BLOCKER,
+            2: PostponeReasonType.DEPENDENCY,
+            3: PostponeReasonType.MULTIPLE_SUBTASKS,
+            4: PostponeReasonType.OTHER
+        }
+        return id_to_reason.get(selected_id, PostponeReasonType.OTHER)
 
     def _create_delegate_ui(self, layout: QVBoxLayout):
         """Create UI elements for delegating a task."""
@@ -165,7 +236,7 @@ class PostponeDialog(QDialog):
         Get the dialog result as a dictionary.
 
         Returns:
-            Dictionary with action details, or None if canceled
+            Dictionary with action details and workflow results, or None if canceled
         """
         if self.result() != QDialog.Accepted:
             return None
@@ -177,20 +248,17 @@ class PostponeDialog(QDialog):
 
         if self.action_type == "defer":
             # Get selected reason
-            selected_id = self.reason_group.checkedId()
-            if selected_id == PostponeReasonType.NOT_READY.value:
-                reason = PostponeReasonType.NOT_READY
-            elif selected_id == PostponeReasonType.BLOCKER.value:
-                reason = PostponeReasonType.BLOCKER
-            elif selected_id == PostponeReasonType.DEPENDENCY.value:
-                reason = PostponeReasonType.DEPENDENCY
-            elif selected_id == PostponeReasonType.MULTIPLE_SUBTASKS.value:
-                reason = PostponeReasonType.MULTIPLE_SUBTASKS
-            else:
-                reason = PostponeReasonType.OTHER
-
+            reason = self._get_selected_reason()
             result['reason'] = reason
             result['start_date'] = self.start_date_edit.date().toPyDate()
+
+            # Include workflow results
+            if self.blocker_result:
+                result['blocker_result'] = self.blocker_result
+            if self.subtask_result:
+                result['subtask_result'] = self.subtask_result
+            if self.dependency_added:
+                result['dependency_added'] = True
 
         else:  # delegate
             result['delegated_to'] = self.delegated_to_edit.text().strip()
@@ -206,12 +274,14 @@ class PostponeDialog(QDialog):
 class DeferDialog(PostponeDialog):
     """Convenience subclass for defer action."""
 
-    def __init__(self, task_title: str, parent=None):
-        super().__init__(task_title, "defer", parent)
+    def __init__(self, task_title: str, task: Optional[Task] = None,
+                 db_connection: Optional[DatabaseConnection] = None, parent=None):
+        super().__init__(task_title, "defer", task, db_connection, parent)
 
 
 class DelegateDialog(PostponeDialog):
     """Convenience subclass for delegate action."""
 
-    def __init__(self, task_title: str, parent=None):
-        super().__init__(task_title, "delegate", parent)
+    def __init__(self, task_title: str, task: Optional[Task] = None,
+                 db_connection: Optional[DatabaseConnection] = None, parent=None):
+        super().__init__(task_title, "delegate", task, db_connection, parent)
