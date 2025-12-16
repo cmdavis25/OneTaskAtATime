@@ -8,7 +8,7 @@ Phase 4: Full task management interface.
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QLineEdit, QComboBox, QLabel,
-    QMessageBox, QMenu
+    QMessageBox, QMenu, QCheckBox, QGroupBox, QGridLayout
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QBrush
@@ -17,6 +17,9 @@ from datetime import date
 from ..models import Task, TaskState
 from ..database.connection import DatabaseConnection
 from ..services.task_service import TaskService
+from ..database.context_dao import ContextDAO
+from ..database.project_tag_dao import ProjectTagDAO
+from ..algorithms.priority import calculate_urgency_for_tasks, calculate_importance
 
 
 class TaskListView(QWidget):
@@ -52,8 +55,32 @@ class TaskListView(QWidget):
         self.db_connection = db_connection
         self.task_service = TaskService(db_connection)
         self.tasks: List[Task] = []
+        self.contexts = {}  # Map of context_id -> context_name
+        self.project_tags = {}  # Map of tag_id -> tag_name
+        self._load_contexts()
+        self._load_project_tags()
         self._init_ui()
         self.refresh_tasks()
+
+    def _load_contexts(self):
+        """Load contexts from database for display."""
+        try:
+            context_dao = ContextDAO(self.db_connection.get_connection())
+            all_contexts = context_dao.get_all()
+            self.contexts = {ctx.id: ctx.name for ctx in all_contexts}
+        except Exception as e:
+            print(f"Error loading contexts: {e}")
+            self.contexts = {}
+
+    def _load_project_tags(self):
+        """Load project tags from database for display."""
+        try:
+            tag_dao = ProjectTagDAO(self.db_connection.get_connection())
+            all_tags = tag_dao.get_all()
+            self.project_tags = {tag.id: tag.name for tag in all_tags}
+        except Exception as e:
+            print(f"Error loading project tags: {e}")
+            self.project_tags = {}
 
     def _init_ui(self):
         """Initialize the user interface."""
@@ -103,23 +130,6 @@ class TaskListView(QWidget):
         self.search_box.setMaximumWidth(300)
         filter_layout.addWidget(self.search_box)
 
-        filter_layout.addSpacing(20)
-
-        # State filter
-        state_label = QLabel("State:")
-        filter_layout.addWidget(state_label)
-
-        self.state_filter = QComboBox()
-        self.state_filter.addItem("All States", None)
-        self.state_filter.addItem("Active", TaskState.ACTIVE.value)
-        self.state_filter.addItem("Deferred", TaskState.DEFERRED.value)
-        self.state_filter.addItem("Delegated", TaskState.DELEGATED.value)
-        self.state_filter.addItem("Someday/Maybe", TaskState.SOMEDAY.value)
-        self.state_filter.addItem("Completed", TaskState.COMPLETED.value)
-        self.state_filter.addItem("Trash", TaskState.TRASH.value)
-        self.state_filter.currentIndexChanged.connect(self._on_filter_changed)
-        filter_layout.addWidget(self.state_filter)
-
         filter_layout.addStretch()
 
         # Refresh button
@@ -129,18 +139,121 @@ class TaskListView(QWidget):
 
         layout.addLayout(filter_layout)
 
+        # State and Context filters
+        filters_group = QGroupBox("Filters")
+        filters_layout = QGridLayout()
+        filters_layout.setSpacing(5)
+
+        # State filter checkboxes
+        state_filter_label = QLabel("State:")
+        state_filter_label.setStyleSheet("font-weight: bold;")
+        filters_layout.addWidget(state_filter_label, 0, 0)
+
+        self.state_checkboxes = {}
+        states = [
+            ("Active", TaskState.ACTIVE),
+            ("Deferred", TaskState.DEFERRED),
+            ("Delegated", TaskState.DELEGATED),
+            ("Someday/Maybe", TaskState.SOMEDAY),
+            ("Completed", TaskState.COMPLETED),
+            ("Trash", TaskState.TRASH)
+        ]
+
+        for idx, (label, state) in enumerate(states):
+            checkbox = QCheckBox(label)
+            checkbox.setChecked(True)  # All states shown by default
+            checkbox.stateChanged.connect(self._on_filter_changed)
+            self.state_checkboxes[state] = checkbox
+            # Arrange in 2 rows
+            row = (idx // 3) + 1
+            col = idx % 3
+            filters_layout.addWidget(checkbox, row, col)
+
+        # Context filter
+        context_filter_label = QLabel("Context:")
+        context_filter_label.setStyleSheet("font-weight: bold;")
+        filters_layout.addWidget(context_filter_label, 3, 0)
+
+        self.context_filter_combo = QComboBox()
+        self.context_filter_combo.addItem("All Contexts", None)
+        self.context_filter_combo.addItem("No Context", "NONE")
+        for ctx_id, ctx_name in self.contexts.items():
+            self.context_filter_combo.addItem(ctx_name, ctx_id)
+        self.context_filter_combo.currentIndexChanged.connect(self._on_filter_changed)
+        filters_layout.addWidget(self.context_filter_combo, 3, 1, 1, 2)
+
+        # Project Tags filter
+        tags_filter_label = QLabel("Project Tags:")
+        tags_filter_label.setStyleSheet("font-weight: bold;")
+        filters_layout.addWidget(tags_filter_label, 4, 0)
+
+        # Create scrollable area for project tag checkboxes
+        tags_widget = QWidget()
+        tags_layout = QHBoxLayout()
+        tags_layout.setSpacing(5)
+        tags_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.tag_checkboxes = {}
+        for tag_id, tag_name in sorted(self.project_tags.items(), key=lambda x: x[1]):
+            checkbox = QCheckBox(tag_name)
+            checkbox.setChecked(True)  # All tags shown by default
+            checkbox.stateChanged.connect(self._on_filter_changed)
+            self.tag_checkboxes[tag_id] = checkbox
+            tags_layout.addWidget(checkbox)
+
+        tags_layout.addStretch()
+        tags_widget.setLayout(tags_layout)
+        filters_layout.addWidget(tags_widget, 4, 1, 1, 2)
+
+        filters_group.setLayout(filters_layout)
+        layout.addWidget(filters_group)
+
+        # Sort controls
+        sort_layout = QHBoxLayout()
+        sort_layout.addWidget(QLabel("Sort by:"))
+
+        self.primary_sort_combo = QComboBox()
+        self.primary_sort_combo.addItem("Importance (desc)", ("importance", False))
+        self.primary_sort_combo.addItem("Importance (asc)", ("importance", True))
+        self.primary_sort_combo.addItem("Effective Priority (desc)", ("eff_priority", False))
+        self.primary_sort_combo.addItem("Effective Priority (asc)", ("eff_priority", True))
+        self.primary_sort_combo.addItem("Due Date (earliest)", ("due_date", True))
+        self.primary_sort_combo.addItem("Due Date (latest)", ("due_date", False))
+        self.primary_sort_combo.addItem("State", ("state", True))
+        self.primary_sort_combo.addItem("Title", ("title", True))
+        self.primary_sort_combo.currentIndexChanged.connect(self._on_sort_changed)
+        sort_layout.addWidget(self.primary_sort_combo)
+
+        sort_layout.addWidget(QLabel("Then by:"))
+
+        self.secondary_sort_combo = QComboBox()
+        self.secondary_sort_combo.addItem("(None)", None)
+        self.secondary_sort_combo.addItem("Importance (desc)", ("importance", False))
+        self.secondary_sort_combo.addItem("Importance (asc)", ("importance", True))
+        self.secondary_sort_combo.addItem("Effective Priority (desc)", ("eff_priority", False))
+        self.secondary_sort_combo.addItem("Effective Priority (asc)", ("eff_priority", True))
+        self.secondary_sort_combo.addItem("Due Date (earliest)", ("due_date", True))
+        self.secondary_sort_combo.addItem("Due Date (latest)", ("due_date", False))
+        self.secondary_sort_combo.addItem("State", ("state", True))
+        self.secondary_sort_combo.addItem("Title", ("title", True))
+        self.secondary_sort_combo.currentIndexChanged.connect(self._on_sort_changed)
+        sort_layout.addWidget(self.secondary_sort_combo)
+
+        sort_layout.addStretch()
+        layout.addLayout(sort_layout)
+
         # Task table
         self.task_table = QTableWidget()
-        self.task_table.setColumnCount(7)
+        self.task_table.setColumnCount(10)
         self.task_table.setHorizontalHeaderLabels([
-            "ID", "Title", "Priority", "Effective Priority", "Due Date", "State", "Context"
+            "ID", "Title", "Priority", "Effective Priority", "Importance", "Due Date", "Start Date", "State", "Context", "Project Tags"
         ])
 
         # Configure table appearance
         self.task_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.task_table.setSelectionMode(QTableWidget.SingleSelection)
         self.task_table.setAlternatingRowColors(True)
-        self.task_table.setSortingEnabled(True)
+        self.task_table.setSortingEnabled(False)  # Use custom multi-column sorting
 
         # Set column widths
         header = self.task_table.horizontalHeader()
@@ -148,9 +261,12 @@ class TaskListView(QWidget):
         header.setSectionResizeMode(1, QHeaderView.Stretch)  # Title
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Priority
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Effective Priority
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Due Date
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # State
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Context
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Importance
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Due Date
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Start Date
+        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # State
+        header.setSectionResizeMode(8, QHeaderView.ResizeToContents)  # Context
+        header.setSectionResizeMode(9, QHeaderView.ResizeToContents)  # Project Tags
 
         # Enable context menu
         self.task_table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -196,20 +312,70 @@ class TaskListView(QWidget):
         """Refresh the task list from the database."""
         # Get all tasks
         self.tasks = self.task_service.get_all_tasks()
+        # Reload contexts and tags in case they changed
+        self._load_contexts()
+        self._load_project_tags()
+        self._update_context_filter()
         self._apply_filters()
+
+    def _update_context_filter(self):
+        """Update the context filter combo with current contexts."""
+        current_selection = self.context_filter_combo.currentData()
+        self.context_filter_combo.clear()
+        self.context_filter_combo.addItem("All Contexts", None)
+        self.context_filter_combo.addItem("No Context", "NONE")
+        for ctx_id, ctx_name in self.contexts.items():
+            self.context_filter_combo.addItem(ctx_name, ctx_id)
+        # Try to restore previous selection
+        if current_selection is not None:
+            for i in range(self.context_filter_combo.count()):
+                if self.context_filter_combo.itemData(i) == current_selection:
+                    self.context_filter_combo.setCurrentIndex(i)
+                    break
 
     def _apply_filters(self):
         """Apply current filters and update the table."""
         # Get filter values
         search_text = self.search_box.text().lower()
-        state_filter = self.state_filter.currentData()
+
+        # Get selected states from checkboxes
+        selected_states = [
+            state for state, checkbox in self.state_checkboxes.items()
+            if checkbox.isChecked()
+        ]
+
+        # Get selected context
+        context_filter = self.context_filter_combo.currentData()
+
+        # Get selected project tags from checkboxes
+        selected_tags = [
+            tag_id for tag_id, checkbox in self.tag_checkboxes.items()
+            if checkbox.isChecked()
+        ]
 
         # Filter tasks
         filtered_tasks = self.tasks
 
-        if state_filter:
-            filtered_tasks = [t for t in filtered_tasks if t.state.value == state_filter]
+        # Filter by selected states
+        if selected_states:
+            filtered_tasks = [t for t in filtered_tasks if t.state in selected_states]
 
+        # Filter by context
+        if context_filter == "NONE":
+            # Show only tasks with no context
+            filtered_tasks = [t for t in filtered_tasks if t.context_id is None]
+        elif context_filter is not None:
+            # Show only tasks with the selected context
+            filtered_tasks = [t for t in filtered_tasks if t.context_id == context_filter]
+
+        # Filter by project tags (show tasks that have at least one selected tag, or no tags if no tags selected)
+        if selected_tags:
+            filtered_tasks = [
+                t for t in filtered_tasks
+                if not t.project_tags or any(tag_id in selected_tags for tag_id in t.project_tags)
+            ]
+
+        # Filter by search text
         if search_text:
             filtered_tasks = [
                 t for t in filtered_tasks
@@ -217,11 +383,84 @@ class TaskListView(QWidget):
                    (t.description and search_text in t.description.lower())
             ]
 
+        # Apply sorting
+        filtered_tasks = self._apply_sorting(filtered_tasks)
+
         # Update table
         self._populate_table(filtered_tasks)
 
         # Update count
         self.count_label.setText(f"Showing {len(filtered_tasks)} of {len(self.tasks)} tasks")
+
+    def _apply_sorting(self, tasks: List[Task]) -> List[Task]:
+        """
+        Apply multi-column sorting to tasks.
+
+        Args:
+            tasks: List of tasks to sort
+
+        Returns:
+            Sorted list of tasks
+        """
+        if not tasks:
+            return tasks
+
+        # Calculate urgency and importance for all tasks
+        urgency_scores = calculate_urgency_for_tasks(tasks)
+
+        # Create a list of (task, sort_keys) tuples
+        task_data = []
+        for task in tasks:
+            urgency = urgency_scores.get(task.id, 1.0) if task.id else 1.0
+            importance = calculate_importance(task, urgency)
+
+            # Create sort keys dictionary
+            sort_keys = {
+                'importance': importance,
+                'eff_priority': task.get_effective_priority(),
+                'due_date': task.due_date if task.due_date else date.max,
+                'start_date': task.start_date if task.start_date else date.max,
+                'state': task.state.value,
+                'title': task.title.lower()
+            }
+            task_data.append((task, sort_keys))
+
+        # Get primary and secondary sort criteria
+        primary_sort = self.primary_sort_combo.currentData()
+        secondary_sort = self.secondary_sort_combo.currentData()
+
+        # Define sort key function
+        def sort_key(item):
+            task, keys = item
+            primary_field, primary_asc = primary_sort
+
+            # Primary sort key
+            primary_value = keys[primary_field]
+            if not primary_asc:
+                # For descending, negate numeric values or reverse strings
+                if isinstance(primary_value, (int, float)):
+                    primary_value = -primary_value
+                elif isinstance(primary_value, str):
+                    # For strings, we'll handle in reverse parameter
+                    pass
+
+            # Secondary sort key (if specified)
+            if secondary_sort:
+                secondary_field, secondary_asc = secondary_sort
+                secondary_value = keys[secondary_field]
+                if not secondary_asc:
+                    if isinstance(secondary_value, (int, float)):
+                        secondary_value = -secondary_value
+
+                return (primary_value, secondary_value)
+            else:
+                return (primary_value,)
+
+        # Sort the task data
+        sorted_data = sorted(task_data, key=sort_key)
+
+        # Extract just the tasks
+        return [task for task, _ in sorted_data]
 
     def _populate_table(self, tasks: List[Task]):
         """
@@ -230,10 +469,10 @@ class TaskListView(QWidget):
         Args:
             tasks: List of tasks to display
         """
-        # Disable sorting while populating
-        self.task_table.setSortingEnabled(False)
-
         self.task_table.setRowCount(len(tasks))
+
+        # Calculate urgency for all tasks (requires normalization across tasks)
+        urgency_scores = calculate_urgency_for_tasks(tasks) if tasks else {}
 
         for row, task in enumerate(tasks):
             # ID
@@ -261,12 +500,27 @@ class TaskListView(QWidget):
             eff_priority_item.setFlags(eff_priority_item.flags() & ~Qt.ItemIsEditable)
             self.task_table.setItem(row, 3, eff_priority_item)
 
+            # Importance (Effective Priority × Urgency)
+            urgency = urgency_scores.get(task.id, 1.0) if task.id else 1.0
+            importance = calculate_importance(task, urgency)
+            importance_item = QTableWidgetItem(f"{importance:.2f}")
+            importance_item.setData(Qt.UserRole, importance)
+            importance_item.setFlags(importance_item.flags() & ~Qt.ItemIsEditable)
+            self.task_table.setItem(row, 4, importance_item)
+
             # Due Date
             due_date_str = task.due_date.strftime("%Y-%m-%d") if task.due_date else ""
             due_date_item = QTableWidgetItem(due_date_str)
             due_date_item.setData(Qt.UserRole, task.due_date if task.due_date else date.max)
             due_date_item.setFlags(due_date_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 4, due_date_item)
+            self.task_table.setItem(row, 5, due_date_item)
+
+            # Start Date
+            start_date_str = task.start_date.strftime("%Y-%m-%d") if task.start_date else ""
+            start_date_item = QTableWidgetItem(start_date_str)
+            start_date_item.setData(Qt.UserRole, task.start_date if task.start_date else date.max)
+            start_date_item.setFlags(start_date_item.flags() & ~Qt.ItemIsEditable)
+            self.task_table.setItem(row, 6, start_date_item)
 
             # State
             state_item = QTableWidgetItem(task.state.value.title())
@@ -280,18 +534,27 @@ class TaskListView(QWidget):
             elif task.state == TaskState.ACTIVE:
                 state_item.setBackground(QBrush(QColor("#d1ecf1")))
 
-            self.task_table.setItem(row, 5, state_item)
+            self.task_table.setItem(row, 7, state_item)
 
-            # Context (placeholder - will be implemented later)
-            context_item = QTableWidgetItem("")
+            # Context
+            context_name = self.contexts.get(task.context_id, "") if task.context_id else ""
+            context_item = QTableWidgetItem(context_name)
             context_item.setFlags(context_item.flags() & ~Qt.ItemIsEditable)
-            self.task_table.setItem(row, 6, context_item)
+            self.task_table.setItem(row, 8, context_item)
 
-        # Re-enable sorting
-        self.task_table.setSortingEnabled(True)
+            # Project Tags
+            tag_names = [self.project_tags.get(tag_id, f"Tag#{tag_id}") for tag_id in task.project_tags]
+            tags_str = ", ".join(tag_names) if tag_names else ""
+            tags_item = QTableWidgetItem(tags_str)
+            tags_item.setFlags(tags_item.flags() & ~Qt.ItemIsEditable)
+            self.task_table.setItem(row, 9, tags_item)
 
     def _on_filter_changed(self):
         """Handle filter changes."""
+        self._apply_filters()
+
+    def _on_sort_changed(self):
+        """Handle sort order changes."""
         self._apply_filters()
 
     def _on_new_task(self):

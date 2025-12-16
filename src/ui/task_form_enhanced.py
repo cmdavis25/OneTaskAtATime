@@ -6,11 +6,12 @@ Phase 4: Full-featured task form with contexts, project tags, and all fields.
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QTextEdit, QComboBox, QDateEdit, QFormLayout,
+    QLineEdit, QTextEdit, QComboBox, QFormLayout,
     QCheckBox, QListWidget, QListWidgetItem, QGroupBox, QScrollArea,
-    QWidget, QMessageBox
+    QWidget, QMessageBox, QCalendarWidget
 )
 from PyQt5.QtCore import Qt, QDate
+from PyQt5.QtGui import QIcon
 from datetime import date
 from typing import Optional, List
 from ..models.task import Task
@@ -20,6 +21,8 @@ from ..models.enums import Priority, TaskState
 from ..database.connection import DatabaseConnection
 from ..database.context_dao import ContextDAO
 from ..database.project_tag_dao import ProjectTagDAO
+from ..database.dependency_dao import DependencyDAO
+from ..database.task_dao import TaskDAO
 
 
 class EnhancedTaskFormDialog(QDialog):
@@ -56,8 +59,11 @@ class EnhancedTaskFormDialog(QDialog):
         # Load reference data
         self.contexts: List[Context] = []
         self.project_tags: List[ProjectTag] = []
+        self.dependencies: List[int] = []  # List of blocking task IDs
         if db_connection:
             self._load_reference_data()
+            if task and task.id:
+                self._load_dependencies()
 
         self._init_ui()
 
@@ -77,6 +83,18 @@ class EnhancedTaskFormDialog(QDialog):
             self.project_tags = tag_dao.get_all()
         except Exception as e:
             print(f"Error loading reference data: {e}")
+
+    def _load_dependencies(self):
+        """Load existing dependencies for this task."""
+        if not self.db_connection or not self.task or not self.task.id:
+            return
+
+        try:
+            dependency_dao = DependencyDAO(self.db_connection.get_connection())
+            deps = dependency_dao.get_dependencies_for_task(self.task.id)
+            self.dependencies = [dep.blocking_task_id for dep in deps]
+        except Exception as e:
+            print(f"Error loading dependencies: {e}")
 
     def _init_ui(self):
         """Initialize the user interface."""
@@ -142,11 +160,17 @@ class EnhancedTaskFormDialog(QDialog):
         self.has_due_date_check.stateChanged.connect(self._on_due_date_toggled)
         due_date_layout.addWidget(self.has_due_date_check)
 
-        self.due_date_edit = QDateEdit()
-        self.due_date_edit.setCalendarPopup(True)
-        self.due_date_edit.setDate(QDate.currentDate().addDays(7))
+        self.due_date_edit = QLineEdit()
+        self.due_date_edit.setPlaceholderText("YYYY-MM-DD")
+        self.due_date_edit.setMaximumWidth(120)
         self.due_date_edit.setEnabled(False)
         due_date_layout.addWidget(self.due_date_edit)
+
+        self.due_date_calendar_btn = QPushButton("📅")
+        self.due_date_calendar_btn.setMaximumWidth(40)
+        self.due_date_calendar_btn.setEnabled(False)
+        self.due_date_calendar_btn.clicked.connect(lambda: self._show_calendar(self.due_date_edit))
+        due_date_layout.addWidget(self.due_date_calendar_btn)
 
         due_date_layout.addStretch()
 
@@ -204,11 +228,17 @@ class EnhancedTaskFormDialog(QDialog):
         self.has_start_date_check.stateChanged.connect(self._on_start_date_toggled)
         start_date_layout.addWidget(self.has_start_date_check)
 
-        self.start_date_edit = QDateEdit()
-        self.start_date_edit.setCalendarPopup(True)
-        self.start_date_edit.setDate(QDate.currentDate().addDays(1))
+        self.start_date_edit = QLineEdit()
+        self.start_date_edit.setPlaceholderText("YYYY-MM-DD")
+        self.start_date_edit.setMaximumWidth(120)
         self.start_date_edit.setEnabled(False)
         start_date_layout.addWidget(self.start_date_edit)
+
+        self.start_date_calendar_btn = QPushButton("📅")
+        self.start_date_calendar_btn.setMaximumWidth(40)
+        self.start_date_calendar_btn.setEnabled(False)
+        self.start_date_calendar_btn.clicked.connect(lambda: self._show_calendar(self.start_date_edit))
+        start_date_layout.addWidget(self.start_date_calendar_btn)
 
         start_date_layout.addStretch()
 
@@ -234,11 +264,17 @@ class EnhancedTaskFormDialog(QDialog):
         self.has_followup_check.stateChanged.connect(self._on_followup_toggled)
         followup_date_layout.addWidget(self.has_followup_check)
 
-        self.followup_date_edit = QDateEdit()
-        self.followup_date_edit.setCalendarPopup(True)
-        self.followup_date_edit.setDate(QDate.currentDate().addDays(7))
+        self.followup_date_edit = QLineEdit()
+        self.followup_date_edit.setPlaceholderText("YYYY-MM-DD")
+        self.followup_date_edit.setMaximumWidth(120)
         self.followup_date_edit.setEnabled(False)
         followup_date_layout.addWidget(self.followup_date_edit)
+
+        self.followup_date_calendar_btn = QPushButton("📅")
+        self.followup_date_calendar_btn.setMaximumWidth(40)
+        self.followup_date_calendar_btn.setEnabled(False)
+        self.followup_date_calendar_btn.clicked.connect(lambda: self._show_calendar(self.followup_date_edit))
+        followup_date_layout.addWidget(self.followup_date_calendar_btn)
 
         followup_date_layout.addStretch()
 
@@ -246,6 +282,35 @@ class EnhancedTaskFormDialog(QDialog):
 
         delegation_group.setLayout(delegation_layout)
         form_layout.addWidget(delegation_group)
+
+        # === Dependencies ===
+        dependencies_group = QGroupBox("Dependencies")
+        dependencies_layout = QVBoxLayout()
+        dependencies_layout.setSpacing(10)
+
+        # Info label
+        dep_info_label = QLabel("Specify which tasks must be completed before this task can begin:")
+        dep_info_label.setWordWrap(True)
+        dep_info_label.setStyleSheet("color: #666; font-size: 9pt;")
+        dependencies_layout.addWidget(dep_info_label)
+
+        # Dependencies list display
+        self.dependencies_label = QLabel("No dependencies")
+        self.dependencies_label.setWordWrap(True)
+        self.dependencies_label.setStyleSheet("padding: 8px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        dependencies_layout.addWidget(self.dependencies_label)
+
+        # Manage dependencies button
+        manage_deps_btn = QPushButton("Manage Dependencies...")
+        manage_deps_btn.clicked.connect(self._on_manage_dependencies)
+        # Only enable for existing tasks (can't set dependencies on unsaved tasks)
+        if self.is_new:
+            manage_deps_btn.setEnabled(False)
+            manage_deps_btn.setToolTip("Save the task first before adding dependencies")
+        dependencies_layout.addWidget(manage_deps_btn)
+
+        dependencies_group.setLayout(dependencies_layout)
+        form_layout.addWidget(dependencies_group)
 
         scroll_area.setWidget(form_widget)
         main_layout.addWidget(scroll_area)
@@ -284,21 +349,124 @@ class EnhancedTaskFormDialog(QDialog):
         main_layout.addLayout(button_layout)
 
     def _on_due_date_toggled(self, state: int):
-        """Enable/disable due date picker based on checkbox."""
-        self.due_date_edit.setEnabled(state == Qt.Checked)
+        """Enable/disable due date field and calendar button based on checkbox."""
+        enabled = state == Qt.Checked
+        self.due_date_edit.setEnabled(enabled)
+        self.due_date_calendar_btn.setEnabled(enabled)
 
     def _on_start_date_toggled(self, state: int):
-        """Enable/disable start date picker based on checkbox."""
-        self.start_date_edit.setEnabled(state == Qt.Checked)
+        """Enable/disable start date field and calendar button based on checkbox."""
+        enabled = state == Qt.Checked
+        self.start_date_edit.setEnabled(enabled)
+        self.start_date_calendar_btn.setEnabled(enabled)
 
     def _on_followup_toggled(self, state: int):
-        """Enable/disable follow-up date picker based on checkbox."""
-        self.followup_date_edit.setEnabled(state == Qt.Checked)
+        """Enable/disable follow-up date field and calendar button based on checkbox."""
+        enabled = state == Qt.Checked
+        self.followup_date_edit.setEnabled(enabled)
+        self.followup_date_calendar_btn.setEnabled(enabled)
 
     def _on_state_changed(self, state_text: str):
         """Handle state changes to show relevant fields."""
         # Could auto-enable/disable delegation fields based on state
         pass
+
+    def _show_calendar(self, date_field: QLineEdit):
+        """Show calendar widget and populate the date field with selected date."""
+        # Create a dialog to hold the calendar
+        calendar_dialog = QDialog(self)
+        calendar_dialog.setWindowTitle("Select Date")
+        layout = QVBoxLayout()
+
+        # Create calendar widget
+        calendar = QCalendarWidget()
+
+        # Set calendar to date from field if valid, otherwise today
+        current_text = date_field.text().strip()
+        if current_text:
+            try:
+                parts = current_text.split('-')
+                if len(parts) == 3:
+                    year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+                    calendar.setSelectedDate(QDate(year, month, day))
+            except (ValueError, IndexError):
+                # Invalid date format, use today
+                calendar.setSelectedDate(QDate.currentDate())
+        else:
+            calendar.setSelectedDate(QDate.currentDate())
+
+        layout.addWidget(calendar)
+
+        # Add buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(calendar_dialog.reject)
+        button_layout.addWidget(cancel_btn)
+
+        select_btn = QPushButton("Select")
+        select_btn.setDefault(True)
+        select_btn.clicked.connect(calendar_dialog.accept)
+        button_layout.addWidget(select_btn)
+
+        layout.addLayout(button_layout)
+        calendar_dialog.setLayout(layout)
+
+        # Show dialog and handle result
+        if calendar_dialog.exec_() == QDialog.Accepted:
+            selected_date = calendar.selectedDate()
+            date_field.setText(selected_date.toString("yyyy-MM-dd"))
+
+    def _on_manage_dependencies(self):
+        """Open the dependency selection dialog."""
+        if not self.task or not self.task.id:
+            QMessageBox.warning(
+                self,
+                "Cannot Manage Dependencies",
+                "Please save the task first before adding dependencies."
+            )
+            return
+
+        from .dependency_selection_dialog import DependencySelectionDialog
+
+        dialog = DependencySelectionDialog(
+            task=self.task,
+            db_connection=self.db_connection,
+            parent=self
+        )
+
+        if dialog.exec_():
+            # Reload dependencies after changes
+            self._load_dependencies()
+            self._update_dependencies_display()
+
+    def _update_dependencies_display(self):
+        """Update the dependencies label with current dependencies."""
+        if not self.dependencies:
+            self.dependencies_label.setText("No dependencies")
+            return
+
+        # Get task titles for the dependencies
+        if not self.db_connection:
+            self.dependencies_label.setText(f"{len(self.dependencies)} blocking task(s)")
+            return
+
+        try:
+            task_dao = TaskDAO(self.db_connection.get_connection())
+            task_titles = []
+            for task_id in self.dependencies:
+                task = task_dao.get_by_id(task_id)
+                if task:
+                    task_titles.append(f"• {task.title}")
+
+            if task_titles:
+                self.dependencies_label.setText("\n".join(task_titles))
+            else:
+                self.dependencies_label.setText("No dependencies")
+        except Exception as e:
+            print(f"Error updating dependencies display: {e}")
+            self.dependencies_label.setText(f"{len(self.dependencies)} blocking task(s)")
 
     def _load_task_data(self):
         """Load data from existing task into form fields."""
@@ -319,11 +487,7 @@ class EnhancedTaskFormDialog(QDialog):
         # Due date
         if self.task.due_date:
             self.has_due_date_check.setChecked(True)
-            self.due_date_edit.setDate(QDate(
-                self.task.due_date.year,
-                self.task.due_date.month,
-                self.task.due_date.day
-            ))
+            self.due_date_edit.setText(self.task.due_date.strftime("%Y-%m-%d"))
 
         # Context
         if self.task.context_id:
@@ -350,11 +514,7 @@ class EnhancedTaskFormDialog(QDialog):
         # Start date
         if self.task.start_date:
             self.has_start_date_check.setChecked(True)
-            self.start_date_edit.setDate(QDate(
-                self.task.start_date.year,
-                self.task.start_date.month,
-                self.task.start_date.day
-            ))
+            self.start_date_edit.setText(self.task.start_date.strftime("%Y-%m-%d"))
 
         # Delegation
         if self.task.delegated_to:
@@ -362,11 +522,10 @@ class EnhancedTaskFormDialog(QDialog):
 
         if self.task.follow_up_date:
             self.has_followup_check.setChecked(True)
-            self.followup_date_edit.setDate(QDate(
-                self.task.follow_up_date.year,
-                self.task.follow_up_date.month,
-                self.task.follow_up_date.day
-            ))
+            self.followup_date_edit.setText(self.task.follow_up_date.strftime("%Y-%m-%d"))
+
+        # Update dependencies display
+        self._update_dependencies_display()
 
     def _on_save_clicked(self):
         """Validate and save the task."""
@@ -397,17 +556,50 @@ class EnhancedTaskFormDialog(QDialog):
         # Get due date (if enabled)
         due_date = None
         if self.has_due_date_check.isChecked():
-            due_date = self.due_date_edit.date().toPyDate()
+            date_str = self.due_date_edit.text().strip()
+            if date_str:
+                try:
+                    parts = date_str.split('-')
+                    due_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
+                except (ValueError, IndexError):
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Date",
+                        "Due date must be in YYYY-MM-DD format."
+                    )
+                    return None
 
         # Get start date (if enabled)
         start_date = None
         if self.has_start_date_check.isChecked():
-            start_date = self.start_date_edit.date().toPyDate()
+            date_str = self.start_date_edit.text().strip()
+            if date_str:
+                try:
+                    parts = date_str.split('-')
+                    start_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
+                except (ValueError, IndexError):
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Date",
+                        "Start date must be in YYYY-MM-DD format."
+                    )
+                    return None
 
         # Get follow-up date (if enabled)
         follow_up_date = None
         if self.has_followup_check.isChecked():
-            follow_up_date = self.followup_date_edit.date().toPyDate()
+            date_str = self.followup_date_edit.text().strip()
+            if date_str:
+                try:
+                    parts = date_str.split('-')
+                    follow_up_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
+                except (ValueError, IndexError):
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Date",
+                        "Follow-up date must be in YYYY-MM-DD format."
+                    )
+                    return None
 
         # Get selected project tags
         selected_tags = []
