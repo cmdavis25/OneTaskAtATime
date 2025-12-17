@@ -393,37 +393,192 @@ In the **Task List View**:
 - [x] Error messages are user-friendly
 - [x] Workflow cancellation aborts defer/delegate operation
 
-## What's Next: Phase 6
+## Enhanced Features - IMPLEMENTED ✅
 
-Future enhancements could include:
+Three "enhanced features" have been successfully implemented as part of Phase 5:
 
-1. **DependencyGraphView** - Text-based tree visualization of dependency chains
-2. **AnalyticsView** - Dashboard showing postpone statistics and patterns
-3. **PostponeSuggestionService** - Smart suggestions based on postpone history
-4. **Focus Mode Blocker Display** - Show blocking tasks in metadata section
-5. **Dependency Cycle Detection UI** - Visual feedback when circular dependencies detected
-6. **Postpone Pattern Analysis** - Identify tasks that are frequently postponed for same reason
+### 1. DependencyGraphView ✅
+**Purpose**: Text-based tree visualization of task dependency chains
 
-See [implementation_plan.md](implementation_plan.md) for future phase requirements.
+**Status**: ✅ IMPLEMENTED
+
+**File**: [src/ui/dependency_graph_view.py](src/ui/dependency_graph_view.py) - 362 lines
+
+**Implemented Features**:
+- ✅ Recursive tree builder with circular dependency detection
+- ✅ Visual indicators (✓ for completed, ⛔ for blocked, 🔄 for active tasks)
+- ✅ Export to plain text file functionality
+- ✅ Context menu integration in Task List (right-click → "📊 View Dependency Graph")
+- ✅ Shows both blocking tasks and dependent tasks
+- ✅ Handles circular references with visual indicator (🔄)
+- ✅ Maximum depth limiting to prevent extremely deep trees
+- ✅ Automatic timestamp in exported files
+
+**Usage**:
+1. Right-click any task in Task List
+2. Select "📊 View Dependency Graph"
+3. View tree structure showing all dependencies
+4. Click "Export to File" to save as .txt
+
+---
+
+### 2. AnalyticsView ✅
+**Purpose**: Dashboard showing postpone patterns and statistics
+
+**Status**: ✅ IMPLEMENTED
+
+**File**: [src/ui/analytics_view.py](src/ui/analytics_view.py) - 404 lines
+
+**Implemented Features**:
+- ✅ 4-panel dashboard layout with scrollable content
+- ✅ **Panel 1**: Postpone Reason Breakdown (count + percentage distribution)
+- ✅ **Panel 2**: Most Postponed Tasks (top 10 with common reason)
+- ✅ **Panel 3**: Recent Activity Timeline (last 20 postpone events)
+- ✅ **Panel 4**: Action Taken Summary (distribution of workflow actions)
+- ✅ Smart relative time formatting ("2 hr ago", "Yesterday at 3:00 PM")
+- ✅ Empty state handling with user-friendly messages
+- ✅ Refresh button to update data
+- ✅ Accessible via Tools menu (Ctrl+Shift+A)
+
+**Usage**:
+1. Open Tools menu → "📊 Postpone Analytics..." (or press Ctrl+Shift+A)
+2. View statistics across all four panels
+3. Click "Refresh Data" to update
+4. Identify patterns and frequently postponed tasks
+
+---
+
+### 3. PostponeSuggestionService + ReflectionDialog ✅
+**Purpose**: Pattern detection and mandatory reflection system
+
+**Status**: ✅ IMPLEMENTED
+
+**Files**:
+- [src/services/postpone_suggestion_service.py](src/services/postpone_suggestion_service.py) - 303 lines
+- [src/ui/reflection_dialog.py](src/ui/reflection_dialog.py) - 259 lines
+
+**Implemented Features**:
+- ✅ **Blocking modal dialogs** (not dismissible - forces decision)
+- ✅ **Early intervention**: Triggers on 2nd occurrence of same reason
+- ✅ **Mandatory 20-character minimum reflection** to continue postponing
+- ✅ **Four pattern types detected**:
+  1. ✅ Repeated Blocker (2nd+ BLOCKER) - shows previous notes
+  2. ✅ Repeated Dependency (2nd+ DEPENDENCY) - shows historical context
+  3. ✅ Repeated Subtasks (2nd+ SUBTASKS) - encourages breakdown
+  4. ✅ Stale Task (3rd+ total postpones) - offers disposition actions
+- ✅ **Historical context display**: Scrollable list of previous postpone notes
+- ✅ **Three disposition actions**:
+  - 📅 Move to Someday/Maybe (with confirmation)
+  - 🗑️ Move to Trash (with confirmation)
+  - Continue with Reflection (requires 20+ char explanation)
+- ✅ Real-time character counter
+- ✅ Cancel option to abort postpone
+- ✅ Automatic integration with PostponeDialog via `show_with_reflection_check()` method
+- ✅ Priority-based suggestion ordering
+
+**Usage**:
+Pattern detection happens automatically when deferring tasks:
+1. User clicks "Defer" on a task in Focus Mode
+2. System checks postpone history for patterns
+3. If pattern detected (2nd+ same reason OR 3rd+ total):
+   - Reflection Dialog appears BEFORE postpone dialog
+   - User must either:
+     - Provide 20+ character thoughtful reflection, OR
+     - Choose disposition action (Someday/Maybe or Trash)
+4. If user continues with reflection, normal postpone dialog shows
+5. If user chooses disposition, task state changes immediately
+
+**Pattern Detection Thresholds**:
+- Blocker: 2nd occurrence
+- Dependency: 2nd occurrence
+- Subtasks: 2nd occurrence
+- Stale: 3rd total postpone (any reasons)
+
+---
+
+### Summary of Enhanced Features
+
+All three enhanced features have been successfully implemented and integrated:
+
+**Total Lines of Code**: ~1,330 lines
+- PostponeSuggestionService: 303 lines
+- ReflectionDialog: 259 lines
+- DependencyGraphView: 362 lines
+- AnalyticsView: 404 lines
+
+**Integration Points**:
+- ✅ PostponeDialog enhanced with `show_with_reflection_check()` static method
+- ✅ MainWindow updated to use reflection-aware defer flow
+- ✅ MainWindow added analytics menu item (Tools → Postpone Analytics)
+- ✅ TaskListView context menu added dependency graph option
+- ✅ Disposition actions (Someday/Maybe, Trash) integrated
+
+**User Experience Flow**:
+1. User attempts to defer a task with postpone pattern
+2. Reflection dialog intercepts with historical context
+3. User must reflect (20+ chars) OR take disposition action
+4. Analytics available anytime via Tools menu (Ctrl+Shift+A)
+5. Dependency graphs available via right-click on any task
+
+---
+
+## What's Next: Phase 6+ Enhancements
+
+Phase 5 is now complete with all core workflows AND enhanced features implemented. Future enhancements could include:
+
+**Potential Phase 6 Features**:
+- Unit tests for enhanced features (PostponeSuggestionService, DependencyGraphView, AnalyticsView)
+- Integration tests for reflection dialog workflows
+- Focus Mode blocker display in metadata section (show blocking tasks inline)
+- Dependency cycle detection UI with visual warnings
+- Postpone pattern heatmaps (calendar view showing postpone frequency)
+- Advanced analytics with date range filters
+- Exportable analytics reports (CSV, JSON)
+- Task velocity metrics (completion rate, average time to complete)
+- Recursive dependency resolution suggestions
+- Smart task reordering based on dependency completion
 
 ## Key Files Created
 
+**Core Workflow Files** (Phase 5A):
 | File | Purpose | Lines |
 |------|---------|-------|
 | [src/database/postpone_history_dao.py](src/database/postpone_history_dao.py) | Data access for postpone_history table | 213 |
 | [src/services/postpone_workflow_service.py](src/services/postpone_workflow_service.py) | Workflow orchestration service | 357 |
 | [src/ui/blocker_selection_dialog.py](src/ui/blocker_selection_dialog.py) | Blocker creation/selection UI | 209 |
 | [src/ui/subtask_breakdown_dialog.py](src/ui/subtask_breakdown_dialog.py) | Subtask breakdown UI | 171 |
+
+**Enhanced Features Files** (Phase 5B):
+| File | Purpose | Lines |
+|------|---------|-------|
+| [src/services/postpone_suggestion_service.py](src/services/postpone_suggestion_service.py) | Pattern detection service | 303 |
+| [src/ui/reflection_dialog.py](src/ui/reflection_dialog.py) | Mandatory reflection modal | 259 |
+| [src/ui/dependency_graph_view.py](src/ui/dependency_graph_view.py) | Dependency tree visualization | 362 |
+| [src/ui/analytics_view.py](src/ui/analytics_view.py) | Postpone analytics dashboard | 404 |
+
+**Documentation**:
+| File | Purpose | Lines |
+|------|---------|-------|
 | [PHASE5_IMPLEMENTATION_SUMMARY.md](PHASE5_IMPLEMENTATION_SUMMARY.md) | Technical implementation summary | 268 |
+| [PHASE5_STATUS.md](PHASE5_STATUS.md) | Comprehensive phase status report | ~650 |
+
+**Total New Code**: ~2,280 lines (core workflows + enhanced features)
 
 ## Key Files Modified
 
+**Core Workflow Modifications** (Phase 5A):
 | File | Purpose | Changes |
 |------|---------|---------|
 | [src/services/task_service.py](src/services/task_service.py) | Task operations service | Added postpone recording in defer/delegate |
 | [src/ui/postpone_dialog.py](src/ui/postpone_dialog.py) | Postpone reason capture | Added workflow triggers and result storage |
-| [src/ui/main_window.py](src/ui/main_window.py) | Main application window | Added workflow service and handler |
 | [src/ui/task_list_view.py](src/ui/task_list_view.py) | Task list display | Enhanced dependency column with indicators |
+
+**Enhanced Features Modifications** (Phase 5B):
+| File | Purpose | Changes |
+|------|---------|---------|
+| [src/ui/postpone_dialog.py](src/ui/postpone_dialog.py) | Postpone reason capture | Added `show_with_reflection_check()` static method |
+| [src/ui/main_window.py](src/ui/main_window.py) | Main application window | Added analytics menu + reflection-aware defer flow + disposition actions |
+| [src/ui/task_list_view.py](src/ui/task_list_view.py) | Task list display | Added dependency graph context menu option |
 
 ## Success Criteria Met ✅
 
@@ -456,11 +611,26 @@ Data Integrity:
 - ✅ Enum conversion between models and database
 - ✅ Type-safe operations throughout
 
+Enhanced Features (Phase 5B):
+- ✅ Pattern detection service with 4 pattern types
+- ✅ Reflection dialog with mandatory 20-character minimum
+- ✅ Disposition actions (Someday/Maybe, Trash) from reflection
+- ✅ Dependency graph visualization with tree structure
+- ✅ Analytics dashboard with 4 panels
+- ✅ Context menu integration for dependency graphs
+- ✅ Automatic reflection check on defer
+- ✅ Historical context display in reflection dialog
+- ✅ Export functionality for dependency graphs
+- ✅ Smart time formatting in analytics
+
 **BONUS Achievements:**
 - ✅ Comprehensive implementation summary document
 - ✅ All three workflow types fully integrated
 - ✅ Consistent result dictionary pattern across all workflows
 - ✅ Deletion confirmation for subtask breakdown
+- ✅ All three enhanced features implemented (originally deferred)
+- ✅ ~1,330 additional lines of well-structured code
+- ✅ Seamless integration with existing workflows
 
 ## Notes
 
@@ -486,12 +656,22 @@ Data Integrity:
 - **Don't Inherit**: Comparison history (comparison_losses, priority_adjustment), delegation info, descriptions
 - Rationale: New tasks start fresh in comparison algorithm but maintain importance/urgency
 
+**5. Reflection Pattern Detection Thresholds**
+- **2nd occurrence for specific reasons**: Triggers early to prevent unconscious patterns
+- **3rd occurrence for stale tasks**: Allows some iteration before forcing decision
+- **20-character minimum**: Forces thoughtful reflection vs dismissive excuses
+- Rationale: Balance between helpful intervention and user annoyance
+
+**6. Disposition Actions from Reflection**
+- **Immediate state change**: Someday/Maybe or Trash options bypass normal defer flow
+- **Confirmation dialogs**: Prevent accidental disposition
+- Rationale: Provide escape valve for genuinely stuck or irrelevant tasks
+
 ### Known Limitations
 
-1. **No Dependency Graph Visualization** - Future enhancement
-2. **No Analytics Dashboard** - Future enhancement
-3. **No Smart Suggestions** - Future enhancement
-4. **No Unit Tests** - Testing infrastructure ready but tests not written
+1. **No Unit Tests for Enhanced Features** - PostponeSuggestionService, DependencyGraphView, AnalyticsView need test coverage
+2. **No Integration Tests for Reflection Flow** - End-to-end reflection workflow needs testing
+3. **No Focus Mode Blocker Display** - Blocked tasks don't show blocking task details in Focus Mode metadata
 
 ### Technical Debt
 
@@ -511,15 +691,37 @@ Data Integrity:
 
 ### Recommendations for Future Phases
 
-1. **Write comprehensive unit tests** for PostponeHistoryDAO and PostponeWorkflowService
-2. **Implement DependencyGraphView** for visualizing complex dependency chains
-3. **Create analytics dashboard** to identify postpone patterns
-4. **Add smart suggestions** based on postpone history (e.g., "This task has been deferred 5 times for blockers - consider breaking it down?")
-5. **Show blocker status in Focus Mode** metadata section
-6. **Consider postpone heat maps** to identify tasks that are frequently postponed
+**Testing** (High Priority):
+1. **Write comprehensive unit tests** for:
+   - PostponeHistoryDAO (basic CRUD already works)
+   - PostponeWorkflowService (workflow logic)
+   - PostponeSuggestionService (pattern detection algorithms)
+   - DependencyGraphView (tree building, circular detection)
+   - AnalyticsView (data aggregation, formatting)
+2. **Write integration tests** for:
+   - End-to-end reflection workflow
+   - Disposition action flows
+   - Workflow chaining (postpone → reflection → workflow)
+
+**UI Enhancements** (Medium Priority):
+3. **Show blocker status in Focus Mode** metadata section (display blocking task titles inline)
+4. **Add keyboard shortcuts** for dependency graph (Ctrl+D from Task List)
+5. **Improve analytics visualizations** (charts instead of tables)
+
+**Advanced Features** (Low Priority):
+6. **Postpone heat maps** to identify chronically postponed tasks
+7. **Task velocity metrics** (completion rate, average time to complete)
+8. **Smart task reordering** based on dependency completion
+9. **Exportable analytics reports** (CSV, JSON formats)
 
 ---
 
 **Phase 5 Status: COMPLETE** ✅
 
-All core postpone workflows implemented and tested. Ready for user testing and optional enhancements.
+All core postpone workflows AND enhanced features implemented and integrated. The system now provides:
+- ✅ Complete blocker/dependency/subtask workflows
+- ✅ Pattern detection with mandatory reflection
+- ✅ Dependency visualization
+- ✅ Comprehensive analytics
+
+**Ready for**: User testing, feedback collection, and Phase 6 planning.

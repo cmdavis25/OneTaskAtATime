@@ -22,6 +22,7 @@ from ..services.task_service import TaskService
 from ..services.comparison_service import ComparisonService
 from ..services.postpone_workflow_service import PostponeWorkflowService
 from ..database.connection import DatabaseConnection
+from ..models.enums import TaskState
 
 
 class MainWindow(QMainWindow):
@@ -148,6 +149,14 @@ class MainWindow(QMainWindow):
         # Tools Menu
         tools_menu = menubar.addMenu("&Tools")
 
+        analytics_action = QAction("📊 Postpone &Analytics...", self)
+        analytics_action.setShortcut("Ctrl+Shift+A")
+        analytics_action.setStatusTip("View postpone analytics dashboard")
+        analytics_action.triggered.connect(self._show_analytics)
+        tools_menu.addAction(analytics_action)
+
+        tools_menu.addSeparator()
+
         reset_adjustments_action = QAction("Reset &Priority Adjustments", self)
         reset_adjustments_action.setStatusTip("Reset all comparison-based priority adjustments")
         reset_adjustments_action.triggered.connect(self._reset_all_priority_adjustments)
@@ -207,35 +216,46 @@ class MainWindow(QMainWindow):
         self._refresh_focus_task()
 
     def _on_task_deferred(self, task_id: int):
-        """Handle task deferral and associated workflows."""
+        """Handle task deferral with reflection check and associated workflows."""
         current_task = self.focus_mode.get_current_task()
         if not current_task:
             return
 
-        # Pass task and db_connection to enable workflows
-        dialog = DeferDialog(
-            current_task.title,
-            task=current_task,
-            db_connection=self.db_connection,
+        # Use reflection-aware dialog (checks for patterns first)
+        from .postpone_dialog import PostponeDialog
+        result = PostponeDialog.show_with_reflection_check(
+            current_task,
+            self.db_connection,
+            action_type="defer",
             parent=self
         )
 
-        if dialog.exec_():
-            result = dialog.get_result()
-            if result:
-                # Defer the task
-                self.task_service.defer_task(
-                    task_id,
-                    result['start_date'],
-                    result.get('reason'),
-                    result.get('notes')
-                )
-
-                # Handle workflow results
-                self._handle_postpone_workflows(result, task_id, result.get('notes', ''))
-
-                self.statusBar().showMessage("Task deferred", 3000)
+        if result:
+            # Check if user chose a disposition action (from reflection dialog)
+            if result.get('action_type') == 'disposition':
+                disposition = result.get('disposition')
+                if disposition == TaskState.SOMEDAY:
+                    self.task_service.move_to_someday(task_id)
+                    self.statusBar().showMessage("Task moved to Someday/Maybe", 3000)
+                elif disposition == TaskState.TRASH:
+                    self.task_service.move_to_trash(task_id)
+                    self.statusBar().showMessage("Task moved to trash", 3000)
                 self._refresh_focus_task()
+                return
+
+            # Normal defer flow
+            self.task_service.defer_task(
+                task_id,
+                result['start_date'],
+                result.get('reason'),
+                result.get('notes')
+            )
+
+            # Handle workflow results
+            self._handle_postpone_workflows(result, task_id, result.get('notes', ''))
+
+            self.statusBar().showMessage("Task deferred", 3000)
+            self._refresh_focus_task()
 
     def _on_task_delegated(self, task_id: int):
         """Handle task delegation."""
@@ -400,6 +420,12 @@ class MainWindow(QMainWindow):
     def _manage_project_tags(self):
         """Open project tag management dialog."""
         dialog = ProjectTagManagementDialog(self.db_connection, self)
+        dialog.exec_()
+
+    def _show_analytics(self):
+        """Open postpone analytics dashboard."""
+        from .analytics_view import AnalyticsView
+        dialog = AnalyticsView(self.db_connection, self)
         dialog.exec_()
 
     def _show_about(self):

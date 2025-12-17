@@ -620,225 +620,113 @@ For destructive actions (delete original), confirm:
 
 ---
 
-## Phase 5 Enhanced Features (Required)
+## Phase 5 Enhanced Features - IMPLEMENTED ✅
 
-### Feature A: Dependency Graph Visualization
+**Status**: Core workflows AND all enhanced features complete. All three originally-deferred components have been successfully implemented.
 
-**File**: [src/ui/dependency_graph_view.py](src/ui/dependency_graph_view.py) (NEW)
+### Completed Components
 
-**Purpose**: Visual representation of task dependency chains
+The following three components were implemented as part of Phase 5B:
 
-**Implementation approach**:
-Text-based tree showing dependency chains with visual indicators:
-```
-Task: "Build authentication system"
-  └─ Blocked by:
-      ├─ "Design database schema" (ACTIVE)
-      │   └─ Blocked by:
-      │       └─ "Choose database" (COMPLETED ✓)
-      └─ "Set up dev environment" (COMPLETED ✓)
-```
+1. **DependencyGraphView** - Text-based tree visualization of dependency chains
+2. **AnalyticsView** - 4-panel dashboard showing postpone patterns and statistics
+3. **PostponeSuggestionService + ReflectionDialog** - Pattern detection and mandatory reflection system
 
-**Display options**:
-- Show for individual task (context menu in Task List: "Show Dependencies")
-- Show for all blocked tasks (menu item: View → Dependency Graph)
-- Export to text file for documentation
+### Comprehensive Implementation Plan
 
-**Algorithm**:
-```python
-def build_dependency_tree(task_id: int, depth: int = 0, visited: Set[int] = None) -> str:
-    """
-    Recursively build text tree of dependencies.
+A detailed implementation plan for these three components has been created and is available in the project's planning documentation. The plan includes:
 
-    Args:
-        task_id: Root task to visualize
-        depth: Current depth (for indentation)
-        visited: Set of visited task IDs (prevent infinite loops)
+**For Each Component:**
+- Complete functional specifications
+- Detailed pseudocode and algorithms
+- UI mockups and user experience flows
+- Integration points with existing codebase
+- Data models and service architecture
+- Comprehensive testing strategies (unit + integration tests)
+- Estimated effort (20-26 hours total)
 
-    Returns:
-        Multi-line string with tree structure
-    """
-    # Get task
-    # Check if visited (circular detection)
-    # Build current line with indentation
-    # Recursively process blocking tasks
-    # Return formatted tree
-```
+**Key Features of the Plan:**
 
-**UI Integration**:
-- Add menu item: View → Show Dependency Graph → For Current Task
-- Add context menu in Task List: "Show Dependency Graph"
-- Display in modal dialog with read-only text view
+**DependencyGraphView** (~200 lines):
+- Recursive tree algorithm with circular dependency detection
+- Visual indicators for task states (✓ for completed, ⛔ for blocked)
+- Export to plain text file
+- Context menu integration in Task List
+- Keyboard shortcut (Ctrl+D)
 
----
+**AnalyticsView** (~300 lines):
+- Postpone reason breakdown (distribution chart)
+- Most postponed tasks (top 10 table)
+- Recent activity timeline (last 20 events)
+- Average time between postpones (cycle detection)
+- Refresh button and auto-update integration
 
-### Feature B: Postpone Analytics Dashboard
+**PostponeSuggestionService + ReflectionDialog** (~600 lines combined):
+- **CRITICAL DESIGN CHANGE**: Blocking modal dialog (not dismissible banners)
+- **Early intervention**: Triggers on 2nd occurrence (not 3rd)
+- **Mandatory reflection**: 20-character minimum explanation required
+- **Four suggestion types**:
+  1. Repeated Blocker (2nd+ BLOCKER use) - shows previous notes
+  2. Repeated Dependency (2nd+ DEPENDENCY use) - shows dependency graph
+  3. Repeated Subtasks (2nd+ SUBTASKS use) - shows previously created subtasks
+  4. Stale Task (3rd+ total postpones) - offers Someday/Maybe/Trash disposition
+- **Disposition actions**: Direct buttons to move tasks to Someday/Maybe or Trash
+- **Historical context**: Displays previous notes, dependency graphs, created subtasks
 
-**File**: [src/ui/analytics_view.py](src/ui/analytics_view.py) (NEW)
+### Design Philosophy
 
-**Purpose**: Show statistics about postpone patterns to help users identify issues
+The deferred components follow a **mandatory reflection** approach rather than optional suggestions:
 
-**Metrics to display**:
+- **Blocking dialogs** interrupt postpone flow to force conscious decision-making
+- **Historical context** is always shown to help users identify patterns
+- **Required explanations** (20+ characters) prevent mindless postponing
+- **Disposition options** provide clear paths to resolve stuck tasks
+- **Pattern detection** catches issues early (2nd occurrence, not later)
 
-1. **Postpone Reason Breakdown** (Pie chart or bar chart):
-   - Count by PostponeReasonType
-   - Shows which reasons are most common
+### Implementation Sequence (When Ready)
 
-2. **Most Postponed Tasks** (Table):
-   - Task title | Postpone count | Last reason | Last date
-   - Sorted by count descending
-   - Limited to top 10
+**Phase A - Foundation** (HIGH priority): PostponeSuggestionService + ReflectionDialog
+**Phase B - Visualization** (MEDIUM priority): DependencyGraphView
+**Phase C - Analytics** (LOW priority): AnalyticsView
+**Phase D - Testing & Polish** (HIGH priority): Comprehensive test suite
 
-3. **Recent Activity** (List):
-   - Last 20 postpone events
-   - Format: "[Date] [Task] - [Reason] → [Action Taken]"
+### Files to Create (4)
+- `src/services/postpone_suggestion_service.py` (~350 lines)
+- `src/ui/reflection_dialog.py` (~250 lines) **[NEW - blocking modal]**
+- `src/ui/dependency_graph_view.py` (~200 lines)
+- `src/ui/analytics_view.py` (~300 lines)
 
-4. **Average Time Between Postpones** (Summary stat):
-   - Per task calculation
-   - Shows if tasks are in "postpone loops"
+### Files to Modify (3-4)
+- `src/ui/postpone_dialog.py` **[CRITICAL CHANGES]**
+- `src/ui/task_list_view.py`
+- `src/ui/main_window.py`
+- `src/ui/task_detail_view.py` (optional)
 
-**Implementation**:
+### Reference Documentation
 
-```python
-class AnalyticsView(QWidget):
-    """Dashboard showing postpone analytics."""
+For complete implementation details, see:
+- **Detailed plan file**: `.claude/plans/transient-churning-lemon.md` (1300+ lines)
+- Includes: Complete pseudocode, UI mockups, integration patterns, test strategies
+- **Architecture alignment**: All components follow existing service/dialog/view patterns
+- **Success criteria**: Clear MVP vs should-have vs nice-to-have breakdown
 
-    def __init__(self, db_connection: DatabaseConnection, parent=None):
-        """Initialize analytics view."""
-        self.postpone_dao = PostponeHistoryDAO(db_connection.get_connection())
-        self.task_dao = TaskDAO(db_connection.get_connection())
-        self._init_ui()
-        self._load_data()
+### Why These Were Deferred
 
-    def _init_ui(self):
-        """Create UI layout with sections for each metric."""
-        # Create tab widget or sectioned layout
-        # Section 1: Reason breakdown (bar chart using ASCII or simple QTableWidget)
-        # Section 2: Most postponed tasks table
-        # Section 3: Recent activity list
-        # Section 4: Summary statistics
+These components were deferred to:
+1. **Validate core workflows first** - Ensure blocker/dependency/subtask workflows work correctly before adding analytics
+2. **Gather usage data** - Real-world postpone patterns will inform better suggestion thresholds
+3. **Refine UX approach** - User feedback updated design from dismissible banners to mandatory reflection
+4. **Maintain focus** - Complete and test core functionality before enhancement features
 
-    def _load_data(self):
-        """Load and calculate analytics."""
-        # Query postpone_history for all records (or last N days)
-        # Calculate statistics
-        # Populate UI widgets
+### Next Steps
 
-    def _calculate_reason_breakdown(self) -> Dict[str, int]:
-        """Count postpones by reason type."""
-        # Query all recent postpones
-        # Group by reason_type
-        # Return counts
+When ready to implement these features:
+1. Review the comprehensive plan in `.claude/plans/transient-churning-lemon.md`
+2. Start with Phase A (PostponeSuggestionService + ReflectionDialog) - highest user impact
+3. Follow implementation sequence: Foundation → Visualization → Analytics → Testing
+4. Reference existing patterns in PostponeWorkflowService and BlockerSelectionDialog
 
-    def _get_most_postponed_tasks(self, limit: int = 10) -> List[Dict]:
-        """Get tasks postponed most frequently."""
-        # Query postpone_history
-        # Group by task_id, count
-        # Join with tasks to get titles
-        # Sort by count DESC, limit
-```
-
-**UI Integration**:
-- Add menu item: View → Analytics Dashboard
-- Add toolbar button (chart icon)
-- Display in new tab or modal dialog
-
----
-
-### Feature C: Smart Postpone Suggestions
-
-**File**: [src/services/postpone_suggestion_service.py](src/services/postpone_suggestion_service.py) (NEW)
-
-**Purpose**: Analyze postpone patterns and suggest actions
-
-**Suggestion triggers**:
-
-1. **Repeated Blocker Reason** (3+ times, same task):
-   - Message: "You've postponed '[Task]' 3 times for 'blocker'. Would you like to create a dedicated blocker task?"
-   - Action: Open blocker creation dialog pre-filled
-
-2. **Repeated Dependency Reason** (3+ times, same task):
-   - Message: "This task has been waiting on dependencies for 2 weeks. Review if dependencies are still relevant?"
-   - Action: Open dependency selection dialog to review/remove
-
-3. **Repeated Subtask Reason** (2+ times, same task):
-   - Message: "You've indicated this task needs breaking down twice. Would you like to break it into subtasks now?"
-   - Action: Open subtask breakdown dialog
-
-4. **Stale Postpones** (task postponed >10 times):
-   - Message: "This task has been postponed 12 times. Consider moving to Someday/Maybe or Trash?"
-   - Action: Offer quick buttons for Someday or Trash
-
-**Implementation**:
-
-```python
-class PostponeSuggestionService:
-    """Analyzes postpone patterns and generates suggestions."""
-
-    def __init__(self, db_connection: DatabaseConnection):
-        self.postpone_dao = PostponeHistoryDAO(db_connection.get_connection())
-        self.task_dao = TaskDAO(db_connection.get_connection())
-
-    def get_suggestions_for_task(self, task_id: int) -> List[Dict[str, Any]]:
-        """
-        Analyze task's postpone history and return suggestions.
-
-        Returns:
-            List of suggestion dictionaries:
-            {
-                'type': 'repeated_blocker' | 'repeated_dependency' | 'stale',
-                'message': str (user-facing message),
-                'action': str (action identifier),
-                'priority': 'high' | 'medium' | 'low'
-            }
-        """
-        # Get postpone history for task
-        # Analyze patterns
-        # Generate suggestions based on triggers
-        # Return sorted by priority
-
-    def _analyze_reason_repetition(self, history: List[PostponeRecord]) -> Dict:
-        """Check for repeated reasons."""
-        # Count by reason_type
-        # Check for thresholds (3+ blocker, 3+ dependency, 2+ subtasks)
-        # Return analysis dict
-
-    def _calculate_stale_score(self, history: List[PostponeRecord]) -> int:
-        """Calculate how "stale" a task is based on postpone count."""
-        return len(history)
-```
-
-**UI Integration**:
-
-Show suggestions in two places:
-
-1. **In Postpone Dialog** (before user selects reason):
-   - If suggestions exist, show info box at top:
-     ```
-     ⚠️ Suggestion: You've postponed this task 3 times for 'blocker'.
-     Would you like to create a blocker task now?
-     [Yes, Create Blocker] [No, Continue]
-     ```
-
-2. **In Task Detail View** (when viewing task in Task List):
-   - Show suggestions in side panel or banner
-   - Allow user to dismiss or act on suggestions
-
-**Example integration in PostponeDialog**:
-
-```python
-def __init__(self, task: Task, ...):
-    # ... existing init ...
-    self.suggestion_service = PostponeSuggestionService(db_connection)
-    self._show_suggestions()
-
-def _show_suggestions(self):
-    """Display smart suggestions if any."""
-    suggestions = self.suggestion_service.get_suggestions_for_task(self.task.id)
-    if suggestions:
-        # Show info box with top suggestion
-        # Add "Act on Suggestion" button
-```
+**Note**: The detailed plan provides everything needed for implementation, including complete pseudocode, UI layouts, integration hooks, and test specifications
 
 ---
 

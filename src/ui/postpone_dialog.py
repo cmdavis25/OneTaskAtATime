@@ -2,6 +2,7 @@
 Postpone Dialog - Captures reasons when users delay tasks.
 
 This dialog helps identify blockers, dependencies, and tasks that need breakdown.
+Enhanced with pattern detection to show reflection dialog when needed.
 """
 
 from PyQt5.QtWidgets import (
@@ -13,8 +14,9 @@ from PyQt5.QtCore import Qt, QDate
 from datetime import date
 from typing import Optional, Dict, Any
 from ..models.task import Task
-from ..models.enums import PostponeReasonType
+from ..models.enums import PostponeReasonType, TaskState
 from ..database.connection import DatabaseConnection
+from ..services.postpone_suggestion_service import PostponeSuggestionService
 
 
 class PostponeDialog(QDialog):
@@ -24,7 +26,67 @@ class PostponeDialog(QDialog):
     Depending on the reason selected, shows different input fields:
     - Defer: Date picker for start_date
     - Delegate: Person name and follow-up date
+
+    Enhanced with pattern detection: Checks for postpone patterns BEFORE showing
+    and displays reflection dialog if patterns are detected.
     """
+
+    @staticmethod
+    def show_with_reflection_check(task: Task, db_connection, action_type: str = "defer",
+                                   parent=None) -> Optional[Dict[str, Any]]:
+        """
+        Show postpone dialog with automatic reflection check for patterns.
+
+        This is the recommended way to show postpone dialogs. It:
+        1. Checks for postpone patterns
+        2. Shows reflection dialog if pattern detected
+        3. Handles disposition actions (Someday/Maybe, Trash)
+        4. Shows postpone dialog if user continues with reflection
+
+        Args:
+            task: Task being postponed
+            db_connection: DatabaseConnection wrapper
+            action_type: "defer" or "delegate"
+            parent: Parent widget
+
+        Returns:
+            Result dictionary or None if cancelled
+        """
+        # Check for patterns (only for defer with valid task ID)
+        if action_type == "defer" and task.id:
+            suggestion_service = PostponeSuggestionService(db_connection)
+            suggestion = suggestion_service.check_for_patterns(task.id)
+
+            if suggestion:
+                # Show reflection dialog
+                from .reflection_dialog import ReflectionDialog
+
+                task_title = suggestion_service.get_task_title(task.id)
+                reflection_dialog = ReflectionDialog(suggestion, task_title, parent)
+
+                if reflection_dialog.exec_() == QDialog.Accepted:
+                    reflection_result = reflection_dialog.get_result()
+
+                    # Check if user chose a disposition action
+                    if reflection_result.get('disposition'):
+                        # Return disposition action to be handled by caller
+                        return {
+                            'action_type': 'disposition',
+                            'disposition': reflection_result['disposition'],
+                            'reflection': reflection_result.get('reflection', ''),
+                            'notes': reflection_result.get('reflection', '')
+                        }
+                    # Otherwise continue with postpone dialog (user provided reflection)
+                    # The reflection will be included in notes
+                else:
+                    # User cancelled reflection dialog
+                    return None
+
+        # Show normal postpone dialog
+        dialog = PostponeDialog(task.title, action_type, task, db_connection, parent)
+        if dialog.exec_() == QDialog.Accepted:
+            return dialog.get_result()
+        return None
 
     def __init__(self, task_title: str, action_type: str = "defer",
                  task: Optional[Task] = None, db_connection: Optional[DatabaseConnection] = None,

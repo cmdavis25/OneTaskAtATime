@@ -706,6 +706,25 @@ class TaskListView(QWidget):
                 self.refresh_tasks()
                 self.task_updated.emit(task_id)
 
+    def _on_view_dependency_graph(self):
+        """Handle view dependency graph action."""
+        current_row = self.task_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "No Selection", "Please select a task to view dependencies.")
+            return
+
+        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
+        task = self.task_service.get_task_by_id(task_id)
+
+        if not task:
+            QMessageBox.warning(self, "Error", "Task not found.")
+            return
+
+        from .dependency_graph_view import DependencyGraphView
+
+        graph_view = DependencyGraphView(task, self.db_connection, self)
+        graph_view.exec_()
+
     def _on_delete_task(self):
         """Handle delete task action."""
         current_row = self.task_table.currentRow()
@@ -847,6 +866,10 @@ class TaskListView(QWidget):
 
         edit_action = menu.addAction("Edit Task")
         edit_action.triggered.connect(self._on_edit_task)
+
+        # Add dependency graph option
+        graph_action = menu.addAction("📊 View Dependency Graph")
+        graph_action.triggered.connect(self._on_view_dependency_graph)
 
         menu.addSeparator()
 
