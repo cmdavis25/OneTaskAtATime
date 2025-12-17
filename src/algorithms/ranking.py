@@ -8,7 +8,7 @@ This module handles:
 """
 
 from datetime import date
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set
 from ..models.task import Task
 from ..models.enums import TaskState
 from .priority import calculate_importance_for_tasks
@@ -18,7 +18,11 @@ from .priority import calculate_importance_for_tasks
 IMPORTANCE_EPSILON = 0.01
 
 
-def get_actionable_tasks(tasks: List[Task]) -> List[Task]:
+def get_actionable_tasks(
+    tasks: List[Task],
+    context_filter: Optional[int] = None,
+    tag_filters: Optional[Set[int]] = None
+) -> List[Task]:
     """
     Filter tasks that should appear in Focus Mode.
 
@@ -26,9 +30,13 @@ def get_actionable_tasks(tasks: List[Task]) -> List[Task]:
     - Must be in ACTIVE state
     - Must not have unresolved dependencies (not blocked)
     - Must not have a start_date in the future (deferred tasks should be DEFERRED state)
+    - Must match context filter (if specified)
+    - Must match at least one tag filter (if specified) - OR condition
 
     Args:
         tasks: List of all tasks
+        context_filter: Optional context ID to filter by (single selection), or 'NONE' for tasks with no context
+        tag_filters: Optional set of tag IDs to filter by (multiple selection with OR condition)
 
     Returns:
         List of tasks eligible for Focus Mode
@@ -49,6 +57,23 @@ def get_actionable_tasks(tasks: List[Task]) -> List[Task]:
         # (These should be in DEFERRED state, but double-check)
         if task.start_date is not None and task.start_date > today:
             continue
+
+        # Apply context filter (single selection)
+        if context_filter is not None:
+            if context_filter == "NONE":
+                # Filter for tasks with no context
+                if task.context_id is not None:
+                    continue
+            else:
+                # Filter for tasks with specific context
+                if task.context_id != context_filter:
+                    continue
+
+        # Apply tag filters (multiple selection with OR condition)
+        if tag_filters:
+            # Task must have at least one of the filtered tags
+            if not task.project_tags or not any(tag_id in tag_filters for tag_id in task.project_tags):
+                continue
 
         actionable.append(task)
 
@@ -119,7 +144,12 @@ def get_top_ranked_tasks(tasks: List[Task], today: Optional[date] = None) -> Lis
     return top_tasks
 
 
-def get_next_focus_task(tasks: List[Task], today: Optional[date] = None) -> Optional[Task]:
+def get_next_focus_task(
+    tasks: List[Task],
+    today: Optional[date] = None,
+    context_filter: Optional[int] = None,
+    tag_filters: Optional[Set[int]] = None
+) -> Optional[Task]:
     """
     Get the single next task to display in Focus Mode.
 
@@ -129,12 +159,14 @@ def get_next_focus_task(tasks: List[Task], today: Optional[date] = None) -> Opti
     Args:
         tasks: List of all tasks
         today: Reference date for urgency calculation (defaults to today)
+        context_filter: Optional context ID to filter by (single selection)
+        tag_filters: Optional set of tag IDs to filter by (OR condition)
 
     Returns:
         Single task to focus on, or None if tie requires resolution
     """
     # First filter to actionable tasks only
-    actionable = get_actionable_tasks(tasks)
+    actionable = get_actionable_tasks(tasks, context_filter, tag_filters)
 
     if not actionable:
         return None
@@ -150,7 +182,7 @@ def get_next_focus_task(tasks: List[Task], today: Optional[date] = None) -> Opti
         return top_tasks[0]
 
     # Multiple tasks tied - check if they're in same tier
-    tied_by_tier = get_tied_tasks(top_tasks, today)
+    tied_by_tier = get_tied_tasks(actionable, today, context_filter, tag_filters)
     if len(tied_by_tier) >= 2:
         # Multiple tasks in same tier → need comparison
         return None
@@ -160,7 +192,12 @@ def get_next_focus_task(tasks: List[Task], today: Optional[date] = None) -> Opti
     return max(top_tasks, key=lambda t: t.base_priority)
 
 
-def get_tied_tasks(tasks: List[Task], today: Optional[date] = None) -> List[Task]:
+def get_tied_tasks(
+    tasks: List[Task],
+    today: Optional[date] = None,
+    context_filter: Optional[int] = None,
+    tag_filters: Optional[Set[int]] = None
+) -> List[Task]:
     """
     Get list of tasks tied for highest importance within same base_priority tier.
 
@@ -173,12 +210,14 @@ def get_tied_tasks(tasks: List[Task], today: Optional[date] = None) -> List[Task
     Args:
         tasks: List of all tasks
         today: Reference date for urgency calculation (defaults to today)
+        context_filter: Optional context ID to filter by (single selection)
+        tag_filters: Optional set of tag IDs to filter by (OR condition)
 
     Returns:
         List of tied tasks from same priority tier (empty if no ties)
     """
     # First filter to actionable tasks only
-    actionable = get_actionable_tasks(tasks)
+    actionable = get_actionable_tasks(tasks, context_filter, tag_filters)
 
     if len(actionable) < 2:
         return []
@@ -205,18 +244,25 @@ def get_tied_tasks(tasks: List[Task], today: Optional[date] = None) -> List[Task
     return []
 
 
-def has_tied_tasks(tasks: List[Task], today: Optional[date] = None) -> bool:
+def has_tied_tasks(
+    tasks: List[Task],
+    today: Optional[date] = None,
+    context_filter: Optional[int] = None,
+    tag_filters: Optional[Set[int]] = None
+) -> bool:
     """
     Check if there are tasks tied for top priority.
 
     Args:
         tasks: List of all tasks
         today: Reference date for urgency calculation (defaults to today)
+        context_filter: Optional context ID to filter by (single selection)
+        tag_filters: Optional set of tag IDs to filter by (OR condition)
 
     Returns:
         True if multiple tasks are tied for top rank
     """
-    return len(get_tied_tasks(tasks, today)) >= 2
+    return len(get_tied_tasks(tasks, today, context_filter, tag_filters)) >= 2
 
 
 def get_ranking_summary(tasks: List[Task], today: Optional[date] = None, top_n: int = 10) -> str:

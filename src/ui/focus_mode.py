@@ -7,13 +7,14 @@ delegating, or moving tasks to different states.
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextEdit, QFrame, QMessageBox
+    QTextEdit, QFrame, QMessageBox, QGroupBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
-from typing import Optional
+from typing import Optional, Set
 from ..models.task import Task
 from ..models.enums import TaskState
+from ..database.connection import DatabaseConnection
 
 
 class FocusModeWidget(QWidget):
@@ -39,12 +40,48 @@ class FocusModeWidget(QWidget):
     task_someday = pyqtSignal(int)    # task_id
     task_trashed = pyqtSignal(int)    # task_id
     task_refreshed = pyqtSignal()
+    filters_changed = pyqtSignal()    # Emitted when filters change
 
-    def __init__(self, parent=None):
-        """Initialize the Focus Mode widget."""
+    def __init__(self, db_connection: DatabaseConnection, parent=None):
+        """Initialize the Focus Mode widget.
+
+        Args:
+            db_connection: Database connection for loading contexts and tags
+            parent: Parent widget
+        """
         super().__init__(parent)
+        self.db_connection = db_connection
         self._current_task: Optional[Task] = None
+        self.active_context_filter: Optional[int] = None  # Single context ID or None
+        self.active_tag_filters: Set[int] = set()  # Set of tag IDs
+        self.contexts = {}  # Map of context_id -> context_name
+        self.project_tags = {}  # Map of tag_id -> tag_name
+
+        self._load_contexts()
+        self._load_project_tags()
         self._init_ui()
+
+    def _load_contexts(self):
+        """Load contexts from database for filter options."""
+        try:
+            from ..database.context_dao import ContextDAO
+            context_dao = ContextDAO(self.db_connection.get_connection())
+            all_contexts = context_dao.get_all()
+            self.contexts = {ctx.id: ctx.name for ctx in all_contexts}
+        except Exception as e:
+            print(f"Error loading contexts: {e}")
+            self.contexts = {}
+
+    def _load_project_tags(self):
+        """Load project tags from database for filter options."""
+        try:
+            from ..database.project_tag_dao import ProjectTagDAO
+            tag_dao = ProjectTagDAO(self.db_connection.get_connection())
+            all_tags = tag_dao.get_all()
+            self.project_tags = {tag.id: tag.name for tag in all_tags}
+        except Exception as e:
+            print(f"Error loading project tags: {e}")
+            self.project_tags = {}
 
     def _init_ui(self):
         """Initialize the user interface."""
@@ -55,6 +92,9 @@ class FocusModeWidget(QWidget):
 
         # Title section
         self._create_title_section(layout)
+
+        # Filter section
+        self._create_filter_section(layout)
 
         # Task card
         self._create_task_card(layout)
@@ -82,6 +122,66 @@ class FocusModeWidget(QWidget):
         subtitle_label.setAlignment(Qt.AlignCenter)
         subtitle_label.setStyleSheet("color: #666;")
         layout.addWidget(subtitle_label)
+
+    def _create_filter_section(self, layout: QVBoxLayout):
+        """Create the filter controls section."""
+        filters_group = QGroupBox("Filters")
+        filters_layout = QVBoxLayout()
+        filters_layout.setSpacing(8)
+        filters_layout.setContentsMargins(10, 10, 10, 10)
+
+        # Context filter (single selection)
+        context_filter_layout = QHBoxLayout()
+        context_filter_layout.setSpacing(5)
+
+        context_label = QLabel("Context:")
+        context_label.setStyleSheet("font-weight: bold;")
+        context_label.setMinimumWidth(100)
+        context_filter_layout.addWidget(context_label)
+
+        self.context_filter_label = QLabel("All Contexts")
+        self.context_filter_label.setStyleSheet("padding: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        self.context_filter_label.setMinimumWidth(150)
+        context_filter_layout.addWidget(self.context_filter_label)
+
+        context_select_btn = QPushButton("Select...")
+        context_select_btn.clicked.connect(self._on_select_context_filter)
+        context_filter_layout.addWidget(context_select_btn)
+
+        clear_context_btn = QPushButton("Clear")
+        clear_context_btn.clicked.connect(self._on_clear_context_filter)
+        context_filter_layout.addWidget(clear_context_btn)
+
+        context_filter_layout.addStretch()
+        filters_layout.addLayout(context_filter_layout)
+
+        # Project Tags filter (multiple selection with OR)
+        tags_filter_layout = QHBoxLayout()
+        tags_filter_layout.setSpacing(5)
+
+        tags_label = QLabel("Project Tags:")
+        tags_label.setStyleSheet("font-weight: bold;")
+        tags_label.setMinimumWidth(100)
+        tags_filter_layout.addWidget(tags_label)
+
+        self.tags_filter_label = QLabel("All Project Tags")
+        self.tags_filter_label.setStyleSheet("padding: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        self.tags_filter_label.setMinimumWidth(150)
+        tags_filter_layout.addWidget(self.tags_filter_label)
+
+        tags_select_btn = QPushButton("Select...")
+        tags_select_btn.clicked.connect(self._on_select_tag_filters)
+        tags_filter_layout.addWidget(tags_select_btn)
+
+        clear_tags_btn = QPushButton("Clear")
+        clear_tags_btn.clicked.connect(self._on_clear_tag_filters)
+        tags_filter_layout.addWidget(clear_tags_btn)
+
+        tags_filter_layout.addStretch()
+        filters_layout.addLayout(tags_filter_layout)
+
+        filters_group.setLayout(filters_layout)
+        layout.addWidget(filters_group)
 
     def _create_task_card(self, layout: QVBoxLayout):
         """Create the task card display area."""
@@ -367,3 +467,76 @@ class FocusModeWidget(QWidget):
             The current task, or None if no task is displayed
         """
         return self._current_task
+
+    def get_active_context_filter(self) -> Optional[int]:
+        """Get the active context filter ID, or None if no filter."""
+        return self.active_context_filter
+
+    def get_active_tag_filters(self) -> Set[int]:
+        """Get the set of active project tag filter IDs."""
+        return self.active_tag_filters.copy()
+
+    def _on_select_context_filter(self):
+        """Open dialog to select a single context filter."""
+        from .context_single_select_dialog import ContextSingleSelectDialog
+
+        dialog = ContextSingleSelectDialog(
+            selected_context_id=self.active_context_filter,
+            db_connection=self.db_connection,
+            parent=self
+        )
+
+        if dialog.exec_():
+            self.active_context_filter = dialog.get_selected_context_id()
+            self._update_filter_labels()
+            self.filters_changed.emit()
+
+    def _on_clear_context_filter(self):
+        """Clear the context filter."""
+        self.active_context_filter = None
+        self._update_filter_labels()
+        self.filters_changed.emit()
+
+    def _on_select_tag_filters(self):
+        """Open dialog to select multiple project tag filters."""
+        from .project_tag_filter_dialog import ProjectTagFilterDialog
+
+        dialog = ProjectTagFilterDialog(
+            active_filter_ids=self.active_tag_filters,
+            db_connection=self.db_connection,
+            parent=self
+        )
+
+        if dialog.exec_():
+            self.active_tag_filters = dialog.get_active_filter_ids()
+            self._update_filter_labels()
+            self.filters_changed.emit()
+
+    def _on_clear_tag_filters(self):
+        """Clear all project tag filters."""
+        self.active_tag_filters.clear()
+        self._update_filter_labels()
+        self.filters_changed.emit()
+
+    def _update_filter_labels(self):
+        """Update the filter labels to show active filters."""
+        # Update context filter label
+        if self.active_context_filter is None:
+            self.context_filter_label.setText("All Contexts")
+        elif self.active_context_filter == "NONE":
+            self.context_filter_label.setText("(No Context)")
+        elif self.active_context_filter in self.contexts:
+            self.context_filter_label.setText(self.contexts[self.active_context_filter])
+        else:
+            self.context_filter_label.setText("Unknown Context")
+
+        # Update tag filter label
+        if not self.active_tag_filters:
+            self.tags_filter_label.setText("All Project Tags")
+        else:
+            filter_names = [
+                self.project_tags.get(tag_id, f"Tag#{tag_id}")
+                for tag_id in self.active_tag_filters
+                if tag_id in self.project_tags
+            ]
+            self.tags_filter_label.setText(", ".join(filter_names) if filter_names else "All Project Tags")

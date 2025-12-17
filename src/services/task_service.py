@@ -4,7 +4,7 @@ Task Service - Business logic layer for task operations.
 Coordinates between UI, algorithms, and database layers.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Set
 from datetime import date, datetime
 from ..models.task import Task
 from ..models.enums import TaskState, PostponeReasonType, ActionTaken
@@ -63,25 +63,41 @@ class TaskService:
         """
         return self.task_dao.get_by_id(task_id)
 
-    def get_focus_task(self) -> Optional[Task]:
+    def get_focus_task(
+        self,
+        context_filter: Optional[int] = None,
+        tag_filters: Optional[Set[int]] = None
+    ) -> Optional[Task]:
         """
         Get the single task to display in Focus Mode.
+
+        Args:
+            context_filter: Optional context ID to filter by (single selection)
+            tag_filters: Optional set of tag IDs to filter by (OR condition)
 
         Returns:
             Top-priority task, or None if no actionable tasks or tie exists
         """
         all_tasks = self.task_dao.get_all()
-        return get_next_focus_task(all_tasks)
+        return get_next_focus_task(all_tasks, context_filter=context_filter, tag_filters=tag_filters)
 
-    def get_tied_tasks(self) -> List[Task]:
+    def get_tied_tasks(
+        self,
+        context_filter: Optional[int] = None,
+        tag_filters: Optional[Set[int]] = None
+    ) -> List[Task]:
         """
         Get all tasks tied for top priority.
+
+        Args:
+            context_filter: Optional context ID to filter by (single selection)
+            tag_filters: Optional set of tag IDs to filter by (OR condition)
 
         Returns:
             List of tied tasks (empty if no ties)
         """
         all_tasks = self.task_dao.get_all()
-        return get_tied_tasks(all_tasks)
+        return get_tied_tasks(all_tasks, context_filter=context_filter, tag_filters=tag_filters)
 
     def create_task(self, task: Task) -> Task:
         """
@@ -242,6 +258,28 @@ class TaskService:
             return None
 
         task.move_to_trash()
+        return self.task_dao.update(task)
+
+    def activate_task(self, task_id: int) -> Optional[Task]:
+        """
+        Change task state to ACTIVE.
+
+        Args:
+            task_id: ID of task to activate
+
+        Returns:
+            Updated task, or None if not found
+        """
+        task = self.task_dao.get_by_id(task_id)
+        if task is None:
+            return None
+
+        task.state = TaskState.ACTIVE
+        # Clear state-specific fields
+        task.start_date = None
+        task.delegated_to = None
+        task.follow_up_date = None
+        task.completed_at = None
         return self.task_dao.update(task)
 
     def get_tasks_by_state(self, state: TaskState) -> List[Task]:

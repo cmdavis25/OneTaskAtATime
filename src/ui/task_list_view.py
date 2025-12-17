@@ -441,7 +441,7 @@ class TaskListView(QWidget):
         if self.active_tag_filters:
             filtered_tasks = [
                 t for t in filtered_tasks
-                if not t.project_tags or any(tag_id in self.active_tag_filters for tag_id in t.project_tags)
+                if t.project_tags and any(tag_id in self.active_tag_filters for tag_id in t.project_tags)
             ]
 
         # Filter by search text
@@ -579,6 +579,11 @@ class TaskListView(QWidget):
 
                 if user_data is not None:
                     item.setData(Qt.UserRole, user_data)
+
+                # Special formatting for Title column
+                if col_name == "Title":
+                    # Add tooltip showing full title
+                    item.setToolTip(task.title)
 
                 # Special formatting for State column
                 if col_name == "State":
@@ -749,6 +754,106 @@ class TaskListView(QWidget):
             self.refresh_tasks()
             self.task_deleted.emit(task_id)
 
+    def _on_change_state_active(self):
+        """Handle change task state to Active."""
+        current_row = self.task_table.currentRow()
+        if current_row < 0:
+            return
+
+        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
+        self.task_service.activate_task(task_id)
+        self.refresh_tasks()
+        self.task_updated.emit(task_id)
+
+    def _on_change_state_deferred(self):
+        """Handle change task state to Deferred."""
+        current_row = self.task_table.currentRow()
+        if current_row < 0:
+            return
+
+        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
+        task = self.task_service.get_task_by_id(task_id)
+
+        if not task:
+            QMessageBox.warning(self, "Error", "Task not found.")
+            return
+
+        from .postpone_dialog import DeferDialog
+
+        dialog = DeferDialog(task.title, task, self.db_connection, self)
+        if dialog.exec_():
+            result = dialog.get_result()
+            if result:
+                self.task_service.defer_task(
+                    task_id,
+                    result['start_date'],
+                    result.get('reason'),
+                    result.get('notes')
+                )
+                self.refresh_tasks()
+                self.task_updated.emit(task_id)
+
+    def _on_change_state_delegated(self):
+        """Handle change task state to Delegated."""
+        current_row = self.task_table.currentRow()
+        if current_row < 0:
+            return
+
+        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
+        task = self.task_service.get_task_by_id(task_id)
+
+        if not task:
+            QMessageBox.warning(self, "Error", "Task not found.")
+            return
+
+        from .postpone_dialog import DelegateDialog
+
+        dialog = DelegateDialog(task.title, task, self.db_connection, self)
+        if dialog.exec_():
+            result = dialog.get_result()
+            if result:
+                self.task_service.delegate_task(
+                    task_id,
+                    result['delegated_to'],
+                    result['follow_up_date'],
+                    result.get('notes')
+                )
+                self.refresh_tasks()
+                self.task_updated.emit(task_id)
+
+    def _on_change_state_someday(self):
+        """Handle change task state to Someday/Maybe."""
+        current_row = self.task_table.currentRow()
+        if current_row < 0:
+            return
+
+        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
+        self.task_service.move_to_someday(task_id)
+        self.refresh_tasks()
+        self.task_updated.emit(task_id)
+
+    def _on_change_state_completed(self):
+        """Handle change task state to Completed."""
+        current_row = self.task_table.currentRow()
+        if current_row < 0:
+            return
+
+        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
+        self.task_service.complete_task(task_id)
+        self.refresh_tasks()
+        self.task_updated.emit(task_id)
+
+    def _on_change_state_trash(self):
+        """Handle change task state to Trash."""
+        current_row = self.task_table.currentRow()
+        if current_row < 0:
+            return
+
+        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
+        self.task_service.move_to_trash(task_id)
+        self.refresh_tasks()
+        self.task_updated.emit(task_id)
+
     def _on_manage_context_filters(self):
         """Open the context filter management dialog."""
         from .context_filter_dialog import ContextFilterDialog
@@ -870,6 +975,31 @@ class TaskListView(QWidget):
         # Add dependency graph option
         graph_action = menu.addAction("📊 View Dependency Graph")
         graph_action.triggered.connect(self._on_view_dependency_graph)
+
+        menu.addSeparator()
+
+        # Add Change State submenu
+        state_menu = menu.addMenu("Change State")
+
+        active_action = state_menu.addAction("Active")
+        active_action.triggered.connect(self._on_change_state_active)
+
+        deferred_action = state_menu.addAction("Deferred...")
+        deferred_action.triggered.connect(self._on_change_state_deferred)
+
+        delegated_action = state_menu.addAction("Delegated...")
+        delegated_action.triggered.connect(self._on_change_state_delegated)
+
+        someday_action = state_menu.addAction("Someday/Maybe")
+        someday_action.triggered.connect(self._on_change_state_someday)
+
+        state_menu.addSeparator()
+
+        completed_action = state_menu.addAction("Completed")
+        completed_action.triggered.connect(self._on_change_state_completed)
+
+        trash_action = state_menu.addAction("Trash")
+        trash_action.triggered.connect(self._on_change_state_trash)
 
         menu.addSeparator()
 

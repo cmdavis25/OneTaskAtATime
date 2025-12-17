@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stacked_widget)
 
         # Focus Mode widget
-        self.focus_mode = FocusModeWidget()
+        self.focus_mode = FocusModeWidget(self.db_connection)
         self.stacked_widget.addWidget(self.focus_mode)
 
         # Task List View
@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
         self.focus_mode.task_someday.connect(self._on_task_someday)
         self.focus_mode.task_trashed.connect(self._on_task_trashed)
         self.focus_mode.task_refreshed.connect(self._refresh_focus_task)
+        self.focus_mode.filters_changed.connect(self._refresh_focus_task)
 
         # Connect Task List View signals
         self.task_list_view.task_created.connect(self._on_task_list_changed)
@@ -194,15 +195,25 @@ class MainWindow(QMainWindow):
 
     def _refresh_focus_task(self):
         """Refresh the task displayed in Focus Mode."""
+        # Get filters from Focus Mode widget
+        context_filter = self.focus_mode.get_active_context_filter()
+        tag_filters = self.focus_mode.get_active_tag_filters()
+
         # First check if there are tied tasks
-        tied_tasks = self.task_service.get_tied_tasks()
+        tied_tasks = self.task_service.get_tied_tasks(
+            context_filter=context_filter,
+            tag_filters=tag_filters
+        )
 
         if len(tied_tasks) >= 2:
             # Show comparison dialog
             self._handle_tied_tasks(tied_tasks)
         else:
             # No tie, get the top task
-            task = self.task_service.get_focus_task()
+            task = self.task_service.get_focus_task(
+                context_filter=context_filter,
+                tag_filters=tag_filters
+            )
             self.focus_mode.set_task(task)
             self._update_status_bar()
 
