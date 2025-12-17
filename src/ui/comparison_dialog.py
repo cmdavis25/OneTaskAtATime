@@ -7,7 +7,7 @@ to make direct comparisons to determine which task is truly higher priority.
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextEdit, QFrame, QScrollArea
+    QTextEdit, QFrame, QScrollArea, QSizePolicy
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -146,7 +146,9 @@ class ComparisonDialog(QDialog):
         title_font.setBold(True)
         title_label.setFont(title_font)
         title_label.setWordWrap(True)
-        title_label.setMaximumHeight(80)
+        title_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        title_label.setMinimumHeight(60)
+        title_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
         card_layout.addWidget(title_label)
 
         # Task metadata

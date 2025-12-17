@@ -2,7 +2,7 @@
 Priority and urgency calculation algorithms for OneTaskAtATime.
 
 This module implements the core task scoring system:
-- Effective Priority = Base Priority - Priority Adjustment
+- Effective Priority = Elo-based calculation within base priority bands
 - Urgency = 1-3 based on days until due date
 - Importance = Effective Priority × Urgency
 """
@@ -10,6 +10,54 @@ This module implements the core task scoring system:
 from datetime import date
 from typing import List, Optional
 from ..models.task import Task
+
+
+def elo_to_effective_priority(base_priority: int, elo_rating: float) -> float:
+    """
+    Convert Elo rating to effective priority within strict band constraints.
+
+    Priority Bands (strictly enforced):
+    - High (base=3): effective priority ∈ [2.0, 3.0]
+    - Medium (base=2): effective priority ∈ [1.0, 2.0]
+    - Low (base=1): effective priority ∈ [0.0, 1.0]
+
+    This ensures that:
+    1. All High tasks rank above all Medium tasks
+    2. All Medium tasks rank above all Low tasks
+    3. Elo refines ranking WITHIN each base priority tier
+
+    Args:
+        base_priority: User-selected base priority (1=Low, 2=Medium, 3=High)
+        elo_rating: Elo rating from comparison outcomes (typically 1000-2000)
+
+    Returns:
+        Effective priority within the appropriate band
+
+    Raises:
+        ValueError: If base_priority is not 1, 2, or 3
+    """
+    # Elo reference range (covers ~99% of tasks)
+    ELO_MIN = 1000.0
+    ELO_MAX = 2000.0
+
+    # Clamp Elo to prevent extreme outliers from breaking bands
+    clamped_elo = max(ELO_MIN, min(ELO_MAX, elo_rating))
+
+    # Normalize to [0.0, 1.0] range
+    normalized = (clamped_elo - ELO_MIN) / (ELO_MAX - ELO_MIN)
+
+    # Map to appropriate band based on base priority
+    if base_priority == 3:  # High
+        # Map [0.0, 1.0] → [2.0, 3.0]
+        return 2.0 + normalized * 1.0
+    elif base_priority == 2:  # Medium
+        # Map [0.0, 1.0] → [1.0, 2.0]
+        return 1.0 + normalized * 1.0
+    elif base_priority == 1:  # Low
+        # Map [0.0, 1.0] → [0.0, 1.0]
+        return 0.0 + normalized * 1.0
+    else:
+        raise ValueError(f"Invalid base_priority: {base_priority}. Must be 1, 2, or 3.")
 
 
 def calculate_urgency(task: Task, today: Optional[date] = None) -> float:
@@ -109,17 +157,21 @@ def calculate_urgency_for_tasks(tasks: List[Task], today: Optional[date] = None)
 
 def calculate_effective_priority(task: Task) -> float:
     """
-    Calculate effective priority after adjustments.
+    Calculate effective priority using Elo rating system.
 
-    Effective Priority = Base Priority - Priority Adjustment
+    Converts the task's Elo rating to an effective priority within the
+    appropriate band based on base_priority:
+    - High (base=3): [2.0, 3.0]
+    - Medium (base=2): [1.0, 2.0]
+    - Low (base=1): [0.0, 1.0]
 
     Args:
         task: The task to calculate effective priority for
 
     Returns:
-        Effective priority (always >= 1.0 due to Zeno's Paradox constraint)
+        Effective priority within the base_priority band
     """
-    return task.get_effective_priority()
+    return elo_to_effective_priority(task.base_priority, task.elo_rating)
 
 
 def calculate_importance(task: Task, urgency: float) -> float:
@@ -181,7 +233,8 @@ def get_task_score_breakdown(task: Task, urgency: float) -> dict:
         'task_id': task.id,
         'title': task.title,
         'base_priority': task.base_priority,
-        'priority_adjustment': task.priority_adjustment,
+        'elo_rating': task.elo_rating,
+        'comparison_count': task.comparison_count,
         'effective_priority': effective_priority,
         'urgency': urgency,
         'importance': importance,

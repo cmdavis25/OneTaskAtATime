@@ -8,6 +8,7 @@ import sqlite3
 import os
 from pathlib import Path
 from typing import Optional
+from .schema import DatabaseSchema
 
 
 class DatabaseConnection:
@@ -57,6 +58,12 @@ class DatabaseConnection:
         self._connection.row_factory = sqlite3.Row
 
         print(f"Database connected: {db_path}")
+
+        # Initialize database schema if needed
+        DatabaseSchema.initialize_database(self._connection)
+
+        # Run Elo migration if needed
+        DatabaseSchema.migrate_to_elo_system(self._connection)
 
     def get_connection(self) -> sqlite3.Connection:
         """

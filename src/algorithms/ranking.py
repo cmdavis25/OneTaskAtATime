@@ -123,8 +123,8 @@ def get_next_focus_task(tasks: List[Task], today: Optional[date] = None) -> Opti
     """
     Get the single next task to display in Focus Mode.
 
-    If multiple tasks are tied, this function returns None to signal that
-    user comparison is needed.
+    Uses base_priority as tiebreaker for cross-tier ties.
+    Returns None if multiple tasks in same tier are tied (requires comparison).
 
     Args:
         tasks: List of all tasks
@@ -149,22 +149,33 @@ def get_next_focus_task(tasks: List[Task], today: Optional[date] = None) -> Opti
     if len(top_tasks) == 1:
         return top_tasks[0]
 
-    # Multiple tied tasks require user comparison
-    return None
+    # Multiple tasks tied - check if they're in same tier
+    tied_by_tier = get_tied_tasks(top_tasks, today)
+    if len(tied_by_tier) >= 2:
+        # Multiple tasks in same tier → need comparison
+        return None
+
+    # Tied across different tiers → use base_priority as tiebreaker
+    # Higher base_priority wins (3 > 2 > 1)
+    return max(top_tasks, key=lambda t: t.base_priority)
 
 
 def get_tied_tasks(tasks: List[Task], today: Optional[date] = None) -> List[Task]:
     """
-    Get list of tasks tied for highest importance (if any).
+    Get list of tasks tied for highest importance within same base_priority tier.
 
-    This is used to determine if comparison dialog should be shown.
+    Critical: Only returns tasks that are:
+    1. Tied for top importance score (within epsilon)
+    2. Have the SAME base_priority
+
+    This ensures comparisons respect priority bands (High/Medium/Low separation).
 
     Args:
         tasks: List of all tasks
         today: Reference date for urgency calculation (defaults to today)
 
     Returns:
-        List of tied tasks (empty if no ties, or if < 2 actionable tasks)
+        List of tied tasks from same priority tier (empty if no ties)
     """
     # First filter to actionable tasks only
     actionable = get_actionable_tasks(tasks)
@@ -175,10 +186,22 @@ def get_tied_tasks(tasks: List[Task], today: Optional[date] = None) -> List[Task
     # Get top-ranked tasks
     top_tasks = get_top_ranked_tasks(actionable, today)
 
-    # Only return if there's an actual tie (2+ tasks)
-    if len(top_tasks) >= 2:
-        return top_tasks
+    if len(top_tasks) < 2:
+        return []
 
+    # Group tied tasks by base_priority
+    from collections import defaultdict
+    by_priority = defaultdict(list)
+    for task in top_tasks:
+        by_priority[task.base_priority].append(task)
+
+    # Return the highest priority tier with 2+ tasks
+    # This ensures we compare within tiers, respecting the priority band system
+    for priority in [3, 2, 1]:  # High, Medium, Low
+        if len(by_priority[priority]) >= 2:
+            return by_priority[priority]
+
+    # No tier has 2+ tied tasks (tasks from different tiers, no comparison needed)
     return []
 
 

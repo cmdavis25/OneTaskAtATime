@@ -162,6 +162,13 @@ class MainWindow(QMainWindow):
         reset_adjustments_action.triggered.connect(self._reset_all_priority_adjustments)
         tools_menu.addAction(reset_adjustments_action)
 
+        tools_menu.addSeparator()
+
+        delete_all_tasks_action = QAction("Delete &All Tasks...", self)
+        delete_all_tasks_action.setStatusTip("Delete all tasks from the database")
+        delete_all_tasks_action.triggered.connect(self._delete_all_tasks)
+        tools_menu.addAction(delete_all_tasks_action)
+
         # Help Menu
         help_menu = menubar.addMenu("&Help")
 
@@ -379,6 +386,28 @@ class MainWindow(QMainWindow):
                 f"Reset {count} task priority adjustments", 5000
             )
             self._refresh_focus_task()
+
+    def _delete_all_tasks(self):
+        """Delete all tasks from the database with confirmation."""
+        reply = QMessageBox.warning(
+            self,
+            "Delete All Tasks",
+            "This will permanently delete ALL tasks from the database.\n\n"
+            "This action cannot be undone!\n\n"
+            "Are you sure you want to continue?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            count = self.task_service.delete_all_tasks()
+            self.statusBar().showMessage(
+                f"Deleted {count} tasks", 5000
+            )
+            self._refresh_focus_task()
+            # Refresh task list view if visible
+            if self.stacked_widget.currentWidget() == self.task_list_view:
+                self.task_list_view.refresh_tasks()
 
     def _show_focus_mode(self):
         """Switch to Focus Mode view."""

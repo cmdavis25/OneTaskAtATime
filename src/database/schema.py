@@ -65,9 +65,11 @@ class DatabaseSchema:
                 base_priority INTEGER NOT NULL DEFAULT 2 CHECK(base_priority IN (1, 2, 3)),
                 -- 1=Low, 2=Medium, 3=High
                 priority_adjustment REAL DEFAULT 0.0,
-                -- Accumulated penalty from comparisons
-                comparison_losses INTEGER DEFAULT 0,
-                -- Count of comparison losses (used for exponential decay: 0.5^N)
+                -- DEPRECATED: Accumulated penalty from comparisons (use elo_rating instead)
+                comparison_count INTEGER DEFAULT 0,
+                -- Total number of comparisons (renamed from comparison_losses)
+                elo_rating REAL DEFAULT 1500.0,
+                -- Elo rating for tiered priority refinement within base_priority bands
 
                 -- Urgency system (based on due date)
                 due_date DATE,
@@ -230,7 +232,13 @@ class DatabaseSchema:
             ('enable_notifications', 'true', 'boolean',
              'Enable Windows toast notifications'),
             ('score_epsilon', '0.01', 'float',
-             'Threshold for considering task scores equal (for tie detection)')
+             'Threshold for considering task scores equal (for tie detection)'),
+            ('elo_k_factor', '16', 'integer',
+             'Elo rating adjustment sensitivity for established tasks'),
+            ('elo_k_factor_new', '32', 'integer',
+             'Elo rating adjustment sensitivity for new tasks (first 10 comparisons)'),
+            ('elo_new_task_threshold', '10', 'integer',
+             'Number of comparisons before task uses base K-factor instead of new K-factor')
         ]
 
     @staticmethod
@@ -304,3 +312,88 @@ class DatabaseSchema:
             (str(version),)
         )
         db_connection.commit()
+
+    @staticmethod
+    def migrate_to_elo_system(db_connection: sqlite3.Connection) -> None:
+        """
+        Migrate existing database to Elo rating system.
+
+        This migration:
+        1. Adds elo_rating column if it doesn't exist
+        2. Renames comparison_losses to comparison_count (via data migration)
+        3. Converts priority_adjustment values to Elo ratings
+        4. Adds Elo-related settings
+
+        Args:
+            db_connection: Active SQLite database connection
+        """
+        cursor = db_connection.cursor()
+
+        # Check if migration is already complete
+        try:
+            cursor.execute("SELECT elo_rating FROM tasks LIMIT 1")
+            migration_done = True
+        except sqlite3.OperationalError:
+            migration_done = False
+
+        if migration_done:
+            return  # Already migrated
+
+        print("Migrating database to Elo rating system...")
+
+        # Step 1: Add new columns
+        try:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN elo_rating REAL DEFAULT 1500.0")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        try:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN comparison_count INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        # Step 2: Migrate data from old system to new system (only if old column exists)
+        try:
+            cursor.execute("""
+                SELECT id, base_priority, priority_adjustment, comparison_losses
+                FROM tasks
+            """)
+
+            tasks = cursor.fetchall()
+            for task_id, base_priority, priority_adjustment, comparison_losses in tasks:
+                # Convert priority_adjustment to Elo deficit
+                # Old system: effective_priority = base - adjustment (0 to ~1.0)
+                # Map adjustment [0.0, 1.0] to Elo deficit [0, 500]
+                elo_deficit = priority_adjustment * 500 if priority_adjustment else 0
+                elo_rating = 1500 - elo_deficit
+
+                # Estimate comparison_count (assume 50% win rate before losses)
+                comparison_count = comparison_losses * 2 if comparison_losses else 0
+
+                cursor.execute("""
+                    UPDATE tasks
+                    SET elo_rating = ?, comparison_count = ?
+                    WHERE id = ?
+                """, (elo_rating, comparison_count, task_id))
+        except sqlite3.OperationalError:
+            # Old column doesn't exist - this is a fresh database, no migration needed
+            pass
+
+        # Step 3: Add Elo settings
+        elo_settings = [
+            ('elo_k_factor', '16', 'integer',
+             'Elo rating adjustment sensitivity for established tasks'),
+            ('elo_k_factor_new', '32', 'integer',
+             'Elo rating adjustment sensitivity for new tasks (first 10 comparisons)'),
+            ('elo_new_task_threshold', '10', 'integer',
+             'Number of comparisons before task uses base K-factor instead of new K-factor')
+        ]
+
+        for key, value, value_type, description in elo_settings:
+            cursor.execute("""
+                INSERT OR IGNORE INTO settings (key, value, value_type, description)
+                VALUES (?, ?, ?, ?)
+            """, (key, value, value_type, description))
+
+        db_connection.commit()
+        print("Migration to Elo rating system complete.")

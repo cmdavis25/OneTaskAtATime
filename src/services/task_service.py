@@ -119,6 +119,15 @@ class TaskService:
         """
         return self.task_dao.delete(task_id)
 
+    def delete_all_tasks(self) -> int:
+        """
+        Delete all tasks from the database.
+
+        Returns:
+            Number of tasks deleted
+        """
+        return self.task_dao.delete_all_tasks()
+
     def complete_task(self, task_id: int) -> Optional[Task]:
         """
         Mark a task as completed.

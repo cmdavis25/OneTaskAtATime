@@ -1,13 +1,14 @@
 """
 Comparison Service - Business logic for task comparison operations.
 
-Handles the comparison-based priority adjustment system.
+Handles the Elo-based priority adjustment system.
 """
 
 from typing import List, Tuple, Optional
 from ..models.task import Task
 from ..database.task_dao import TaskDAO
 from ..database.comparison_dao import ComparisonDAO
+from ..database.settings_dao import SettingsDAO
 from ..database.connection import DatabaseConnection
 
 
@@ -15,7 +16,7 @@ class ComparisonService:
     """
     Service layer for task comparison operations.
 
-    Implements the exponential decay priority adjustment algorithm.
+    Implements the Elo rating system with tiered base priority bands.
     """
 
     def __init__(self, db_connection: DatabaseConnection):
@@ -28,12 +29,14 @@ class ComparisonService:
         self.db = db_connection
         self.task_dao = TaskDAO(db_connection.get_connection())
         self.comparison_dao = ComparisonDAO(db_connection.get_connection())
+        self.settings_dao = SettingsDAO(db_connection.get_connection())
 
     def record_comparison(self, winner: Task, loser: Task) -> Tuple[Task, Task]:
         """
-        Record a comparison and update the loser's priority adjustment.
+        Record a comparison and update both tasks' Elo ratings.
 
-        Uses exponential decay: adjustment += 0.5^N where N is comparison_losses.
+        Uses standard Elo rating formula with K-factor based on comparison count.
+        Tasks must have the same base_priority (comparisons only within same tier).
 
         Args:
             winner: Task that was selected as higher priority
@@ -41,32 +44,60 @@ class ComparisonService:
 
         Returns:
             Tuple of (updated_winner, updated_loser)
+
+        Raises:
+            ValueError: If tasks don't have IDs or have different base_priorities
         """
         if winner.id is None or loser.id is None:
             raise ValueError("Both tasks must have IDs")
 
-        # Increment loss count first
-        loser.comparison_losses += 1
+        # CRITICAL: Validate same base_priority tier
+        if winner.base_priority != loser.base_priority:
+            raise ValueError(
+                f"Cannot compare tasks with different base priorities: "
+                f"winner={winner.base_priority}, loser={loser.base_priority}. "
+                f"Comparisons only allowed within same priority tier."
+            )
 
-        # Calculate adjustment amount using exponential decay
-        # Formula: 0.5^N where N = number of losses (AFTER increment)
-        adjustment_increment = 0.5 ** loser.comparison_losses
+        # Get K-factors from settings
+        k_base = self.settings_dao.get('elo_k_factor', 16)
+        k_new = self.settings_dao.get('elo_k_factor_new', 32)
+        new_threshold = self.settings_dao.get('elo_new_task_threshold', 10)
 
-        # Update loser's priority adjustment
-        loser.priority_adjustment += adjustment_increment
+        # Use higher K-factor for new tasks (faster learning)
+        k_winner = k_new if winner.comparison_count < new_threshold else k_base
+        k_loser = k_new if loser.comparison_count < new_threshold else k_base
 
-        # Save the comparison to database
+        # Calculate expected scores using Elo formula
+        # E_A = 1 / (1 + 10^((R_B - R_A) / 400))
+        expected_winner = 1.0 / (1.0 + 10.0 ** ((loser.elo_rating - winner.elo_rating) / 400.0))
+        expected_loser = 1.0 - expected_winner
+
+        # Calculate rating changes (winner scores 1, loser scores 0)
+        # New_R = Old_R + K * (Actual - Expected)
+        elo_change_winner = k_winner * (1.0 - expected_winner)
+        elo_change_loser = k_loser * (0.0 - expected_loser)  # Negative change
+
+        # Update Elo ratings
+        winner.elo_rating += elo_change_winner
+        loser.elo_rating += elo_change_loser
+
+        # Increment comparison counts
+        winner.comparison_count += 1
+        loser.comparison_count += 1
+
+        # Save the comparison to database (store absolute value of loser's change)
         self.comparison_dao.record_comparison(
             winner.id,
             loser.id,
-            adjustment_increment
+            abs(elo_change_loser)
         )
 
-        # Update loser in database
+        # Update both tasks in database
+        updated_winner = self.task_dao.update(winner)
         updated_loser = self.task_dao.update(loser)
 
-        # Winner doesn't change, but return for consistency
-        return (winner, updated_loser)
+        return (updated_winner, updated_loser)
 
     def record_multiple_comparisons(self, comparison_results: List[Tuple[Task, Task]]) -> None:
         """
@@ -80,7 +111,7 @@ class ComparisonService:
 
     def reset_task_priority_adjustment(self, task_id: int) -> Optional[Task]:
         """
-        Reset a task's priority adjustment and comparison loss count to zero.
+        Reset a task's Elo rating and comparison count to defaults.
 
         Also deletes all comparison history for this task.
 
@@ -94,9 +125,12 @@ class ComparisonService:
         if task is None:
             return None
 
-        # Reset both adjustment and loss count
+        # Reset Elo to default starting rating
+        task.elo_rating = 1500.0
+        task.comparison_count = 0
+
+        # Also reset deprecated fields (for backward compatibility during transition)
         task.priority_adjustment = 0.0
-        task.comparison_losses = 0
 
         # Delete comparison history
         self.comparison_dao.delete_comparisons_for_task(task_id)
@@ -106,21 +140,23 @@ class ComparisonService:
 
     def reset_all_priority_adjustments(self) -> int:
         """
-        Reset priority adjustments for all tasks.
+        Reset Elo ratings and comparison counts for all tasks.
 
         WARNING: This clears all comparison history.
 
         Returns:
             Number of tasks that were reset
         """
-        # Get all tasks with priority adjustments
+        # Get all tasks
         all_tasks = self.task_dao.get_all()
         reset_count = 0
 
         for task in all_tasks:
-            if task.priority_adjustment > 0 or task.comparison_losses > 0:
-                task.priority_adjustment = 0.0
-                task.comparison_losses = 0
+            # Reset if Elo is not at default or comparison_count > 0
+            if task.elo_rating != 1500.0 or task.comparison_count > 0:
+                task.elo_rating = 1500.0
+                task.comparison_count = 0
+                task.priority_adjustment = 0.0  # Also reset deprecated field
                 self.task_dao.update(task)
                 reset_count += 1
 
@@ -157,15 +193,34 @@ class ComparisonService:
 
         return result
 
-    def calculate_adjustment_preview(self, task: Task) -> float:
+    def calculate_elo_change_preview(self, task: Task, opponent_elo: float) -> dict:
         """
-        Calculate what the next adjustment would be if task loses.
+        Calculate what the Elo change would be for a comparison outcome.
 
         Args:
             task: Task to calculate for
+            opponent_elo: Elo rating of the opponent task
 
         Returns:
-            The adjustment amount that would be applied
+            Dictionary with 'if_win' and 'if_lose' Elo changes
         """
-        # Next loss would be N+1
-        return 0.5 ** (task.comparison_losses + 1)
+        # Get K-factor from settings
+        k_base = self.settings_dao.get('elo_k_factor', 16)
+        k_new = self.settings_dao.get('elo_k_factor_new', 32)
+        new_threshold = self.settings_dao.get('elo_new_task_threshold', 10)
+
+        k_factor = k_new if task.comparison_count < new_threshold else k_base
+
+        # Calculate expected score
+        expected = 1.0 / (1.0 + 10.0 ** ((opponent_elo - task.elo_rating) / 400.0))
+
+        # Calculate changes for both outcomes
+        elo_if_win = k_factor * (1.0 - expected)
+        elo_if_lose = k_factor * (0.0 - expected)  # Negative
+
+        return {
+            'if_win': elo_if_win,
+            'if_lose': elo_if_lose,
+            'expected_score': expected,
+            'k_factor': k_factor
+        }

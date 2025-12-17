@@ -111,21 +111,22 @@ class TestEffectivePriority:
     """Test effective priority calculation."""
 
     def test_no_adjustment_returns_base_priority(self):
-        """Effective priority = base priority when adjustment is 0"""
-        task = Task(title="Test", base_priority=3, priority_adjustment=0.0)
-        assert calculate_effective_priority(task) == 3.0
+        """Effective priority = midpoint of band when elo_rating is default (1500)"""
+        task = Task(title="Test", base_priority=3, elo_rating=1500.0)
+        assert calculate_effective_priority(task) == 2.5  # Middle of [2.0, 3.0] band
 
     def test_with_adjustment_subtracts_correctly(self):
-        """Effective priority = base - adjustment"""
-        task = Task(title="Test", base_priority=3, priority_adjustment=0.5)
-        assert calculate_effective_priority(task) == 2.5
+        """Effective priority uses Elo rating, not priority_adjustment"""
+        # Elo 1000 (min) maps to bottom of band
+        task = Task(title="Test", base_priority=3, elo_rating=1000.0)
+        assert calculate_effective_priority(task) == 2.0
 
     def test_adjustment_never_drops_below_one(self):
-        """Priority adjustment should never exceed base - 1"""
-        # Per Zeno's Paradox, adjustment approaches but never reaches 1.0
-        task = Task(title="Test", base_priority=3, priority_adjustment=0.875)
-        assert calculate_effective_priority(task) == 2.125
-        assert calculate_effective_priority(task) >= 1.0
+        """Elo system ensures High tasks never drop below 2.0"""
+        # Even with very low Elo (clamped at 1000), High tasks stay in [2.0, 3.0] band
+        task = Task(title="Test", base_priority=3, elo_rating=500.0)  # Will clamp to 1000
+        assert calculate_effective_priority(task) == 2.0
+        assert calculate_effective_priority(task) >= 2.0  # High band minimum
 
 
 class TestImportanceCalculation:
@@ -133,24 +134,25 @@ class TestImportanceCalculation:
 
     def test_importance_is_priority_times_urgency(self):
         """Importance = Effective Priority × Urgency"""
-        task = Task(title="Test", base_priority=3, priority_adjustment=0.0)
+        task = Task(title="Test", base_priority=3, elo_rating=1500.0)
         urgency = 2.0
         importance = calculate_importance(task, urgency)
-        assert importance == 6.0  # 3.0 * 2.0
+        assert importance == 5.0  # 2.5 * 2.0 (default Elo maps to midpoint)
 
     def test_max_importance_score(self):
         """Max importance = 9.0 (High priority × max urgency)"""
-        task = Task(title="Test", base_priority=3, priority_adjustment=0.0)
+        task = Task(title="Test", base_priority=3, elo_rating=2000.0)  # Max Elo
         urgency = 3.0
         importance = calculate_importance(task, urgency)
-        assert importance == 9.0
+        assert importance == 9.0  # 3.0 * 3.0
 
     def test_adjusted_priority_affects_importance(self):
-        """Priority adjustment reduces importance score"""
-        task = Task(title="Test", base_priority=3, priority_adjustment=0.5)
+        """Lower Elo rating reduces importance score"""
+        task = Task(title="Test", base_priority=3, elo_rating=1250.0)  # Below default
         urgency = 3.0
         importance = calculate_importance(task, urgency)
-        assert importance == 7.5  # 2.5 * 3.0
+        # elo_to_effective_priority(3, 1250) = 2.0 + (1250-1000)/1000 = 2.25
+        assert importance == 6.75  # 2.25 * 3.0
 
     def test_importance_for_multiple_tasks(self):
         """Calculate importance for multiple tasks"""
@@ -190,7 +192,7 @@ class TestScoreBreakdown:
             title="Test Task",
             id=1,
             base_priority=3,
-            priority_adjustment=0.5,
+            elo_rating=1500.0,  # Use Elo instead of priority_adjustment
             due_date=date(2024, 6, 15)
         )
         urgency = 2.5
@@ -199,7 +201,7 @@ class TestScoreBreakdown:
         assert breakdown['task_id'] == 1
         assert breakdown['title'] == "Test Task"
         assert breakdown['base_priority'] == 3
-        assert breakdown['priority_adjustment'] == 0.5
+        assert breakdown['elo_rating'] == 1500.0  # New field
         assert breakdown['effective_priority'] == 2.5
         assert breakdown['urgency'] == 2.5
         assert breakdown['importance'] == 6.25  # 2.5 * 2.5
