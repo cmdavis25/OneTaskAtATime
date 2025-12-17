@@ -32,17 +32,21 @@ Note: In a true dogmatic GTD system, a user would have an inbox for all of their
 
 **Several usability problems need to be addressed in this app:**
 
-1. **Problem/Background:** Many do-to apps allow users to rank priority and urgency in an attempt to enforce a logical order of presentation, but in practice users often end up with a lot of high-priority / high-urgency tasks, defeating the purpose of ranking tasks in the first place.
+1. **Problem/Background:** Many to-do apps allow users to rank priority and urgency in an attempt to enforce a logical order of presentation, but in practice users often end up with a lot of high-priority / high-urgency tasks, defeating the purpose of ranking tasks in the first place.
 
-   **Proposed Solution:** The app resolves ties by presenting pairs of tasks with equal top-rank importance for comparison. When the user selects the higher-priority task, the losing task's Priority Adjustment is incremented using exponential decay: **PA += 0.5^N** (where N = number of comparison losses). This approach leverages Zeno's Paradox to ensure Priority Adjustment never reaches 1, preventing Effective Priority from reaching zero while progressively deprioritizing tasks that consistently lose comparisons.
+   **Proposed Solution:** The app resolves ties by presenting pairs of tasks with equal top-rank importance for comparison using an **Elo rating system**. When users compare two tasks, both tasks' Elo ratings are updated using the standard Elo formula. This rating is then mapped to an effective priority within strict bands based on the task's base priority tier.
 
    **Importance Calculation:**
-   - **Effective Priority** = Base Priority - Priority Adjustment
+   - **Effective Priority** = Elo rating mapped to band based on Base Priority
+     - High (base=3): effective priority ∈ [2.0, 3.0]
+     - Medium (base=2): effective priority ∈ [1.0, 2.0]
+     - Low (base=1): effective priority ∈ [0.0, 1.0]
    - **Base Priority**: User-configurable 3-point scale (High = 3, Medium = 2, Low = 1)
+   - **Elo Rating**: Standard Elo system (starts at 1500, typically ranges 1000-2000)
    - **Urgency**: Based on remaining days until due date (tasks with lowest day counts including overdue = 3, latest due date = 1)
    - **Importance** = Effective Priority × Urgency (max = 9)
 
-   When Base Priority is changed, both Priority Adjustment and comparison loss count reset to zero. See [CLAUDE.md](CLAUDE.md) for complete algorithmic details.
+   This system ensures that all High tasks rank above all Medium tasks, and all Medium tasks rank above all Low tasks, while Elo refines ranking within each tier. When Base Priority is changed, both Elo rating and comparison count reset to defaults. See [CLAUDE.md](CLAUDE.md) for complete algorithmic details.
 
 2. **Problem/Background:** Tasks that are not immediately actionable or low-priority/low-urgency tend to end up in a purgatory state, left to rot and fester. GTD argues that these tasks should be sorted into the following states:
     - Deferred Tasks, which can only be completed after a specified Start Date
@@ -141,7 +145,8 @@ The application uses an **SQLite database** with **8 tables** that work together
 - **settings** - Type-safe application configuration storage
 
 **Key Features:**
-- Importance scoring: `(base_priority - priority_adjustment) × urgency_score`
+- Importance scoring: `effective_priority × urgency_score` (effective priority calculated from Elo rating)
+- Elo-based comparison system within base priority bands
 - Automatic resurfacing of deferred, delegated, and someday tasks
 - Circular dependency detection using depth-first search
 - 12 strategic indexes for query performance
@@ -228,14 +233,15 @@ See [PHASE2_STATUS.md](PHASE2_STATUS.md) for details.
 
 **Phase 3: Comparison-Based Priority Resolution** ✅ COMPLETE
 
-The comparison-based ranking system is now fully functional with:
+The Elo-based comparison ranking system is now fully functional with:
 - Side-by-side task comparison dialog with clean UI
-- Exponential decay priority adjustment algorithm (PA += 0.5^N)
+- Elo rating system with tiered base priority bands
+- Standard Elo formula with configurable K-factors (32 for new tasks, 16 for established)
 - Comparison history tracking in database
-- Manual priority adjustment reset with user warnings
+- Manual Elo rating reset with user warnings
 - Automatic reset when base priority changes
 - Full integration with Focus Mode workflow
-- 18 comprehensive unit tests (100% pass rate)
+- 20+ comprehensive unit tests (100% pass rate)
 
 See [PHASE3_STATUS.md](PHASE3_STATUS.md) for details.
 

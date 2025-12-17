@@ -19,41 +19,54 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tasks are scored using two dimensions:
 
-1. **(Effective) Priority**: Effective Priority = Base Priority - Priority Adjustment
+1. **(Effective) Priority**: Elo-based calculation within base priority bands
    - **Base Priority**: User-configurable 3-point scale (High = 3, Medium = 2, Low = 1)
-   - **Priority Adjustment**: Accumulated penalty from comparison losses (starts at 0)
+   - **Elo Rating**: Standard Elo rating system (starts at 1500, typically ranges 1000-2000)
+   - **Band Mapping**: Elo rating is mapped to effective priority within strict bands:
+     - High (base=3): effective priority ∈ [2.0, 3.0]
+     - Medium (base=2): effective priority ∈ [1.0, 2.0]
+     - Low (base=1): effective priority ∈ [0.0, 1.0]
 2. **Urgency**: Based on remaining days until due date
    - Tasks with lowest remaining day counts (including negatives for overdue) get urgency score of 3
    - Other tasks scored on normalized scale (latest due date = 1)
 
 **Importance = Effective Priority × Urgency**
 
-#### Comparison-Based Ranking
+#### Comparison-Based Ranking (Elo System)
 
-When multiple tasks have equal top-rank Importance, the app presents task pairs for comparison. The user decides which task is higher-priority, and the losing task's Priority Adjustment is incremented using exponential decay:
+When multiple tasks have equal top-rank Importance, the app presents task pairs for comparison. The user decides which task is higher-priority, and both tasks' Elo ratings are updated using the standard Elo formula:
 
-**Priority Adjustment += 0.5^N** (where N = number of comparison losses for this task)
+**New Rating = Old Rating + K × (Actual Score - Expected Score)**
 
-This approach leverages Zeno's Paradox to prevent Priority Adjustment from ever reaching 1, ensuring:
-- Tasks that consistently lose comparisons are progressively deprioritized
-- Effective Priority never reaches zero (minimum Base Priority is 1)
-- Each successive loss has diminishing impact, respecting the user's Base Priority choice
+Where:
+- **K-factor**: 32 for new tasks (< 10 comparisons), 16 for established tasks
+- **Actual Score**: 1 for winner, 0 for loser
+- **Expected Score**: 1 / (1 + 10^((Opponent Rating - Own Rating) / 400))
 
-**Example progression** for a task with Base Priority = 3:
-- Loss 1: PA = 0.5, Effective Priority = 2.5
-- Loss 2: PA = 0.75, Effective Priority = 2.25
-- Loss 3: PA = 0.875, Effective Priority = 2.125
+This system ensures:
+- All High-priority tasks rank above all Medium-priority tasks
+- All Medium-priority tasks rank above all Low-priority tasks
+- Within each priority tier, Elo refines the ranking
+- Tasks that consistently win comparisons get higher Elo ratings
+- Tasks that consistently lose comparisons get lower Elo ratings
+- Ratings stabilize over time as tasks accumulate comparison history
 
-#### Priority Adjustment Reset Rules
+**Example**: Two High-priority tasks (base=3) with different Elo ratings:
+- Task A: elo=1600 → effective priority = 2.60
+- Task B: elo=1400 → effective priority = 2.40
+- After A wins a comparison, A's elo increases slightly (e.g., to 1612), B's decreases (e.g., to 1388)
 
-- **Automatic reset**: When user changes Base Priority, both Priority Adjustment and loss count reset to zero
-- **Manual reset**: User may manually reset Priority Adjustment, but the app should warn that this will restore the task's ranking and may create new ties requiring re-comparison
+#### Priority Reset Rules
+
+- **Automatic reset**: When user changes Base Priority, both Elo rating and comparison count reset to defaults (1500.0, 0)
+- **Manual reset**: User may manually reset Elo rating, but the app should warn that this will restore the task's ranking and may create new ties requiring re-comparison
 
 #### Implementation Notes
 
-Store two fields per task:
-- `priority_adjustment` (current accumulated value)
-- `comparison_losses` (count of losses, used to calculate N in 0.5^N formula)
+Store three fields per task:
+- `base_priority` (user-selected tier: 1, 2, or 3)
+- `elo_rating` (current Elo rating, defaults to 1500.0)
+- `comparison_count` (total number of comparisons, used to determine K-factor)
 
 ### Task States
 

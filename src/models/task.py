@@ -42,8 +42,9 @@ class Task:
 
     # Priority system
     base_priority: int = 2  # Default to Medium
-    priority_adjustment: float = 0.0
-    comparison_losses: int = 0  # Count of comparison losses for exponential decay
+    priority_adjustment: float = 0.0  # DEPRECATED: Use elo_rating instead
+    comparison_count: int = 0  # Total number of comparisons (renamed from comparison_losses)
+    elo_rating: float = 1500.0  # Elo rating for tiered priority refinement
 
     # Urgency system
     due_date: Optional[date] = None
@@ -81,12 +82,19 @@ class Task:
 
     def get_effective_priority(self) -> float:
         """
-        Calculate the effective priority after adjustments.
+        Calculate the effective priority using Elo rating system.
+
+        Converts the task's Elo rating to an effective priority within
+        the appropriate band based on base_priority:
+        - High (base=3): [2.0, 3.0]
+        - Medium (base=2): [1.0, 2.0]
+        - Low (base=1): [0.0, 1.0]
 
         Returns:
-            Base priority minus accumulated adjustments
+            Effective priority within the base_priority band
         """
-        return float(self.base_priority) - self.priority_adjustment
+        from ..algorithms.priority import calculate_effective_priority
+        return calculate_effective_priority(self)
 
     def get_priority_enum(self) -> Priority:
         """

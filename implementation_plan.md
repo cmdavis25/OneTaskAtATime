@@ -99,9 +99,9 @@ OneTaskAtATime/
 - Migration system for schema updates
 
 **Algorithms** (`src/algorithms/`)
-- `priority.py`: Calculate urgency (1-3) and effective priority
-- `ranking.py`: Rank tasks by total score (priority + urgency)
-- `comparison.py`: Resolve tied tasks through user comparison
+- `priority.py`: Calculate urgency (1-3) and effective priority (Elo-based)
+- `ranking.py`: Rank tasks by importance score (effective_priority × urgency)
+- `comparison_service.py`: Resolve tied tasks through Elo-based user comparison
 - `resurfacing.py`: Surface deferred/delegated/someday tasks
 
 **UI Components** (`src/ui/`)
@@ -117,17 +117,23 @@ OneTaskAtATime/
 
 ### Importance Calculation
 - **Base Priority**: 1 (Low), 2 (Medium), 3 (High)
-- **Priority Adjustment**: Incremented through comparison as detailed in [CLAUDE.md](CLAUDE.md)
-- **Effective Priority**: base_priority - priority_adjustment
+- **Elo Rating**: Standard Elo system (starts at 1500, typically ranges 1000-2000)
+- **Effective Priority**: Elo rating mapped to band based on Base Priority
+  - High (base=3): effective priority ∈ [2.0, 3.0]
+  - Medium (base=2): effective priority ∈ [1.0, 2.0]
+  - Low (base=1): effective priority ∈ [0.0, 1.0]
 - **Urgency Score**: 1-3 based on days until due date (earliest = 3, latest = 1)
-- **Importance Score**: effective_priority x urgency_score (max = 9)
+- **Importance Score**: effective_priority × urgency_score (max = 9)
 
-### Comparison Resolution
-1. Get all tasks with top score (within epsilon = 0.01)
+### Comparison Resolution (Elo System)
+1. Get all tasks with top importance score (within epsilon = 0.01)
 2. If single task: display in Focus Mode
 3. If multiple tied: present pair for user comparison
-4. Winner unchanged, loser decremented by configurable amount
-5. Repeat until single winner emerges
+4. Update both tasks' Elo ratings using standard Elo formula:
+   - New Rating = Old Rating + K × (Actual Score - Expected Score)
+   - K-factor: 32 for new tasks (< 10 comparisons), 16 for established tasks
+5. Effective priority recalculated from new Elo rating within appropriate band
+6. Repeat until single winner emerges
 
 ### Task Resurfacing
 - **Deferred Tasks**: Surface when start_date arrives (check hourly)
@@ -180,10 +186,12 @@ OneTaskAtATime/
 ### Phase 3: Comparison UI
 - Implement tie detection
 - Build side-by-side comparison dialog (QHBoxLayout)
+- Implement Elo rating system with tiered base priority bands
 - Store comparison history in database
-- Add menu option to reset adjustments
+- Add menu option to reset Elo ratings
+- Configure K-factors (32 for new tasks, 16 for established)
 
-**Deliverable**: Functional priority conflict resolution
+**Deliverable**: Functional Elo-based priority conflict resolution
 
 **Status**: ✅ Complete - See [PHASE3_STATUS.md](PHASE3_STATUS.md) for details
 
@@ -267,8 +275,8 @@ OneTaskAtATime/
 
 ## Critical Files to Implement
 
-1. **src/algorithms/priority.py** - Priority/urgency calculation (drives Focus Mode)
-2. **src/algorithms/comparison.py** - Comparison-based ranking
+1. **src/algorithms/priority.py** - Elo-based priority/urgency calculation (drives Focus Mode)
+2. **src/services/comparison_service.py** - Elo-based comparison ranking
 3. **src/database/schema.py** - SQLite schema definitions
 4. **src/ui/focus_mode.py** - Main Focus Mode widget (core feature)
 5. **src/algorithms/resurfacing.py** - Task resurfacing logic
@@ -312,7 +320,7 @@ OneTaskAtATime/
 ## Success Metrics
 
 ✅ **Focus Mode**: Presents ONE task at a time
-✅ **Priority resolution**: Comparison-based ranking eliminates "all high priority" problem
+✅ **Priority resolution**: Elo-based comparison ranking eliminates "all high priority" problem
 ✅ **No purgatory**: Strategic resurfacing of deferred/delegated/someday tasks
 ✅ **Flat structure**: Tags instead of hierarchies
 ✅ **Blocker awareness**: Capture postpone reasons and create dependencies
