@@ -262,7 +262,9 @@ See [PHASE4_STATUS.md](PHASE4_STATUS.md) for details.
 
 **Phase 5: Dependency & Blocker System** ✅ COMPLETE
 
-The postpone workflow system is now fully functional with:
+The postpone workflow system is now fully functional with core workflows AND enhanced features:
+
+**Core Workflows:**
 - Postpone history tracking in database (PostponeHistoryDAO)
 - Three integrated workflows triggered from postpone dialog:
   - Blocker creation (new or existing task with field inheritance)
@@ -271,18 +273,26 @@ The postpone workflow system is now fully functional with:
 - Field inheritance patterns (priority, urgency, organization preserved)
 - Visual dependency indicators in task list (⛔ icon with tooltips)
 - Inline workflow execution (blocker/dependency/subtask dialogs appear within defer flow)
-- Consistent error handling with user-friendly messages
 - Postpone recording integrated into defer and delegate operations
 
-See [PHASE5_STATUS.md](PHASE5_STATUS.md) for details.
+**Enhanced Features:**
+- **Pattern Detection & Reflection System**: Mandatory reflection dialogs when postpone patterns detected (2nd+ same reason or 3rd+ total postpones)
+- **Dependency Graph Visualization**: Text-based tree view of task dependency chains with circular detection (right-click → "View Dependency Graph")
+- **Analytics Dashboard**: 4-panel postpone analytics (reason breakdown, most postponed tasks, recent activity, action summary)
+- **Disposition Actions**: Direct state changes from reflection (Someday/Maybe, Trash) to resolve chronic patterns
+- **Smart Time Formatting**: Relative time display ("2 hr ago", "Yesterday at 3:00 PM")
+- **Export Functionality**: Save dependency graphs to text files
+
+See [PHASE5_STATUS.md](PHASE5_STATUS.md) for complete details.
 
 **Next Phase: Future Enhancements**
 
 Potential future improvements:
-- Dependency graph visualization (tree view of task chains)
-- Analytics dashboard (postpone patterns and statistics)
-- Smart suggestions based on postpone history
+- Unit tests for enhanced features
 - Focus Mode blocker display in metadata section
-- Enhanced dependency cycle detection UI feedback
+- Postpone pattern heatmaps (calendar view)
+- Advanced analytics with date range filters
+- Task velocity metrics (completion rate, time to complete)
+- Exportable analytics reports (CSV, JSON)
 
 See [implementation_plan.md](implementation_plan.md) for the full development roadmap.
