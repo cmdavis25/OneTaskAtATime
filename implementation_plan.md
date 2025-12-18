@@ -228,6 +228,8 @@ OneTaskAtATime/
 
 **Detailed Plan**: See [phase_5_plan.md](phase_5_plan.md)
 
+**Status**: ✅ Complete - See [PHASE5_STATUS.md](PHASE5_STATUS.md) for details
+
 ### Phase 6: Resurfacing System
 - Implement APScheduler background jobs
 - Build Windows notification system (win10toast)
