@@ -199,7 +199,13 @@ class MainWindow(QMainWindow):
         context_filter = self.focus_mode.get_active_context_filter()
         tag_filters = self.focus_mode.get_active_tag_filters()
 
-        # First check if there are tied tasks
+        # First check if there are new tasks needing initial ranking
+        if self._check_and_handle_new_tasks():
+            # New tasks were ranked, refresh again to show the top task
+            self._refresh_focus_task()
+            return
+
+        # Check if there are tied tasks
         tied_tasks = self.task_service.get_tied_tasks(
             context_filter=context_filter,
             tag_filters=tag_filters
@@ -214,6 +220,14 @@ class MainWindow(QMainWindow):
                 context_filter=context_filter,
                 tag_filters=tag_filters
             )
+
+            # If no task is available, prompt user to review deferred/postponed tasks
+            if task is None:
+                if self._prompt_review_deferred_tasks():
+                    # User activated some tasks, refresh to show them
+                    self._refresh_focus_task()
+                    return
+
             self.focus_mode.set_task(task)
             self._update_status_bar()
 
@@ -343,6 +357,105 @@ class MainWindow(QMainWindow):
 
         # Note: Dependency workflow doesn't need handling here because
         # DependencySelectionDialog saves dependencies directly
+
+    def _prompt_review_deferred_tasks(self) -> bool:
+        """
+        Prompt user to review deferred/postponed tasks when no active tasks are available.
+
+        Returns:
+            True if user activated tasks, False otherwise
+        """
+        # Check if there are any deferred or postponed tasks
+        deferred_tasks = self.task_service.get_tasks_by_state(TaskState.DEFERRED)
+
+        if not deferred_tasks:
+            # No reviewable tasks, nothing to do
+            return False
+
+        # Show review dialog
+        from .review_deferred_dialog import ReviewDeferredDialog
+
+        dialog = ReviewDeferredDialog(self.db_connection, parent=self)
+        if dialog.exec_():
+            # User activated some tasks
+            self.statusBar().showMessage("Tasks activated successfully", 3000)
+            return True
+
+        return False
+
+    def _check_and_handle_new_tasks(self) -> bool:
+        """
+        Check for new tasks (comparison_count = 0) and prompt for initial ranking.
+
+        Returns:
+            True if new tasks were found and user completed ranking, False otherwise
+        """
+        from ..algorithms.initial_ranking import (
+            check_for_new_tasks,
+            get_ranking_candidates,
+            assign_elo_ratings_from_ranking
+        )
+        from .sequential_ranking_dialog import SequentialRankingDialog
+
+        # Get all tasks to check for new ones
+        all_tasks = self.task_service.get_all_tasks()
+
+        # Check if there are new tasks in any priority band
+        has_new, priority_band, new_tasks = check_for_new_tasks(all_tasks)
+
+        if not has_new:
+            return False
+
+        # Get ranking candidates (new tasks + top/bottom existing tasks)
+        candidates = get_ranking_candidates(all_tasks, new_tasks, priority_band)
+
+        # Separate new from existing for dialog display
+        existing_tasks = [t for t in candidates if t.comparison_count > 0]
+        top_existing = max(existing_tasks, key=lambda t: t.elo_rating) if existing_tasks else None
+        bottom_existing = min(existing_tasks, key=lambda t: t.elo_rating) if existing_tasks else None
+
+        # Show sequential ranking dialog
+        dialog = SequentialRankingDialog(
+            new_tasks=new_tasks,
+            top_existing=top_existing,
+            bottom_existing=bottom_existing,
+            priority_band=priority_band,
+            db_connection=self.db_connection,
+            parent=self
+        )
+
+        if dialog.exec_():
+            # User completed ranking
+            ranked_tasks = dialog.get_ranked_tasks()
+
+            # Calculate Elo ratings based on ranking
+            top_elo = top_existing.elo_rating if top_existing else None
+            bottom_elo = bottom_existing.elo_rating if bottom_existing else None
+
+            task_elo_assignments = assign_elo_ratings_from_ranking(
+                ranked_tasks,
+                top_elo,
+                bottom_elo,
+                priority_band
+            )
+
+            # Update each task's Elo rating in the database
+            for task, new_elo in task_elo_assignments:
+                task.elo_rating = new_elo
+                # Mark as having been in at least one comparison
+                # (even though this is interpolation, not actual comparison)
+                task.comparison_count = 1
+                self.task_service.update_task(task)
+
+            self.statusBar().showMessage(
+                f"Ranked {len(ranked_tasks)} new task{'s' if len(ranked_tasks) != 1 else ''} "
+                f"in {['Low', 'Medium', 'High'][priority_band - 1]} priority band",
+                3000
+            )
+            return True
+
+        # User skipped ranking
+        return False
 
     def _handle_tied_tasks(self, tied_tasks):
         """

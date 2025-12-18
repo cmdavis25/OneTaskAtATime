@@ -103,11 +103,30 @@ class DatabaseSchema:
                 resurface_count INTEGER DEFAULT 0,
                 -- How many times task has been resurfaced
 
+                -- Recurrence fields
+                is_recurring INTEGER DEFAULT 0,
+                -- Whether this task repeats on completion (0=False, 1=True)
+                recurrence_pattern TEXT,
+                -- JSON string defining recurrence rules
+                recurrence_parent_id INTEGER,
+                -- ID of the first task in recurring series
+                share_elo_rating INTEGER DEFAULT 0,
+                -- Whether Elo rating is shared across series (0=False, 1=True)
+                shared_elo_rating REAL,
+                -- Shared Elo pool (if share_elo_rating is True)
+                shared_comparison_count INTEGER,
+                -- Shared comparison count across series
+                recurrence_end_date DATE,
+                -- Optional date when recurrence stops
+                occurrence_count INTEGER DEFAULT 0,
+                -- Number of times this task has recurred
+
                 -- Metadata
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-                FOREIGN KEY (context_id) REFERENCES contexts(id) ON DELETE SET NULL
+                FOREIGN KEY (context_id) REFERENCES contexts(id) ON DELETE SET NULL,
+                FOREIGN KEY (recurrence_parent_id) REFERENCES tasks(id) ON DELETE CASCADE
             )
             """,
 
@@ -197,6 +216,8 @@ class DatabaseSchema:
             "CREATE INDEX IF NOT EXISTS idx_tasks_follow_up_date ON tasks(follow_up_date)",
             "CREATE INDEX IF NOT EXISTS idx_tasks_context_id ON tasks(context_id)",
             "CREATE INDEX IF NOT EXISTS idx_tasks_base_priority ON tasks(base_priority)",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_is_recurring ON tasks(is_recurring)",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_parent ON tasks(recurrence_parent_id)",
 
             # Dependencies indexes
             "CREATE INDEX IF NOT EXISTS idx_dependencies_blocked_task ON dependencies(blocked_task_id)",
@@ -397,3 +418,62 @@ class DatabaseSchema:
 
         db_connection.commit()
         print("Migration to Elo rating system complete.")
+
+    @staticmethod
+    def migrate_to_recurring_tasks(db_connection: sqlite3.Connection) -> None:
+        """
+        Migrate existing database to support recurring tasks.
+
+        This migration:
+        1. Adds recurrence-related columns to tasks table
+        2. Creates indexes for recurrence queries
+        3. Updates schema version
+
+        Args:
+            db_connection: Active SQLite database connection
+        """
+        cursor = db_connection.cursor()
+
+        # Check if migration is already complete
+        try:
+            cursor.execute("SELECT is_recurring FROM tasks LIMIT 1")
+            migration_done = True
+        except sqlite3.OperationalError:
+            migration_done = False
+
+        if migration_done:
+            return  # Already migrated
+
+        print("Migrating database to support recurring tasks...")
+
+        # Add new columns to tasks table
+        recurrence_columns = [
+            "ALTER TABLE tasks ADD COLUMN is_recurring INTEGER DEFAULT 0",
+            "ALTER TABLE tasks ADD COLUMN recurrence_pattern TEXT",
+            "ALTER TABLE tasks ADD COLUMN recurrence_parent_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE",
+            "ALTER TABLE tasks ADD COLUMN share_elo_rating INTEGER DEFAULT 0",
+            "ALTER TABLE tasks ADD COLUMN shared_elo_rating REAL",
+            "ALTER TABLE tasks ADD COLUMN shared_comparison_count INTEGER",
+            "ALTER TABLE tasks ADD COLUMN recurrence_end_date DATE",
+            "ALTER TABLE tasks ADD COLUMN occurrence_count INTEGER DEFAULT 0"
+        ]
+
+        for sql in recurrence_columns:
+            try:
+                cursor.execute(sql)
+            except sqlite3.OperationalError as e:
+                # Column might already exist
+                if "duplicate column name" not in str(e).lower():
+                    raise
+
+        # Create indexes for recurrence queries
+        recurrence_indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_tasks_is_recurring ON tasks(is_recurring)",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_parent ON tasks(recurrence_parent_id)"
+        ]
+
+        for sql in recurrence_indexes:
+            cursor.execute(sql)
+
+        db_connection.commit()
+        print("Migration to recurring tasks complete.")

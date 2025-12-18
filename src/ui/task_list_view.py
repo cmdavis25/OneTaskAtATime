@@ -15,6 +15,7 @@ from PyQt5.QtGui import QColor, QBrush
 from typing import List, Optional
 from datetime import date
 from ..models import Task, TaskState
+from ..models.recurrence_pattern import RecurrencePattern
 from ..database.connection import DatabaseConnection
 from ..services.task_service import TaskService
 from ..database.context_dao import ContextDAO
@@ -64,6 +65,7 @@ class TaskListView(QWidget):
         # Column configuration
         self.all_columns = {
             "ID": "ID",
+            "Recurring": "Recurring",
             "Title": "Title",
             "Dependencies": "Dependencies",
             "Importance": "Importance",
@@ -104,6 +106,26 @@ class TaskListView(QWidget):
         except Exception as e:
             print(f"Error loading project tags: {e}")
             self.project_tags = {}
+
+    def _format_recurrence_pattern(self, pattern_json: Optional[str]) -> str:
+        """
+        Convert JSON pattern to human-readable string for tooltip.
+
+        Args:
+            pattern_json: JSON string representation of recurrence pattern
+
+        Returns:
+            Human-readable description of the pattern
+        """
+        if not pattern_json:
+            return ""
+
+        try:
+            pattern = RecurrencePattern.from_json(pattern_json)
+            return pattern.to_human_readable()
+        except (ValueError, KeyError) as e:
+            print(f"Error formatting recurrence pattern: {e}")
+            return "Invalid pattern"
 
     def _init_ui(self):
         """Initialize the user interface."""
@@ -300,9 +322,9 @@ class TaskListView(QWidget):
 
         # Task table
         self.task_table = QTableWidget()
-        self.task_table.setColumnCount(13)
+        self.task_table.setColumnCount(14)
         self.task_table.setHorizontalHeaderLabels([
-            "ID", "Title", "Dependencies", "Importance", "Priority", "Effective Priority", "Start Date", "Due Date", "State", "Context", "Project Tags", "Delegated To", "Follow-Up Date"
+            "ID", "Recurring", "Title", "Dependencies", "Importance", "Priority", "Effective Priority", "Start Date", "Due Date", "State", "Context", "Project Tags", "Delegated To", "Follow-Up Date"
         ])
 
         # Configure table appearance
@@ -317,18 +339,19 @@ class TaskListView(QWidget):
 
         # Set initial column widths
         header.resizeSection(0, 50)   # ID
-        header.resizeSection(1, 300)  # Title
-        header.resizeSection(2, 100)  # Dependencies
-        header.resizeSection(3, 100)  # Importance
-        header.resizeSection(4, 80)   # Priority
-        header.resizeSection(5, 120)  # Effective Priority
-        header.resizeSection(6, 100)  # Start Date
-        header.resizeSection(7, 100)  # Due Date
-        header.resizeSection(8, 100)  # State
-        header.resizeSection(9, 100)  # Context
-        header.resizeSection(10, 120) # Project Tags
-        header.resizeSection(11, 120) # Delegated To
-        header.resizeSection(12, 120) # Follow-Up Date
+        header.resizeSection(1, 50)   # Recurring
+        header.resizeSection(2, 300)  # Title
+        header.resizeSection(3, 100)  # Dependencies
+        header.resizeSection(4, 100)  # Importance
+        header.resizeSection(5, 80)   # Priority
+        header.resizeSection(6, 120)  # Effective Priority
+        header.resizeSection(7, 100)  # Start Date
+        header.resizeSection(8, 100)  # Due Date
+        header.resizeSection(9, 100)  # State
+        header.resizeSection(10, 100) # Context
+        header.resizeSection(11, 120) # Project Tags
+        header.resizeSection(12, 120) # Delegated To
+        header.resizeSection(13, 120) # Follow-Up Date
 
         # Make the last visible column stretch to fill remaining space
         header.setStretchLastSection(True)
@@ -550,20 +573,24 @@ class TaskListView(QWidget):
             priority_names = {1: "Low", 2: "Medium", 3: "High"}
 
             # Prepare all column data
+            recurring_symbol = "🔁" if task.is_recurring else ""
+            recurring_tooltip = self._format_recurrence_pattern(task.recurrence_pattern) if task.is_recurring else ""
+
             column_data = {
-                "ID": (str(task.id), task.id),
-                "Title": (task.title, None),
-                "Dependencies": (self._get_dependencies_str(task), None),
-                "Importance": (f"{importance:.2f}", importance),
-                "Priority": (priority_names.get(task.base_priority, "Unknown"), task.base_priority),
-                "Effective Priority": (f"{task.get_effective_priority():.2f}", task.get_effective_priority()),
-                "Start Date": (task.start_date.strftime("%Y-%m-%d") if task.start_date else "", task.start_date if task.start_date else date.max),
-                "Due Date": (task.due_date.strftime("%Y-%m-%d") if task.due_date else "", task.due_date if task.due_date else date.max),
-                "State": (task.state.value.title(), None),
-                "Context": (self.contexts.get(task.context_id, "") if task.context_id else "", None),
-                "Project Tags": (", ".join([self.project_tags.get(tag_id, f"Tag#{tag_id}") for tag_id in task.project_tags]), None),
-                "Delegated To": (task.delegated_to if task.delegated_to else "", None),
-                "Follow-Up Date": (task.follow_up_date.strftime("%Y-%m-%d") if task.follow_up_date else "", task.follow_up_date if task.follow_up_date else date.max)
+                "ID": (str(task.id), task.id, None),
+                "Recurring": (recurring_symbol, None, recurring_tooltip),
+                "Title": (task.title, None, None),
+                "Dependencies": (self._get_dependencies_str(task), None, None),
+                "Importance": (f"{importance:.2f}", importance, None),
+                "Priority": (priority_names.get(task.base_priority, "Unknown"), task.base_priority, None),
+                "Effective Priority": (f"{task.get_effective_priority():.2f}", task.get_effective_priority(), None),
+                "Start Date": (task.start_date.strftime("%Y-%m-%d") if task.start_date else "", task.start_date if task.start_date else date.max, None),
+                "Due Date": (task.due_date.strftime("%Y-%m-%d") if task.due_date else "", task.due_date if task.due_date else date.max, None),
+                "State": (task.state.value.title(), None, None),
+                "Context": (self.contexts.get(task.context_id, "") if task.context_id else "", None, None),
+                "Project Tags": (", ".join([self.project_tags.get(tag_id, f"Tag#{tag_id}") for tag_id in task.project_tags]), None, None),
+                "Delegated To": (task.delegated_to if task.delegated_to else "", None, None),
+                "Follow-Up Date": (task.follow_up_date.strftime("%Y-%m-%d") if task.follow_up_date else "", task.follow_up_date if task.follow_up_date else date.max, None)
             }
 
             # Populate only visible columns
@@ -572,7 +599,7 @@ class TaskListView(QWidget):
                     continue
 
                 col_idx = self.column_indices[col_name]
-                text, user_data = column_data[col_name]
+                text, user_data, tooltip = column_data[col_name]
 
                 item = QTableWidgetItem(text)
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -580,10 +607,19 @@ class TaskListView(QWidget):
                 if user_data is not None:
                     item.setData(Qt.UserRole, user_data)
 
+                # Set tooltip if provided
+                if tooltip:
+                    item.setToolTip(tooltip)
+
                 # Special formatting for Title column
                 if col_name == "Title":
                     # Add tooltip showing full title
                     item.setToolTip(task.title)
+
+                # Special formatting for Recurring column
+                if col_name == "Recurring":
+                    # Center-align the recurring symbol
+                    item.setTextAlignment(Qt.AlignCenter)
 
                 # Special formatting for State column
                 if col_name == "State":

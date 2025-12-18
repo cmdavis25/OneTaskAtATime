@@ -34,6 +34,14 @@ class Task:
         updated_at: Last modification timestamp
         project_tags: List of project tag IDs (loaded separately)
         blocking_task_ids: List of task IDs this task depends on
+        is_recurring: Whether this task repeats on completion
+        recurrence_pattern: JSON string defining recurrence rules
+        recurrence_parent_id: ID of the first task in recurring series
+        share_elo_rating: Whether Elo rating is shared across series
+        shared_elo_rating: Shared Elo pool (if share_elo_rating is True)
+        shared_comparison_count: Shared comparison count across series
+        recurrence_end_date: Optional date when recurrence stops
+        occurrence_count: Number of times this task has recurred
     """
 
     # Core fields
@@ -79,6 +87,16 @@ class Task:
     # Related data (not stored directly in tasks table)
     project_tags: List[int] = field(default_factory=list)
     blocking_task_ids: List[int] = field(default_factory=list)
+
+    # Recurrence fields
+    is_recurring: bool = False
+    recurrence_pattern: Optional[str] = None  # JSON string
+    recurrence_parent_id: Optional[int] = None  # Series anchor
+    share_elo_rating: bool = False  # Configurable Elo sharing
+    shared_elo_rating: Optional[float] = None  # Shared pool if enabled
+    shared_comparison_count: Optional[int] = None  # Shared count
+    recurrence_end_date: Optional[date] = None  # Optional stop date
+    occurrence_count: int = 0  # Tracks iteration number
 
     def get_effective_priority(self) -> float:
         """

@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QTextEdit, QComboBox, QFormLayout,
     QCheckBox, QListWidget, QListWidgetItem, QGroupBox, QScrollArea,
-    QWidget, QMessageBox, QCalendarWidget
+    QWidget, QMessageBox, QCalendarWidget, QSpinBox
 )
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import QIcon
@@ -18,6 +18,7 @@ from ..models.task import Task
 from ..models.context import Context
 from ..models.project_tag import ProjectTag
 from ..models.enums import Priority, TaskState
+from ..models.recurrence_pattern import RecurrencePattern, RecurrenceType
 from ..database.connection import DatabaseConnection
 from ..database.context_dao import ContextDAO
 from ..database.project_tag_dao import ProjectTagDAO
@@ -60,6 +61,8 @@ class EnhancedTaskFormDialog(QDialog):
         self.contexts: List[Context] = []
         self.project_tags: List[ProjectTag] = []
         self.dependencies: List[int] = []  # List of blocking task IDs
+        self.advanced_recurrence_pattern: Optional[RecurrencePattern] = None  # Stores advanced pattern from dialog
+
         if db_connection:
             self._load_reference_data()
             if task and task.id:
@@ -225,17 +228,19 @@ class EnhancedTaskFormDialog(QDialog):
         state_layout = QFormLayout()
         state_layout.setSpacing(10)
 
-        # State (only show for editing existing tasks)
-        if not self.is_new:
-            self.state_combo = QComboBox()
-            self.state_combo.addItem("Active", TaskState.ACTIVE.value)
-            self.state_combo.addItem("Deferred", TaskState.DEFERRED.value)
-            self.state_combo.addItem("Delegated", TaskState.DELEGATED.value)
-            self.state_combo.addItem("Someday/Maybe", TaskState.SOMEDAY.value)
-            self.state_combo.addItem("Completed", TaskState.COMPLETED.value)
-            self.state_combo.addItem("Trash", TaskState.TRASH.value)
-            self.state_combo.currentTextChanged.connect(self._on_state_changed)
-            state_layout.addRow("State:", self.state_combo)
+        # State (available for both new and existing tasks)
+        self.state_combo = QComboBox()
+        self.state_combo.addItem("Active", TaskState.ACTIVE.value)
+        self.state_combo.addItem("Deferred", TaskState.DEFERRED.value)
+        self.state_combo.addItem("Delegated", TaskState.DELEGATED.value)
+        self.state_combo.addItem("Someday/Maybe", TaskState.SOMEDAY.value)
+        self.state_combo.addItem("Completed", TaskState.COMPLETED.value)
+        self.state_combo.addItem("Trash", TaskState.TRASH.value)
+        self.state_combo.currentTextChanged.connect(self._on_state_changed)
+        # Default to Active for new tasks
+        if self.is_new:
+            self.state_combo.setCurrentIndex(0)  # Active
+        state_layout.addRow("State:", self.state_combo)
 
         # Start date (for deferred tasks)
         start_date_layout = QHBoxLayout()
@@ -298,6 +303,101 @@ class EnhancedTaskFormDialog(QDialog):
 
         delegation_group.setLayout(delegation_layout)
         form_layout.addWidget(delegation_group)
+
+        # === Recurrence ===
+        recurrence_group = QGroupBox("Recurrence")
+        recurrence_layout = QVBoxLayout()
+        recurrence_layout.setSpacing(10)
+
+        # Enable recurrence checkbox
+        self.is_recurring_check = QCheckBox("Make this a recurring task")
+        self.is_recurring_check.stateChanged.connect(self._on_recurring_toggled)
+        recurrence_layout.addWidget(self.is_recurring_check)
+
+        # Recurrence options container
+        self.recurrence_options_widget = QWidget()
+        recurrence_options_layout = QFormLayout()
+        recurrence_options_layout.setSpacing(10)
+
+        # Pattern type selector
+        pattern_layout = QHBoxLayout()
+        self.recurrence_type_combo = QComboBox()
+        self.recurrence_type_combo.addItem("Daily", RecurrenceType.DAILY.value)
+        self.recurrence_type_combo.addItem("Weekly", RecurrenceType.WEEKLY.value)
+        self.recurrence_type_combo.addItem("Monthly", RecurrenceType.MONTHLY.value)
+        self.recurrence_type_combo.addItem("Yearly", RecurrenceType.YEARLY.value)
+        self.recurrence_type_combo.addItem("Custom", RecurrenceType.CUSTOM.value)
+        self.recurrence_type_combo.currentIndexChanged.connect(self._on_recurrence_type_changed)
+        pattern_layout.addWidget(self.recurrence_type_combo)
+
+        # Interval spinner
+        interval_container = QHBoxLayout()
+        interval_container.addWidget(QLabel("every"))
+        self.recurrence_interval_spin = QSpinBox()
+        self.recurrence_interval_spin.setMinimum(1)
+        self.recurrence_interval_spin.setMaximum(365)
+        self.recurrence_interval_spin.setValue(1)
+        interval_container.addWidget(self.recurrence_interval_spin)
+        self.recurrence_interval_label = QLabel("day(s)")
+        interval_container.addWidget(self.recurrence_interval_label)
+        interval_container.addStretch()
+        pattern_layout.addLayout(interval_container)
+        pattern_layout.addStretch()
+
+        recurrence_options_layout.addRow("Pattern:", pattern_layout)
+
+        # Advanced pattern button
+        advanced_layout = QHBoxLayout()
+        self.recurrence_details_btn = QPushButton("Advanced Pattern...")
+        self.recurrence_details_btn.clicked.connect(self._on_recurrence_details_clicked)
+        advanced_layout.addWidget(self.recurrence_details_btn)
+        advanced_layout.addStretch()
+        recurrence_options_layout.addRow("", advanced_layout)
+
+        # Elo sharing checkbox
+        self.share_elo_check = QCheckBox("Share priority rating across all occurrences")
+        self.share_elo_check.setToolTip(
+            "When enabled, all instances of this recurring task share the same Elo rating.\n"
+            "When disabled, each occurrence starts with a fresh Elo rating of 1500."
+        )
+        recurrence_options_layout.addRow("", self.share_elo_check)
+
+        # End date (optional)
+        end_date_layout = QHBoxLayout()
+        self.has_recurrence_end_check = QCheckBox("Stop recurring after")
+        self.has_recurrence_end_check.stateChanged.connect(self._on_recurrence_end_toggled)
+        end_date_layout.addWidget(self.has_recurrence_end_check)
+
+        self.recurrence_end_date_edit = QLineEdit()
+        self.recurrence_end_date_edit.setPlaceholderText("YYYY-MM-DD")
+        self.recurrence_end_date_edit.setMaximumWidth(120)
+        self.recurrence_end_date_edit.setEnabled(False)
+        end_date_layout.addWidget(self.recurrence_end_date_edit)
+
+        self.recurrence_end_calendar_btn = QPushButton("📅")
+        self.recurrence_end_calendar_btn.setMaximumWidth(40)
+        self.recurrence_end_calendar_btn.setEnabled(False)
+        self.recurrence_end_calendar_btn.clicked.connect(lambda: self._show_calendar(self.recurrence_end_date_edit))
+        end_date_layout.addWidget(self.recurrence_end_calendar_btn)
+
+        end_date_layout.addStretch()
+        recurrence_options_layout.addRow("End date:", end_date_layout)
+
+        self.recurrence_options_widget.setLayout(recurrence_options_layout)
+        self.recurrence_options_widget.setEnabled(False)  # Disabled by default
+        recurrence_layout.addWidget(self.recurrence_options_widget)
+
+        # Info label
+        self.recurrence_info_label = QLabel(
+            "Note: Recurring tasks must have a due date. The next occurrence will be created when you complete this task."
+        )
+        self.recurrence_info_label.setWordWrap(True)
+        self.recurrence_info_label.setStyleSheet("color: #666; font-size: 9pt; padding: 8px; background-color: #f8f9fa;")
+        self.recurrence_info_label.setVisible(False)
+        recurrence_layout.addWidget(self.recurrence_info_label)
+
+        recurrence_group.setLayout(recurrence_layout)
+        form_layout.addWidget(recurrence_group)
 
         # === Dependencies ===
         dependencies_group = QGroupBox("Dependencies")
@@ -386,6 +486,95 @@ class EnhancedTaskFormDialog(QDialog):
         """Handle state changes to show relevant fields."""
         # Could auto-enable/disable delegation fields based on state
         pass
+
+    def _on_recurring_toggled(self, state: int):
+        """Enable/disable recurrence options based on checkbox."""
+        enabled = state == Qt.Checked
+        self.recurrence_options_widget.setEnabled(enabled)
+        self.recurrence_info_label.setVisible(enabled)
+
+        # Validate due date if recurring is enabled
+        if enabled and not self.has_due_date_check.isChecked():
+            QMessageBox.warning(
+                self,
+                "Due Date Required",
+                "Recurring tasks must have a due date. Please set a due date first."
+            )
+            self.is_recurring_check.setChecked(False)
+            return
+
+    def _on_recurrence_type_changed(self, index: int):
+        """Update interval label based on selected recurrence type."""
+        recurrence_type = self.recurrence_type_combo.currentData()
+
+        if recurrence_type == RecurrenceType.DAILY.value:
+            self.recurrence_interval_label.setText("day(s)")
+        elif recurrence_type == RecurrenceType.WEEKLY.value:
+            self.recurrence_interval_label.setText("week(s)")
+        elif recurrence_type == RecurrenceType.MONTHLY.value:
+            self.recurrence_interval_label.setText("month(s)")
+        elif recurrence_type == RecurrenceType.YEARLY.value:
+            self.recurrence_interval_label.setText("year(s)")
+        else:  # CUSTOM
+            self.recurrence_interval_label.setText("period(s)")
+
+    def _on_recurrence_details_clicked(self):
+        """Open advanced pattern configuration dialog."""
+        from .recurrence_pattern_dialog import RecurrencePatternDialog
+
+        # Get current due date for preview
+        current_due_date = None
+        if self.has_due_date_check.isChecked():
+            date_str = self.due_date_edit.text().strip()
+            if date_str:
+                try:
+                    parts = date_str.split('-')
+                    current_due_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
+                except (ValueError, IndexError):
+                    pass
+
+        # Get current pattern if editing
+        current_pattern = None
+        try:
+            pattern_type = RecurrenceType(self.recurrence_type_combo.currentData())
+            interval = self.recurrence_interval_spin.value()
+            current_pattern = RecurrencePattern(type=pattern_type, interval=interval)
+        except Exception:
+            pass
+
+        # Open dialog
+        dialog = RecurrencePatternDialog(
+            pattern=current_pattern,
+            current_due_date=current_due_date,
+            parent=self
+        )
+
+        if dialog.exec_():
+            # User saved the pattern
+            pattern = dialog.get_pattern()
+            if pattern:
+                # Store the advanced pattern
+                self.advanced_recurrence_pattern = pattern
+
+                # Update the basic form controls to match
+                for i in range(self.recurrence_type_combo.count()):
+                    if self.recurrence_type_combo.itemData(i) == pattern.type.value:
+                        self.recurrence_type_combo.setCurrentIndex(i)
+                        break
+
+                self.recurrence_interval_spin.setValue(pattern.interval)
+
+                QMessageBox.information(
+                    self,
+                    "Pattern Saved",
+                    f"Advanced pattern configured:\n{pattern.to_human_readable()}"
+                )
+
+    def _on_recurrence_end_toggled(self, state: int):
+        """Enable/disable recurrence end date field based on checkbox."""
+        enabled = state == Qt.Checked
+        self.recurrence_end_date_edit.setEnabled(enabled)
+        self.recurrence_end_calendar_btn.setEnabled(enabled)
 
     def _show_calendar(self, date_field: QLineEdit):
         """Show calendar widget and populate the date field with selected date."""
@@ -659,12 +848,11 @@ class EnhancedTaskFormDialog(QDialog):
                 if tag_id in self.task.project_tags:
                     item.setSelected(True)
 
-        # State (only for existing tasks)
-        if not self.is_new:
-            for i in range(self.state_combo.count()):
-                if self.state_combo.itemData(i) == self.task.state.value:
-                    self.state_combo.setCurrentIndex(i)
-                    break
+        # State
+        for i in range(self.state_combo.count()):
+            if self.state_combo.itemData(i) == self.task.state.value:
+                self.state_combo.setCurrentIndex(i)
+                break
 
         # Start date
         if self.task.start_date:
@@ -681,6 +869,41 @@ class EnhancedTaskFormDialog(QDialog):
 
         # Update dependencies display
         self._update_dependencies_display()
+
+        # Recurrence
+        if self.task.is_recurring:
+            self.is_recurring_check.setChecked(True)
+
+            # Parse and load recurrence pattern
+            if self.task.recurrence_pattern:
+                try:
+                    pattern = RecurrencePattern.from_json(self.task.recurrence_pattern)
+
+                    # Store as advanced pattern if it has advanced configuration
+                    if pattern.days_of_week or pattern.day_of_month is not None or \
+                       pattern.week_of_month is not None or pattern.weekday_of_month is not None:
+                        self.advanced_recurrence_pattern = pattern
+
+                    # Set type
+                    for i in range(self.recurrence_type_combo.count()):
+                        if self.recurrence_type_combo.itemData(i) == pattern.type.value:
+                            self.recurrence_type_combo.setCurrentIndex(i)
+                            break
+
+                    # Set interval
+                    self.recurrence_interval_spin.setValue(pattern.interval)
+
+                except Exception as e:
+                    print(f"Error loading recurrence pattern: {e}")
+
+            # Elo sharing
+            if self.task.share_elo_rating:
+                self.share_elo_check.setChecked(True)
+
+            # End date
+            if self.task.recurrence_end_date:
+                self.has_recurrence_end_check.setChecked(True)
+                self.recurrence_end_date_edit.setText(self.task.recurrence_end_date.strftime("%Y-%m-%d"))
 
     def _on_save_clicked(self):
         """Validate and save the task."""
@@ -769,6 +992,77 @@ class EnhancedTaskFormDialog(QDialog):
         # Get delegation
         delegated_to = self.delegated_to_edit.text().strip() or None
 
+        # Get state
+        state_value = self.state_combo.currentData()
+        task_state = TaskState(state_value)
+
+        # Get recurrence fields
+        is_recurring = self.is_recurring_check.isChecked()
+        recurrence_pattern = None
+        recurrence_end_date = None
+        share_elo_rating = False
+
+        if is_recurring:
+            # Validate that due date is set
+            if not due_date:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Recurrence",
+                    "Recurring tasks must have a due date."
+                )
+                return None
+
+            # Build recurrence pattern
+            try:
+                # Use advanced pattern if configured via dialog
+                if self.advanced_recurrence_pattern:
+                    pattern = self.advanced_recurrence_pattern
+                else:
+                    # Use basic pattern from form
+                    pattern_type = RecurrenceType(self.recurrence_type_combo.currentData())
+                    interval = self.recurrence_interval_spin.value()
+
+                    pattern = RecurrencePattern(
+                        type=pattern_type,
+                        interval=interval
+                    )
+
+                recurrence_pattern = pattern.to_json()
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to create recurrence pattern: {str(e)}"
+                )
+                return None
+
+            # Get Elo sharing preference
+            share_elo_rating = self.share_elo_check.isChecked()
+
+            # Get end date
+            if self.has_recurrence_end_check.isChecked():
+                end_date_str = self.recurrence_end_date_edit.text().strip()
+                if end_date_str:
+                    try:
+                        parts = end_date_str.split('-')
+                        recurrence_end_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
+
+                        # Validate end date is after due date
+                        if recurrence_end_date <= due_date:
+                            QMessageBox.warning(
+                                self,
+                                "Invalid End Date",
+                                "Recurrence end date must be after the due date."
+                            )
+                            return None
+                    except (ValueError, IndexError):
+                        QMessageBox.warning(
+                            self,
+                            "Invalid Date",
+                            "Recurrence end date must be in YYYY-MM-DD format."
+                        )
+                        return None
+
         if self.is_new:
             # Create new task
             task = Task(
@@ -776,12 +1070,16 @@ class EnhancedTaskFormDialog(QDialog):
                 description=self.description_edit.toPlainText().strip() or None,
                 base_priority=self.priority_combo.currentData(),
                 due_date=due_date,
-                state=TaskState.ACTIVE,
+                state=task_state,
                 start_date=start_date,
                 delegated_to=delegated_to,
                 follow_up_date=follow_up_date,
                 context_id=context_id,
-                project_tags=selected_tags
+                project_tags=selected_tags,
+                is_recurring=is_recurring,
+                recurrence_pattern=recurrence_pattern,
+                share_elo_rating=share_elo_rating,
+                recurrence_end_date=recurrence_end_date
             )
         else:
             # Update existing task
@@ -795,9 +1093,10 @@ class EnhancedTaskFormDialog(QDialog):
             task.follow_up_date = follow_up_date
             task.context_id = context_id
             task.project_tags = selected_tags
-
-            # Update state (only for existing tasks)
-            state_value = self.state_combo.currentData()
-            task.state = TaskState(state_value)
+            task.state = task_state
+            task.is_recurring = is_recurring
+            task.recurrence_pattern = recurrence_pattern
+            task.share_elo_rating = share_elo_rating
+            task.recurrence_end_date = recurrence_end_date
 
         return task

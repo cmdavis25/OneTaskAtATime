@@ -9,10 +9,12 @@ from datetime import date, datetime
 from ..models.task import Task
 from ..models.enums import TaskState, PostponeReasonType, ActionTaken
 from ..models.postpone_record import PostponeRecord
+from ..models.recurrence_pattern import RecurrencePattern
 from ..database.task_dao import TaskDAO
 from ..database.postpone_history_dao import PostponeHistoryDAO
 from ..database.connection import DatabaseConnection
 from ..algorithms.ranking import get_next_focus_task, get_actionable_tasks, get_tied_tasks
+from .recurrence_service import RecurrenceService
 
 
 class TaskService:
@@ -146,7 +148,7 @@ class TaskService:
 
     def complete_task(self, task_id: int) -> Optional[Task]:
         """
-        Mark a task as completed.
+        Mark a task as completed. Generate next occurrence if recurring.
 
         Args:
             task_id: ID of task to complete
@@ -159,7 +161,13 @@ class TaskService:
             return None
 
         task.mark_completed()
-        return self.task_dao.update(task)
+        completed_task = self.task_dao.update(task)
+
+        # Handle recurring logic
+        if task.is_recurring:
+            self._generate_next_occurrence(completed_task)
+
+        return completed_task
 
     def defer_task(self, task_id: int, start_date: date,
                    reason: PostponeReasonType = PostponeReasonType.NOT_READY,
@@ -340,3 +348,60 @@ class TaskService:
             tasks = self.get_tasks_by_state(state)
             counts[state.value] = len(tasks)
         return counts
+
+    def _generate_next_occurrence(self, completed_task: Task) -> Optional[Task]:
+        """
+        Generate next occurrence of recurring task.
+
+        Steps:
+        1. Check if series should end (recurrence_end_date)
+        2. Parse recurrence pattern from JSON
+        3. Calculate next due date
+        4. Clone task with new due date
+        5. Handle Elo rating based on share_elo_rating flag:
+           - If True: Copy shared_elo_rating from parent
+           - If False: Reset to 1500.0 (independent)
+        6. Increment occurrence_count
+        7. Save new task instance
+
+        Args:
+            completed_task: The task that was just completed
+
+        Returns:
+            Newly created task or None if series ended
+        """
+        if not completed_task.is_recurring or not completed_task.recurrence_pattern:
+            return None
+
+        # Check if series should continue
+        completion_date = date.today()
+        if not RecurrenceService.should_continue_recurrence(completed_task, completion_date):
+            return None
+
+        # Parse recurrence pattern
+        try:
+            pattern = RecurrencePattern.from_json(completed_task.recurrence_pattern)
+        except (ValueError, KeyError) as e:
+            print(f"Error parsing recurrence pattern for task {completed_task.id}: {e}")
+            return None
+
+        # Calculate next due date from the original due date (or today if no due date)
+        # This ensures consistent scheduling regardless of when task is completed
+        base_date = completed_task.due_date if completed_task.due_date else completion_date
+        next_due_date = RecurrenceService.calculate_next_occurrence_date(pattern, base_date)
+
+        # Get shared Elo values if applicable
+        shared_elo, shared_count = RecurrenceService.get_shared_elo_values(completed_task)
+
+        # Clone task for next occurrence
+        next_task = RecurrenceService.clone_task_for_next_occurrence(
+            completed_task,
+            next_due_date,
+            shared_elo=shared_elo,
+            shared_comparison_count=shared_count
+        )
+
+        # Create the next occurrence in database
+        created_task = self.task_dao.create(next_task)
+
+        return created_task

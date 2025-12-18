@@ -93,6 +93,10 @@ class ComparisonService:
             abs(elo_change_loser)
         )
 
+        # Handle shared Elo rating for recurring tasks
+        self._sync_shared_elo(winner)
+        self._sync_shared_elo(loser)
+
         # Update both tasks in database
         updated_winner = self.task_dao.update(winner)
         updated_loser = self.task_dao.update(loser)
@@ -224,3 +228,40 @@ class ComparisonService:
             'expected_score': expected,
             'k_factor': k_factor
         }
+
+    def _sync_shared_elo(self, task: Task) -> None:
+        """
+        Synchronize shared Elo rating across recurring task series.
+
+        If share_elo_rating is True, update the shared pool and propagate
+        to the parent task in the series.
+
+        Args:
+            task: Task that was just compared
+        """
+        if not task.share_elo_rating:
+            return
+
+        # Update task's shared pool
+        task.shared_elo_rating = task.elo_rating
+        task.shared_comparison_count = task.comparison_count
+
+        # If this task has a parent, update the parent's shared pool
+        if task.recurrence_parent_id:
+            parent = self.task_dao.get_by_id(task.recurrence_parent_id)
+            if parent and parent.share_elo_rating:
+                parent.shared_elo_rating = task.elo_rating
+                parent.shared_comparison_count = task.comparison_count
+                self.task_dao.update(parent)
+
+        # If this task IS the parent, update all children in the series
+        elif task.is_recurring:
+            # This is the parent task - update all active children
+            all_tasks = self.task_dao.get_all()
+            for other_task in all_tasks:
+                if (other_task.recurrence_parent_id == task.id and
+                    other_task.share_elo_rating and
+                    other_task.id != task.id):  # Don't update self
+                    other_task.shared_elo_rating = task.elo_rating
+                    other_task.shared_comparison_count = task.comparison_count
+                    self.task_dao.update(other_task)
