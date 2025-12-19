@@ -259,7 +259,39 @@ class DatabaseSchema:
             ('elo_k_factor_new', '32', 'integer',
              'Elo rating adjustment sensitivity for new tasks (first 10 comparisons)'),
             ('elo_new_task_threshold', '10', 'integer',
-             'Number of comparisons before task uses base K-factor instead of new K-factor')
+             'Number of comparisons before task uses base K-factor instead of new K-factor'),
+
+            # Resurfacing intervals
+            ('delegated_check_time', '09:00', 'string',
+             'Time of day to check delegated tasks'),
+            ('someday_review_time', '18:00', 'string',
+             'Preferred time for someday review'),
+            ('last_someday_review_at', 'null', 'string',
+             'Last someday review timestamp'),
+            ('postpone_analysis_time', '18:00', 'string',
+             'Time of day to analyze postponement patterns'),
+
+            # Notification preferences
+            ('enable_toast_notifications', 'true', 'boolean',
+             'Enable Windows toast notifications'),
+            ('enable_inapp_notifications', 'true', 'boolean',
+             'Enable in-app notification panel'),
+            ('notification_retention_days', '30', 'integer',
+             'Days to keep old notifications'),
+            ('notify_deferred_activation', 'true', 'boolean',
+             'Notify when deferred tasks activate'),
+            ('notify_delegated_followup', 'true', 'boolean',
+             'Notify for delegated follow-ups'),
+            ('notify_someday_review', 'true', 'boolean',
+             'Notify for someday reviews'),
+            ('notify_postpone_intervention', 'true', 'boolean',
+             'Notify for postponement patterns'),
+
+            # Intervention thresholds
+            ('postpone_intervention_threshold', '3', 'integer',
+             'Postponements before intervention'),
+            ('postpone_pattern_days', '7', 'integer',
+             'Days window for pattern detection')
         ]
 
     @staticmethod
@@ -477,3 +509,87 @@ class DatabaseSchema:
 
         db_connection.commit()
         print("Migration to recurring tasks complete.")
+
+    @staticmethod
+    def migrate_to_notification_system(db_connection: sqlite3.Connection) -> None:
+        """
+        Migrate database to support notification system (Phase 6).
+
+        This migration:
+        1. Creates notifications table
+        2. Adds indexes for performance
+        3. Adds Phase 6 settings
+
+        Args:
+            db_connection: Active SQLite database connection
+        """
+        cursor = db_connection.cursor()
+
+        # Check if migration is already complete
+        try:
+            cursor.execute("SELECT id FROM notifications LIMIT 1")
+            migration_done = True
+        except sqlite3.OperationalError:
+            migration_done = False
+
+        if migration_done:
+            return  # Already migrated
+
+        print("Migrating database to support notification system...")
+
+        # Create notifications table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL CHECK(type IN ('info', 'warning', 'error')),
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_read INTEGER DEFAULT 0,
+                action_type TEXT,
+                action_data TEXT,
+                dismissed_at TIMESTAMP
+            )
+        """)
+
+        # Add indexes for performance
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_notifications_is_read
+            ON notifications(is_read)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_notifications_dismissed
+            ON notifications(dismissed_at)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_notifications_created
+            ON notifications(created_at)
+        """)
+
+        # Add Phase 6 settings (if they don't already exist)
+        phase6_settings = [
+            ('delegated_check_time', '09:00', 'string', 'Time of day to check delegated tasks'),
+            ('someday_review_time', '18:00', 'string', 'Preferred time for someday review'),
+            ('last_someday_review_at', 'null', 'string', 'Last someday review timestamp'),
+            ('postpone_analysis_time', '18:00', 'string', 'Time of day to analyze postponement patterns'),
+            ('enable_toast_notifications', 'true', 'boolean', 'Enable Windows toast notifications'),
+            ('enable_inapp_notifications', 'true', 'boolean', 'Enable in-app notification panel'),
+            ('notification_retention_days', '30', 'integer', 'Days to keep old notifications'),
+            ('notify_deferred_activation', 'true', 'boolean', 'Notify when deferred tasks activate'),
+            ('notify_delegated_followup', 'true', 'boolean', 'Notify for delegated follow-ups'),
+            ('notify_someday_review', 'true', 'boolean', 'Notify for someday reviews'),
+            ('notify_postpone_intervention', 'true', 'boolean', 'Notify for postponement patterns'),
+            ('postpone_intervention_threshold', '3', 'integer', 'Postponements before intervention'),
+            ('postpone_pattern_days', '7', 'integer', 'Days window for pattern detection')
+        ]
+
+        for key, value, value_type, description in phase6_settings:
+            cursor.execute("""
+                INSERT OR IGNORE INTO settings (key, value, value_type, description)
+                VALUES (?, ?, ?, ?)
+            """, (key, value, value_type, description))
+
+        db_connection.commit()
+        print("Migration to notification system complete.")

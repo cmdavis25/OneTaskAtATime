@@ -143,3 +143,35 @@ class SettingsDAO:
             return 'true' if value else 'false'
         else:
             return str(value)
+
+    # Convenience methods for typed retrieval
+    def get_int(self, key: str, default: int = 0) -> int:
+        """Get an integer setting value."""
+        value = self.get(key, default)
+        return int(value) if value is not None else default
+
+    def get_str(self, key: str, default: str = '') -> str:
+        """Get a string setting value."""
+        value = self.get(key, default)
+        return str(value) if value is not None else default
+
+    def get_bool(self, key: str, default: bool = False) -> bool:
+        """Get a boolean setting value."""
+        value = self.get(key, default)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.lower() in ('true', '1', 'yes')
+        return bool(value) if value is not None else default
+
+    def get_datetime(self, key: str, default: Optional[datetime] = None) -> Optional[datetime]:
+        """Get a datetime setting value."""
+        value = self.get(key, default)
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str) and value != 'null':
+            try:
+                return datetime.fromisoformat(value)
+            except (ValueError, AttributeError):
+                return default
+        return default

@@ -59,6 +59,7 @@ class FocusModeWidget(QWidget):
 
         self._load_contexts()
         self._load_project_tags()
+        self._load_filter_state()
         self._init_ui()
 
     def _load_contexts(self):
@@ -182,6 +183,9 @@ class FocusModeWidget(QWidget):
 
         filters_group.setLayout(filters_layout)
         layout.addWidget(filters_group)
+
+        # Update filter labels with loaded state
+        self._update_filter_labels()
 
     def _create_task_card(self, layout: QVBoxLayout):
         """Create the task card display area."""
@@ -489,12 +493,14 @@ class FocusModeWidget(QWidget):
         if dialog.exec_():
             self.active_context_filter = dialog.get_selected_context_id()
             self._update_filter_labels()
+            self._save_filter_state()
             self.filters_changed.emit()
 
     def _on_clear_context_filter(self):
         """Clear the context filter."""
         self.active_context_filter = None
         self._update_filter_labels()
+        self._save_filter_state()
         self.filters_changed.emit()
 
     def _on_select_tag_filters(self):
@@ -510,12 +516,14 @@ class FocusModeWidget(QWidget):
         if dialog.exec_():
             self.active_tag_filters = dialog.get_active_filter_ids()
             self._update_filter_labels()
+            self._save_filter_state()
             self.filters_changed.emit()
 
     def _on_clear_tag_filters(self):
         """Clear all project tag filters."""
         self.active_tag_filters.clear()
         self._update_filter_labels()
+        self._save_filter_state()
         self.filters_changed.emit()
 
     def _update_filter_labels(self):
@@ -540,3 +548,48 @@ class FocusModeWidget(QWidget):
                 if tag_id in self.project_tags
             ]
             self.tags_filter_label.setText(", ".join(filter_names) if filter_names else "All Project Tags")
+
+    def _load_filter_state(self):
+        """Load saved filter state from settings."""
+        try:
+            from ..database.settings_dao import SettingsDAO
+            settings_dao = SettingsDAO(self.db_connection.get_connection())
+
+            # Load context filter
+            context_filter = settings_dao.get('focus_mode.context_filter', None)
+            if context_filter == "NONE":
+                self.active_context_filter = "NONE"
+            elif context_filter is not None:
+                self.active_context_filter = context_filter
+
+            # Load tag filters
+            tag_filters = settings_dao.get('focus_mode.tag_filters', [])
+            self.active_tag_filters = set(tag_filters)
+
+        except Exception as e:
+            print(f"Error loading filter state: {e}")
+
+    def _save_filter_state(self):
+        """Save current filter state to settings."""
+        try:
+            from ..database.settings_dao import SettingsDAO
+            settings_dao = SettingsDAO(self.db_connection.get_connection())
+
+            # Save context filter
+            context_value = self.active_context_filter if self.active_context_filter is not None else None
+            if context_value == "NONE":
+                settings_dao.set('focus_mode.context_filter', "NONE", 'string', 'Focus Mode context filter')
+            elif context_value is not None:
+                settings_dao.set('focus_mode.context_filter', context_value, 'integer', 'Focus Mode context filter')
+            else:
+                settings_dao.delete('focus_mode.context_filter')
+
+            # Save tag filters
+            tag_list = list(self.active_tag_filters)
+            if tag_list:
+                settings_dao.set('focus_mode.tag_filters', tag_list, 'json', 'Focus Mode tag filters')
+            else:
+                settings_dao.delete('focus_mode.tag_filters')
+
+        except Exception as e:
+            print(f"Error saving filter state: {e}")

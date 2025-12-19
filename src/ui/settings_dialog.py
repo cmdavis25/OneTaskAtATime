@@ -1,0 +1,464 @@
+"""
+Settings Dialog for OneTaskAtATime application.
+
+Provides comprehensive settings management with tabbed interface for:
+- Resurfacing intervals and timing
+- Notification preferences
+- Intervention thresholds
+"""
+
+import sqlite3
+from PyQt5.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QTabWidget, QWidget, QFormLayout, QSpinBox, QTimeEdit,
+    QCheckBox, QGroupBox, QMessageBox
+)
+from PyQt5.QtCore import Qt, QTime, pyqtSignal
+from PyQt5.QtGui import QFont
+
+from ..database.settings_dao import SettingsDAO
+
+
+class SettingsDialog(QDialog):
+    """
+    Dialog for application settings configuration.
+
+    Provides tabbed interface for organizing settings into logical groups:
+    - Resurfacing: Task resurfacing intervals and timing
+    - Notifications: Notification channel preferences
+    - Triggers: Which events generate notifications
+    - Intervention: Postponement pattern detection thresholds
+    """
+
+    # Signal emitted when settings are saved
+    settings_saved = pyqtSignal()
+
+    def __init__(self, db_connection: sqlite3.Connection, parent=None):
+        """
+        Initialize settings dialog.
+
+        Args:
+            db_connection: Database connection
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.db_connection = db_connection
+        self.settings_dao = SettingsDAO(db_connection)
+
+        self._init_ui()
+        self._load_settings()
+
+    def _init_ui(self):
+        """Initialize the user interface."""
+        self.setWindowTitle("Application Settings")
+        self.setMinimumSize(600, 500)
+
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        self.setLayout(layout)
+
+        # Header
+        header_label = QLabel("Settings")
+        header_font = QFont()
+        header_font.setPointSize(14)
+        header_font.setBold(True)
+        header_label.setFont(header_font)
+        layout.addWidget(header_label)
+
+        # Tab widget
+        self.tab_widget = QTabWidget()
+
+        self.resurfacing_tab = self._create_resurfacing_tab()
+        self.notifications_tab = self._create_notifications_tab()
+        self.triggers_tab = self._create_triggers_tab()
+        self.intervention_tab = self._create_intervention_tab()
+
+        self.tab_widget.addTab(self.resurfacing_tab, "Resurfacing")
+        self.tab_widget.addTab(self.notifications_tab, "Notifications")
+        self.tab_widget.addTab(self.triggers_tab, "Notification Triggers")
+        self.tab_widget.addTab(self.intervention_tab, "Intervention")
+
+        layout.addWidget(self.tab_widget)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        save_btn = QPushButton("Save")
+        save_btn.clicked.connect(self._save_settings)
+        button_layout.addWidget(save_btn)
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+
+        layout.addLayout(button_layout)
+
+    def _create_resurfacing_tab(self) -> QWidget:
+        """Create the resurfacing settings tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        tab.setLayout(layout)
+
+        # Deferred tasks group
+        deferred_group = QGroupBox("Deferred Tasks")
+        deferred_form = QFormLayout()
+
+        self.deferred_check_hours_spin = QSpinBox()
+        self.deferred_check_hours_spin.setRange(1, 24)
+        self.deferred_check_hours_spin.setSuffix(" hours")
+        self.deferred_check_hours_spin.setToolTip("How often to check for deferred tasks becoming active")
+        deferred_form.addRow("Check Interval:", self.deferred_check_hours_spin)
+
+        deferred_group.setLayout(deferred_form)
+        layout.addWidget(deferred_group)
+
+        # Delegated tasks group
+        delegated_group = QGroupBox("Delegated Tasks")
+        delegated_form = QFormLayout()
+
+        self.delegated_check_time_edit = QTimeEdit()
+        self.delegated_check_time_edit.setDisplayFormat("HH:mm")
+        self.delegated_check_time_edit.setToolTip("Time of day to check for delegated tasks needing follow-up")
+        delegated_form.addRow("Check Time:", self.delegated_check_time_edit)
+
+        delegated_group.setLayout(delegated_form)
+        layout.addWidget(delegated_group)
+
+        # Someday tasks group
+        someday_group = QGroupBox("Someday/Maybe Tasks")
+        someday_form = QFormLayout()
+
+        self.someday_review_days_spin = QSpinBox()
+        self.someday_review_days_spin.setRange(1, 90)
+        self.someday_review_days_spin.setSuffix(" days")
+        self.someday_review_days_spin.setToolTip("How often to prompt for Someday/Maybe review")
+        someday_form.addRow("Review Interval:", self.someday_review_days_spin)
+
+        self.someday_review_time_edit = QTimeEdit()
+        self.someday_review_time_edit.setDisplayFormat("HH:mm")
+        self.someday_review_time_edit.setToolTip("Preferred time for someday review trigger")
+        someday_form.addRow("Review Time:", self.someday_review_time_edit)
+
+        someday_group.setLayout(someday_form)
+        layout.addWidget(someday_group)
+
+        # Postponement analysis group
+        postpone_group = QGroupBox("Postponement Analysis")
+        postpone_form = QFormLayout()
+
+        self.postpone_analysis_time_edit = QTimeEdit()
+        self.postpone_analysis_time_edit.setDisplayFormat("HH:mm")
+        self.postpone_analysis_time_edit.setToolTip("Time of day to analyze postponement patterns")
+        postpone_form.addRow("Analysis Time:", self.postpone_analysis_time_edit)
+
+        postpone_group.setLayout(postpone_form)
+        layout.addWidget(postpone_group)
+
+        layout.addStretch()
+        return tab
+
+    def _create_notifications_tab(self) -> QWidget:
+        """Create the notifications preferences tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        tab.setLayout(layout)
+
+        # Notification channels group
+        channels_group = QGroupBox("Notification Channels")
+        channels_layout = QVBoxLayout()
+
+        self.enable_toast_check = QCheckBox("Enable Windows Toast Notifications")
+        self.enable_toast_check.setToolTip("Show popup toast notifications (Windows only)")
+        channels_layout.addWidget(self.enable_toast_check)
+
+        self.enable_inapp_check = QCheckBox("Enable In-App Notification Panel")
+        self.enable_inapp_check.setToolTip("Show notifications in the in-app notification panel")
+        channels_layout.addWidget(self.enable_inapp_check)
+
+        channels_group.setLayout(channels_layout)
+        layout.addWidget(channels_group)
+
+        # Retention group
+        retention_group = QGroupBox("Notification Retention")
+        retention_form = QFormLayout()
+
+        self.notification_retention_spin = QSpinBox()
+        self.notification_retention_spin.setRange(7, 365)
+        self.notification_retention_spin.setSuffix(" days")
+        self.notification_retention_spin.setToolTip("How long to keep old notifications before deletion")
+        retention_form.addRow("Retention Period:", self.notification_retention_spin)
+
+        retention_group.setLayout(retention_form)
+        layout.addWidget(retention_group)
+
+        layout.addStretch()
+        return tab
+
+    def _create_triggers_tab(self) -> QWidget:
+        """Create the notification triggers tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        tab.setLayout(layout)
+
+        triggers_group = QGroupBox("Event Notifications")
+        triggers_layout = QVBoxLayout()
+
+        description = QLabel(
+            "Choose which events should generate notifications:"
+        )
+        description.setWordWrap(True)
+        description.setStyleSheet("color: #666; margin-bottom: 10px;")
+        triggers_layout.addWidget(description)
+
+        self.notify_deferred_check = QCheckBox("Deferred tasks activated")
+        self.notify_deferred_check.setToolTip("Notify when deferred tasks become active")
+        triggers_layout.addWidget(self.notify_deferred_check)
+
+        self.notify_delegated_check = QCheckBox("Delegated tasks need follow-up")
+        self.notify_delegated_check.setToolTip("Notify for delegated tasks reaching follow-up date")
+        triggers_layout.addWidget(self.notify_delegated_check)
+
+        self.notify_someday_check = QCheckBox("Someday/Maybe review time")
+        self.notify_someday_check.setToolTip("Notify when it's time to review Someday tasks")
+        triggers_layout.addWidget(self.notify_someday_check)
+
+        self.notify_postpone_check = QCheckBox("Postponement patterns detected")
+        self.notify_postpone_check.setToolTip("Notify when postponement patterns are detected")
+        triggers_layout.addWidget(self.notify_postpone_check)
+
+        triggers_group.setLayout(triggers_layout)
+        layout.addWidget(triggers_group)
+
+        layout.addStretch()
+        return tab
+
+    def _create_intervention_tab(self) -> QWidget:
+        """Create the intervention thresholds tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        tab.setLayout(layout)
+
+        intervention_group = QGroupBox("Postponement Intervention")
+        intervention_form = QFormLayout()
+
+        description = QLabel(
+            "Configure when to intervene on repeatedly postponed tasks:"
+        )
+        description.setWordWrap(True)
+        description.setStyleSheet("color: #666; margin-bottom: 10px;")
+        intervention_form.addRow(description)
+
+        self.postpone_threshold_spin = QSpinBox()
+        self.postpone_threshold_spin.setRange(2, 10)
+        self.postpone_threshold_spin.setSuffix(" postponements")
+        self.postpone_threshold_spin.setToolTip("Number of postponements before intervention is triggered")
+        intervention_form.addRow("Intervention Threshold:", self.postpone_threshold_spin)
+
+        self.postpone_pattern_days_spin = QSpinBox()
+        self.postpone_pattern_days_spin.setRange(3, 14)
+        self.postpone_pattern_days_spin.setSuffix(" days")
+        self.postpone_pattern_days_spin.setToolTip("Time window for detecting postponement patterns")
+        intervention_form.addRow("Pattern Detection Window:", self.postpone_pattern_days_spin)
+
+        intervention_group.setLayout(intervention_form)
+        layout.addWidget(intervention_group)
+
+        layout.addStretch()
+        return tab
+
+    def _load_settings(self):
+        """Load current settings from database."""
+        # Resurfacing tab
+        self.deferred_check_hours_spin.setValue(
+            self.settings_dao.get_int('deferred_check_hours', default=1)
+        )
+
+        delegated_time_str = self.settings_dao.get_str('delegated_check_time', default='09:00')
+        self.delegated_check_time_edit.setTime(self._parse_time_string(delegated_time_str))
+
+        self.someday_review_days_spin.setValue(
+            self.settings_dao.get_int('someday_review_days', default=7)
+        )
+
+        someday_time_str = self.settings_dao.get_str('someday_review_time', default='18:00')
+        self.someday_review_time_edit.setTime(self._parse_time_string(someday_time_str))
+
+        postpone_time_str = self.settings_dao.get_str('postpone_analysis_time', default='18:00')
+        self.postpone_analysis_time_edit.setTime(self._parse_time_string(postpone_time_str))
+
+        # Notifications tab
+        self.enable_toast_check.setChecked(
+            self.settings_dao.get_bool('enable_toast_notifications', default=True)
+        )
+
+        self.enable_inapp_check.setChecked(
+            self.settings_dao.get_bool('enable_inapp_notifications', default=True)
+        )
+
+        self.notification_retention_spin.setValue(
+            self.settings_dao.get_int('notification_retention_days', default=30)
+        )
+
+        # Triggers tab
+        self.notify_deferred_check.setChecked(
+            self.settings_dao.get_bool('notify_deferred_activation', default=True)
+        )
+
+        self.notify_delegated_check.setChecked(
+            self.settings_dao.get_bool('notify_delegated_followup', default=True)
+        )
+
+        self.notify_someday_check.setChecked(
+            self.settings_dao.get_bool('notify_someday_review', default=True)
+        )
+
+        self.notify_postpone_check.setChecked(
+            self.settings_dao.get_bool('notify_postpone_intervention', default=True)
+        )
+
+        # Intervention tab
+        self.postpone_threshold_spin.setValue(
+            self.settings_dao.get_int('postpone_intervention_threshold', default=3)
+        )
+
+        self.postpone_pattern_days_spin.setValue(
+            self.settings_dao.get_int('postpone_pattern_days', default=7)
+        )
+
+    def _save_settings(self):
+        """Save settings to database."""
+        try:
+            # Resurfacing settings
+            self.settings_dao.set(
+                'deferred_check_hours',
+                self.deferred_check_hours_spin.value(),
+                'integer',
+                'Hours between deferred task checks'
+            )
+
+            self.settings_dao.set(
+                'delegated_check_time',
+                self.delegated_check_time_edit.time().toString("HH:mm"),
+                'string',
+                'Time of day to check delegated tasks'
+            )
+
+            self.settings_dao.set(
+                'someday_review_days',
+                self.someday_review_days_spin.value(),
+                'integer',
+                'Days between Someday/Maybe reviews'
+            )
+
+            self.settings_dao.set(
+                'someday_review_time',
+                self.someday_review_time_edit.time().toString("HH:mm"),
+                'string',
+                'Preferred time for someday review'
+            )
+
+            self.settings_dao.set(
+                'postpone_analysis_time',
+                self.postpone_analysis_time_edit.time().toString("HH:mm"),
+                'string',
+                'Time of day to analyze postponement patterns'
+            )
+
+            # Notification settings
+            self.settings_dao.set(
+                'enable_toast_notifications',
+                self.enable_toast_check.isChecked(),
+                'boolean',
+                'Enable Windows toast notifications'
+            )
+
+            self.settings_dao.set(
+                'enable_inapp_notifications',
+                self.enable_inapp_check.isChecked(),
+                'boolean',
+                'Enable in-app notification panel'
+            )
+
+            self.settings_dao.set(
+                'notification_retention_days',
+                self.notification_retention_spin.value(),
+                'integer',
+                'Days to keep old notifications'
+            )
+
+            # Trigger settings
+            self.settings_dao.set(
+                'notify_deferred_activation',
+                self.notify_deferred_check.isChecked(),
+                'boolean',
+                'Notify when deferred tasks activate'
+            )
+
+            self.settings_dao.set(
+                'notify_delegated_followup',
+                self.notify_delegated_check.isChecked(),
+                'boolean',
+                'Notify for delegated follow-ups'
+            )
+
+            self.settings_dao.set(
+                'notify_someday_review',
+                self.notify_someday_check.isChecked(),
+                'boolean',
+                'Notify for someday reviews'
+            )
+
+            self.settings_dao.set(
+                'notify_postpone_intervention',
+                self.notify_postpone_check.isChecked(),
+                'boolean',
+                'Notify for postponement patterns'
+            )
+
+            # Intervention settings
+            self.settings_dao.set(
+                'postpone_intervention_threshold',
+                self.postpone_threshold_spin.value(),
+                'integer',
+                'Postponements before intervention'
+            )
+
+            self.settings_dao.set(
+                'postpone_pattern_days',
+                self.postpone_pattern_days_spin.value(),
+                'integer',
+                'Days window for pattern detection'
+            )
+
+            # Emit signal and close
+            self.settings_saved.emit()
+
+            QMessageBox.information(
+                self,
+                "Settings Saved",
+                "Settings have been saved successfully.\n\n"
+                "Changes to resurfacing intervals will take effect on the next scheduled run."
+            )
+
+            self.accept()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error Saving Settings",
+                f"An error occurred while saving settings:\n\n{str(e)}"
+            )
+
+    def _parse_time_string(self, time_str: str) -> QTime:
+        """Parse time string to QTime object."""
+        try:
+            parts = time_str.split(':')
+            return QTime(int(parts[0]), int(parts[1]))
+        except (ValueError, IndexError):
+            return QTime(9, 0)  # Default to 9:00 AM

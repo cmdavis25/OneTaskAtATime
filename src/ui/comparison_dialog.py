@@ -23,18 +23,20 @@ class ComparisonDialog(QDialog):
     priority_adjustment is incremented according to the exponential decay formula.
     """
 
-    def __init__(self, task1: Task, task2: Task, parent=None):
+    def __init__(self, task1: Task, task2: Task, db_connection=None, parent=None):
         """
         Initialize the comparison dialog.
 
         Args:
             task1: First task to compare
             task2: Second task to compare
+            db_connection: Shared database connection for loading context/tag info
             parent: Parent widget
         """
         super().__init__(parent)
         self.task1 = task1
         self.task2 = task2
+        self.db_connection = db_connection
         self.selected_task: Optional[Task] = None
 
         self.setWindowTitle("Choose Your Priority")
@@ -139,7 +141,7 @@ class ComparisonDialog(QDialog):
         header_label.setStyleSheet("color: #007bff;")
         card_layout.addWidget(header_label)
 
-        # Task title
+        # Task title with tooltip
         title_label = QLabel(task.title)
         title_font = QFont()
         title_font.setPointSize(13)
@@ -149,31 +151,46 @@ class ComparisonDialog(QDialog):
         title_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         title_label.setMinimumHeight(60)
         title_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
-        card_layout.addWidget(title_label)
 
-        # Task metadata
-        metadata_parts = []
+        # Build tooltip with full task metadata
+        tooltip_parts = [f"<b>{task.title}</b>"]
 
-        # Priority
-        priority_text = task.get_priority_enum().name.capitalize()
-        metadata_parts.append(f"Priority: {priority_text}")
+        # Add state
+        if hasattr(task, 'state'):
+            tooltip_parts.append(f"State: {task.state.value if hasattr(task.state, 'value') else task.state}")
 
-        # Effective priority (if adjusted)
-        if task.priority_adjustment > 0:
-            eff_pri = task.get_effective_priority()
-            metadata_parts.append(f"(Eff: {eff_pri:.2f})")
+        # Add context if available
+        if hasattr(task, 'context_id') and task.context_id and self.db_connection:
+            from ..database.context_dao import ContextDAO
+            try:
+                context_dao = ContextDAO(self.db_connection.get_connection())
+                context = context_dao.get_by_id(task.context_id)
+                if context:
+                    tooltip_parts.append(f"Context: {context.name}")
+            except Exception:
+                pass
 
-        # Due date
+        # Add project tags if available
+        if hasattr(task, 'project_tags') and task.project_tags and self.db_connection:
+            from ..database.project_tag_dao import ProjectTagDAO
+            try:
+                tag_dao = ProjectTagDAO(self.db_connection.get_connection())
+                tag_names = []
+                for tag_id in task.project_tags:
+                    tag = tag_dao.get_by_id(tag_id)
+                    if tag:
+                        tag_names.append(tag.name)
+                if tag_names:
+                    tooltip_parts.append(f"Tags: {', '.join(tag_names)}")
+            except Exception:
+                pass
+
+        # Add due date
         if task.due_date:
-            metadata_parts.append(f"Due: {task.due_date.strftime('%Y-%m-%d')}")
+            tooltip_parts.append(f"Due: {task.due_date.strftime('%Y-%m-%d')}")
 
-        metadata_label = QLabel(" | ".join(metadata_parts))
-        metadata_font = QFont()
-        metadata_font.setPointSize(9)
-        metadata_label.setFont(metadata_font)
-        metadata_label.setStyleSheet("color: #555; margin-top: 5px;")
-        metadata_label.setWordWrap(True)
-        card_layout.addWidget(metadata_label)
+        title_label.setToolTip("<br>".join(tooltip_parts))
+        card_layout.addWidget(title_label)
 
         # Task description (scrollable)
         if task.description:
@@ -309,16 +326,18 @@ class MultipleComparisonDialog(QDialog):
     Presents tasks pairwise until a clear winner emerges.
     """
 
-    def __init__(self, tied_tasks: List[Task], parent=None):
+    def __init__(self, tied_tasks: List[Task], db_connection=None, parent=None):
         """
         Initialize the multiple comparison dialog.
 
         Args:
             tied_tasks: List of tasks tied for top priority
+            db_connection: Shared database connection for loading context/tag info
             parent: Parent widget
         """
         super().__init__(parent)
         self.tied_tasks = tied_tasks.copy()
+        self.db_connection = db_connection
         self.comparison_results: List[Tuple[Task, Task]] = []  # (winner, loser) pairs
 
         self.setWindowTitle("Resolve Priority Ties")
@@ -376,7 +395,7 @@ class MultipleComparisonDialog(QDialog):
             task2 = remaining[1]
 
             # Show comparison dialog
-            dialog = ComparisonDialog(task1, task2, self)
+            dialog = ComparisonDialog(task1, task2, self.db_connection, self)
             if dialog.exec_():
                 result = dialog.get_comparison_result()
                 if result:

@@ -61,6 +61,7 @@ class TaskListView(QWidget):
         self.project_tags = {}  # Map of tag_id -> tag_name
         self.active_context_filters = set()  # Set of active context filter IDs (can include 'NONE')
         self.active_tag_filters = set()  # Set of active project tag filter IDs
+        self.hide_tasks_with_dependencies = False  # Filter flag for hiding tasks with dependencies
 
         # Column configuration
         self.all_columns = {
@@ -84,6 +85,7 @@ class TaskListView(QWidget):
 
         self._load_contexts()
         self._load_project_tags()
+        self._load_filter_state()
         self._init_ui()
         self.refresh_tasks()
 
@@ -178,6 +180,17 @@ class TaskListView(QWidget):
         self.search_box.setPlaceholderText("Search tasks...")
         self.search_box.textChanged.connect(self._on_filter_changed)
         self.search_box.setMaximumWidth(300)
+
+        # Restore saved search text
+        try:
+            from ..database.settings_dao import SettingsDAO
+            settings_dao = SettingsDAO(self.db_connection.get_connection())
+            saved_search = settings_dao.get('task_list.search_text', '')
+            if saved_search:
+                self.search_box.setText(saved_search)
+        except Exception:
+            pass
+
         filter_layout.addWidget(self.search_box)
 
         filter_layout.addStretch()
@@ -216,9 +229,22 @@ class TaskListView(QWidget):
             ("Trash", TaskState.TRASH)
         ]
 
+        # Load saved state filters
+        saved_state_filters = None
+        try:
+            from ..database.settings_dao import SettingsDAO
+            settings_dao = SettingsDAO(self.db_connection.get_connection())
+            saved_state_filters = settings_dao.get('task_list.state_filters', None)
+        except Exception:
+            pass
+
         for label, state in states:
             checkbox = QCheckBox(label)
-            checkbox.setChecked(True)  # All states shown by default
+            # Check if we have saved state, otherwise default to all checked
+            if saved_state_filters is not None:
+                checkbox.setChecked(state.value in saved_state_filters)
+            else:
+                checkbox.setChecked(True)  # All states shown by default
             checkbox.stateChanged.connect(self._on_filter_changed)
             self.state_checkboxes[state] = checkbox
             state_checkboxes_layout.addWidget(checkbox)
@@ -282,6 +308,38 @@ class TaskListView(QWidget):
         tags_filter_layout.addStretch()
         tags_filter_container.addLayout(tags_filter_layout)
         filters_main_layout.addLayout(tags_filter_container)
+
+        # Dependencies filter
+        dependencies_filter_container = QVBoxLayout()
+        dependencies_filter_container.setSpacing(5)
+
+        dependencies_filter_label = QLabel("Dependencies:")
+        dependencies_filter_label.setStyleSheet("font-weight: bold;")
+        dependencies_filter_container.addWidget(dependencies_filter_label)
+
+        dependencies_filter_layout = QHBoxLayout()
+        dependencies_filter_layout.setSpacing(5)
+
+        self.hide_dependencies_checkbox = QCheckBox("Hide tasks with dependencies")
+        self.hide_dependencies_checkbox.setToolTip("When checked, tasks that are blocked by other tasks will be hidden")
+
+        # Load saved dependency filter state
+        saved_hide_dependencies = False
+        try:
+            from ..database.settings_dao import SettingsDAO
+            settings_dao = SettingsDAO(self.db_connection.get_connection())
+            saved_hide_dependencies = settings_dao.get('task_list.hide_dependencies', False)
+        except Exception:
+            pass
+
+        self.hide_dependencies_checkbox.setChecked(saved_hide_dependencies)
+        self.hide_tasks_with_dependencies = saved_hide_dependencies
+        self.hide_dependencies_checkbox.stateChanged.connect(self._on_dependencies_filter_changed)
+        dependencies_filter_layout.addWidget(self.hide_dependencies_checkbox)
+
+        dependencies_filter_layout.addStretch()
+        dependencies_filter_container.addLayout(dependencies_filter_layout)
+        filters_main_layout.addLayout(dependencies_filter_container)
 
         filters_group.setLayout(filters_main_layout)
         layout.addWidget(filters_group)
@@ -434,6 +492,95 @@ class TaskListView(QWidget):
                     filter_names.append(self.project_tags[tag_id])
             self.tags_filter_label.setText(", ".join(filter_names) if filter_names else "All Project Tags")
 
+    def _load_filter_state(self):
+        """Load saved filter state from settings."""
+        try:
+            from ..database.settings_dao import SettingsDAO
+            settings_dao = SettingsDAO(self.db_connection.get_connection())
+
+            # Load context filters
+            context_filters = settings_dao.get('task_list.context_filters', [])
+            self.active_context_filters = set(context_filters)
+
+            # Load tag filters
+            tag_filters = settings_dao.get('task_list.tag_filters', [])
+            self.active_tag_filters = set(tag_filters)
+
+            # Load search text
+            search_text = settings_dao.get('task_list.search_text', '')
+            # Will be applied when UI is initialized
+
+            # Load state filters
+            state_filters = settings_dao.get('task_list.state_filters', None)
+            # Will be applied when UI is initialized
+
+        except Exception as e:
+            print(f"Error loading filter state: {e}")
+
+    def _save_filter_state(self):
+        """Save current filter state to settings."""
+        try:
+            from ..database.settings_dao import SettingsDAO
+            settings_dao = SettingsDAO(self.db_connection.get_connection())
+
+            # Save context filters
+            context_list = []
+            for ctx_id in self.active_context_filters:
+                if ctx_id == "NONE":
+                    context_list.append("NONE")
+                else:
+                    context_list.append(ctx_id)
+
+            if context_list:
+                settings_dao.set('task_list.context_filters', context_list, 'json', 'Task List context filters')
+            else:
+                settings_dao.delete('task_list.context_filters')
+
+            # Save tag filters
+            tag_list = list(self.active_tag_filters)
+            if tag_list:
+                settings_dao.set('task_list.tag_filters', tag_list, 'json', 'Task List tag filters')
+            else:
+                settings_dao.delete('task_list.tag_filters')
+
+            # Save search text
+            search_text = self.search_box.text()
+            if search_text:
+                settings_dao.set('task_list.search_text', search_text, 'string', 'Task List search text')
+            else:
+                settings_dao.delete('task_list.search_text')
+
+            # Save state filters (which checkboxes are checked)
+            state_filters = [state.value for state, checkbox in self.state_checkboxes.items() if checkbox.isChecked()]
+            settings_dao.set('task_list.state_filters', state_filters, 'json', 'Task List state filters')
+
+            # Save dependency filter
+            settings_dao.set('task_list.hide_dependencies', self.hide_tasks_with_dependencies, 'boolean', 'Hide tasks with dependencies')
+
+        except Exception as e:
+            print(f"Error saving filter state: {e}")
+
+    def _task_has_dependencies(self, task: Task) -> bool:
+        """
+        Check if a task has any dependencies (is blocked by other tasks).
+
+        Args:
+            task: Task to check
+
+        Returns:
+            True if task has dependencies, False otherwise
+        """
+        if not task.id:
+            return False
+
+        try:
+            dependency_dao = DependencyDAO(self.db_connection.get_connection())
+            dependencies = dependency_dao.get_dependencies_for_task(task.id)
+            return len(dependencies) > 0
+        except Exception as e:
+            print(f"Error checking dependencies for task {task.id}: {e}")
+            return False
+
     def _apply_filters(self):
         """Apply current filters and update the table."""
         # Get filter values
@@ -465,6 +612,13 @@ class TaskListView(QWidget):
             filtered_tasks = [
                 t for t in filtered_tasks
                 if t.project_tags and any(tag_id in self.active_tag_filters for tag_id in t.project_tags)
+            ]
+
+        # Filter by dependencies
+        if self.hide_tasks_with_dependencies:
+            filtered_tasks = [
+                t for t in filtered_tasks
+                if not self._task_has_dependencies(t)
             ]
 
         # Filter by search text
@@ -705,6 +859,13 @@ class TaskListView(QWidget):
 
     def _on_filter_changed(self):
         """Handle filter changes."""
+        self._save_filter_state()
+        self._apply_filters()
+
+    def _on_dependencies_filter_changed(self):
+        """Handle dependencies filter checkbox change."""
+        self.hide_tasks_with_dependencies = self.hide_dependencies_checkbox.isChecked()
+        self._save_filter_state()
         self._apply_filters()
 
     def _on_sort_changed(self):
@@ -905,6 +1066,7 @@ class TaskListView(QWidget):
             self.active_context_filters = dialog.get_active_filter_ids()
             # Update label and apply filters
             self._update_filter_labels()
+            self._save_filter_state()
             self._apply_filters()
 
     def _on_manage_tag_filters(self):
@@ -922,18 +1084,21 @@ class TaskListView(QWidget):
             self.active_tag_filters = dialog.get_active_filter_ids()
             # Update label and apply filters
             self._update_filter_labels()
+            self._save_filter_state()
             self._apply_filters()
 
     def _on_clear_context_filters(self):
         """Clear all active context filters."""
         self.active_context_filters.clear()
         self._update_filter_labels()
+        self._save_filter_state()
         self._apply_filters()
 
     def _on_clear_tag_filters(self):
         """Clear all active project tag filters."""
         self.active_tag_filters.clear()
         self._update_filter_labels()
+        self._save_filter_state()
         self._apply_filters()
 
     def _on_manage_columns(self):

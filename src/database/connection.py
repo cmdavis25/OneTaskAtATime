@@ -62,8 +62,10 @@ class DatabaseConnection:
         # Initialize database schema if needed
         DatabaseSchema.initialize_database(self._connection)
 
-        # Run Elo migration if needed
+        # Run migrations
         DatabaseSchema.migrate_to_elo_system(self._connection)
+        DatabaseSchema.migrate_to_recurring_tasks(self._connection)
+        DatabaseSchema.migrate_to_notification_system(self._connection)
 
     def get_connection(self) -> sqlite3.Connection:
         """

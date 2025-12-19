@@ -18,11 +18,20 @@ from .context_management_dialog import ContextManagementDialog
 from .project_tag_management_dialog import ProjectTagManagementDialog
 from .postpone_dialog import DeferDialog, DelegateDialog
 from .comparison_dialog import ComparisonDialog, MultipleComparisonDialog
+from .notification_panel import NotificationPanel
+from .settings_dialog import SettingsDialog
+from .review_delegated_dialog import ReviewDelegatedDialog
+from .review_someday_dialog import ReviewSomedayDialog
+from .activated_tasks_dialog import ActivatedTasksDialog
 from ..services.task_service import TaskService
 from ..services.comparison_service import ComparisonService
 from ..services.postpone_workflow_service import PostponeWorkflowService
+from ..services.notification_manager import NotificationManager
+from ..services.toast_notification_service import ToastNotificationService
+from ..services.resurfacing_scheduler import ResurfacingScheduler
 from ..database.connection import DatabaseConnection
 from ..models.enums import TaskState
+from ..models.notification import Notification
 
 
 class MainWindow(QMainWindow):
@@ -44,9 +53,26 @@ class MainWindow(QMainWindow):
         self.comparison_service = ComparisonService(self.db_connection)
         self.postpone_workflow_service = PostponeWorkflowService(self.db_connection.get_connection())
 
+        # Initialize Phase 6 services (notification system and scheduler)
+        self.notification_manager = NotificationManager(self.db_connection.get_connection())
+        self.toast_service = ToastNotificationService(self.db_connection.get_connection())
+        self.notification_manager.set_toast_service(self.toast_service)
+
+        # Initialize resurfacing scheduler
+        self.resurfacing_scheduler = ResurfacingScheduler(
+            self.db_connection.get_connection(),
+            self.notification_manager
+        )
+
         self._init_ui()
         self._create_menu_bar()
         self._create_status_bar()
+
+        # Connect scheduler signals
+        self._connect_scheduler_signals()
+
+        # Start background scheduler
+        self.resurfacing_scheduler.start()
 
         # Load initial task
         self._refresh_focus_task()
@@ -60,6 +86,14 @@ class MainWindow(QMainWindow):
         # Layout
         layout = QVBoxLayout()
         central_widget.setLayout(layout)
+
+        # Notification panel (Phase 6)
+        self.notification_panel = NotificationPanel(
+            self.db_connection.get_connection(),
+            self.notification_manager
+        )
+        self.notification_panel.action_requested.connect(self._on_notification_action)
+        layout.addWidget(self.notification_panel)
 
         # Stacked widget for switching views
         self.stacked_widget = QStackedWidget()
@@ -149,6 +183,15 @@ class MainWindow(QMainWindow):
 
         # Tools Menu
         tools_menu = menubar.addMenu("&Tools")
+
+        # Settings action (Phase 6)
+        settings_action = QAction("&Settings...", self)
+        settings_action.setShortcut("Ctrl+,")
+        settings_action.setStatusTip("Configure application settings")
+        settings_action.triggered.connect(self._show_settings)
+        tools_menu.addAction(settings_action)
+
+        tools_menu.addSeparator()
 
         analytics_action = QAction("📊 Postpone &Analytics...", self)
         analytics_action.setShortcut("Ctrl+Shift+A")
@@ -466,7 +509,7 @@ class MainWindow(QMainWindow):
         """
         if len(tied_tasks) == 2:
             # Simple pairwise comparison
-            dialog = ComparisonDialog(tied_tasks[0], tied_tasks[1], self)
+            dialog = ComparisonDialog(tied_tasks[0], tied_tasks[1], self.db_connection, self)
             if dialog.exec_():
                 result = dialog.get_comparison_result()
                 if result:
@@ -479,7 +522,7 @@ class MainWindow(QMainWindow):
                     self._refresh_focus_task()
         else:
             # Multiple tasks tied
-            dialog = MultipleComparisonDialog(tied_tasks, self)
+            dialog = MultipleComparisonDialog(tied_tasks, self.db_connection, self)
             if dialog.exec_():
                 results = dialog.get_comparison_results()
                 if results:
@@ -581,6 +624,89 @@ class MainWindow(QMainWindow):
         dialog = AnalyticsView(self.db_connection, self)
         dialog.exec_()
 
+    def _show_settings(self):
+        """Show settings dialog (Phase 6)."""
+        dialog = SettingsDialog(self.db_connection.get_connection(), self)
+        dialog.settings_saved.connect(self._on_settings_saved)
+        dialog.exec_()
+
+    def _on_settings_saved(self):
+        """Handle settings saved signal."""
+        # Reload scheduler settings
+        self.resurfacing_scheduler.reload_settings()
+        self.statusBar().showMessage("Settings saved and scheduler updated", 3000)
+
+    def _connect_scheduler_signals(self):
+        """Connect scheduler signals to UI handlers (Phase 6)."""
+        self.resurfacing_scheduler.deferred_tasks_activated.connect(
+            self._on_deferred_tasks_activated
+        )
+        self.resurfacing_scheduler.delegated_followup_needed.connect(
+            self._on_delegated_followup_needed
+        )
+        self.resurfacing_scheduler.someday_review_triggered.connect(
+            self._on_someday_review_triggered
+        )
+
+    def _on_deferred_tasks_activated(self, tasks):
+        """Handle deferred tasks auto-activation (Phase 6)."""
+        if tasks:
+            self._refresh_focus_task()
+            self.statusBar().showMessage(
+                f"{len(tasks)} deferred task(s) activated", 5000
+            )
+
+    def _on_delegated_followup_needed(self, tasks):
+        """Show delegated follow-up dialog (Phase 6)."""
+        dialog = ReviewDelegatedDialog(self.db_connection.get_connection(), tasks, self)
+        dialog.exec_()
+        self._refresh_focus_task()
+
+    def _on_someday_review_triggered(self):
+        """Show someday review dialog (Phase 6)."""
+        dialog = ReviewSomedayDialog(self.db_connection.get_connection(), self)
+        dialog.exec_()
+        self._refresh_focus_task()
+
+    def _on_notification_action(self, notification: Notification):
+        """Handle notification action button click (Phase 6)."""
+        action_type = notification.action_type
+
+        if action_type == 'open_focus':
+            # Show dialog with activated tasks
+            task_ids = notification.action_data.get('task_ids', []) if notification.action_data else []
+
+            if task_ids:
+                dialog = ActivatedTasksDialog(task_ids, self.db_connection.get_connection(), self)
+                dialog.exec_()
+            else:
+                # Fallback: just switch to focus mode
+                self._show_focus_mode()
+                self.statusBar().showMessage("Viewing activated tasks in Focus Mode", 3000)
+
+        elif action_type == 'open_review_delegated':
+            # Get task IDs from action data
+            task_ids = notification.action_data.get('task_ids', []) if notification.action_data else []
+
+            # Fetch tasks and show dialog
+            from ..database.task_dao import TaskDAO
+            task_dao = TaskDAO(self.db_connection.get_connection())
+            tasks = [task_dao.get_by_id(task_id) for task_id in task_ids]
+            tasks = [t for t in tasks if t is not None]
+
+            if tasks:
+                dialog = ReviewDelegatedDialog(self.db_connection.get_connection(), tasks, self)
+                dialog.exec_()
+                self._refresh_focus_task()
+
+        elif action_type == 'open_review_someday':
+            # Show someday review dialog
+            self._on_someday_review_triggered()
+
+        elif action_type == 'open_postpone_analytics':
+            # Show analytics dashboard
+            self._show_analytics()
+
     def _show_about(self):
         """Show about dialog."""
         QMessageBox.about(
@@ -590,11 +716,15 @@ class MainWindow(QMainWindow):
             "A focused to-do list application designed to help users\n"
             "concentrate on executing one task at a time using\n"
             "GTD-inspired principles.\n\n"
-            "Phase 4: Task Management Interface Complete"
+            "Phase 6: Task Resurfacing and Notification System Complete"
         )
 
     def closeEvent(self, event):
         """Handle application close event."""
+        # Shutdown scheduler gracefully (Phase 6)
+        self.resurfacing_scheduler.shutdown(wait=True, timeout=5)
+
         # Close database connection
         self.db_connection.close()
+
         event.accept()

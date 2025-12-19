@@ -265,7 +265,7 @@ class NotificationManager(QObject):
 1. **Break Down Task**: Launch subtask creation wizard, delete parent task
 2. **Create Blocker**: Create new task and add as dependency
 3. **Move to Someday**: Change state to SOMEDAY
-4. **Move to Trash**: Delete task
+4. **Move to Trash**: Change state to TRASH
 5. **Proceed Anyway**: Continue to postpone dialog
 
 **Integration Point**: Modify `FocusModeWidget` postpone button handlers to check:
