@@ -291,14 +291,55 @@ The postpone workflow system is now fully functional with core workflows AND enh
 
 See [PHASE5_STATUS.md](PHASE5_STATUS.md) for complete details.
 
+**Phase 6: Task Resurfacing and Notification System** ✅ COMPLETE
+
+The automated resurfacing and notification system is now fully functional:
+
+**Background Automation:**
+- **APScheduler Integration**: 4 automated background jobs (deferred checks, delegated follow-ups, someday reviews, postponement analysis)
+- **Immediate Startup Checks**: Runs deferred/delegated checks on app launch
+- **Dynamic Settings Reload**: Intervals adjustable without restart
+- **Graceful Shutdown**: Clean scheduler shutdown on app close
+
+**Dual Notification Channels:**
+- **Windows Toast Notifications**: Native OS notifications (Windows 10/11)
+- **In-App Notification Panel**: Cross-platform panel with unread badge, expandable list, per-notification actions
+- **User-Configurable**: Enable/disable each channel independently
+
+**Resurfacing Features:**
+- **Deferred Task Auto-Activation**: Tasks with start_date ≤ today automatically activate (hourly check, configurable)
+- **Delegated Task Reminders**: Follow-up prompts on/after follow_up_date (daily at 9 AM, configurable)
+- **Someday/Maybe Reviews**: Periodic review dialog every N days (default: 7 days, configurable)
+- **Postponement Intervention**: Pattern detection with notifications when threshold exceeded (default: 3 postponements)
+
+**Review Dialogs:**
+- **ReviewDelegatedDialog**: Review delegated tasks with Activate/Complete/Extend actions
+- **ReviewSomedayDialog**: Review Someday tasks with Activate/Keep/Trash actions
+- **ActivatedTasksDialog**: Display auto-activated deferred tasks with details
+- **SettingsDialog**: 4-tab comprehensive settings (Resurfacing, Notifications, Triggers, Intervention)
+
+**Database & Services:**
+- **Notifications Table**: Persistent notification storage with read/unread tracking
+- **17 New Settings**: Complete configuration for intervals, channels, and thresholds
+- **NotificationManager**: Centralized notification creation and delivery
+- **ResurfacingService**: Business logic for all resurfacing scenarios
+
+**Integration:**
+- Settings menu item (Ctrl+,) for runtime configuration
+- Focus Mode and Task List auto-refresh on state changes
+- No UI blocking during background jobs
+- Thread-safe Qt signal communication
+
+See [PHASE6_STATUS.md](PHASE6_STATUS.md) for complete details.
+
 **Next Phase: Future Enhancements**
 
 Potential future improvements:
-- Unit tests for enhanced features
-- Focus Mode blocker display in metadata section
-- Postpone pattern heatmaps (calendar view)
-- Advanced analytics with date range filters
-- Task velocity metrics (completion rate, time to complete)
-- Exportable analytics reports (CSV, JSON)
+- Advanced analytics dashboard (completion trends, time-to-completion metrics)
+- Search and filter enhancements (full-text search, saved filter presets)
+- Export and reporting (CSV/JSON/Markdown, printable reports)
+- Performance optimizations (query optimization, lazy loading, caching)
+- Keyboard shortcut customization
+- Task history and undo/redo functionality
 
 See [implementation_plan.md](implementation_plan.md) for the full development roadmap.

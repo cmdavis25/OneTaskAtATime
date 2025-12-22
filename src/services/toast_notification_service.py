@@ -1,7 +1,7 @@
 """
 Toast Notification Service for OneTaskAtATime application.
 
-Provides Windows toast notifications using win10toast library.
+Provides Windows toast notifications using winotify library.
 Gracefully degrades on non-Windows platforms.
 """
 
@@ -37,16 +37,16 @@ class ToastNotificationService:
         """
         self.db_connection = db_connection
         self.is_windows = platform.system() == 'Windows'
-        self.toaster = None
+        self.notification_class = None
 
-        # Initialize win10toast if on Windows
+        # Initialize winotify if on Windows
         if self.is_windows:
             try:
-                from win10toast import ToastNotifier
-                self.toaster = ToastNotifier()
+                from winotify import Notification
+                self.notification_class = Notification
                 logger.info("Toast notification service initialized (Windows)")
             except ImportError:
-                logger.warning("win10toast library not available - toast notifications disabled")
+                logger.warning("winotify library not available - toast notifications disabled")
                 self.is_windows = False
             except Exception as e:
                 logger.error(f"Error initializing toast notifier: {e}", exc_info=True)
@@ -68,23 +68,36 @@ class ToastNotificationService:
             title: Notification title
             message: Notification message
             type: Notification type (affects icon)
-            duration: Duration in seconds (default 5)
+            duration: Duration in seconds (default 5) - converted to 'short' (<5s) or 'long' (>=5s)
 
         Returns:
             True if toast was shown, False otherwise
         """
-        if not self.is_windows or not self.toaster:
+        if not self.is_windows or not self.notification_class:
             logger.debug("Toast notifications not available")
             return False
 
         try:
+            # Convert numeric duration to winotify format
+            # winotify only accepts 'short' or 'long'
+            toast_duration = 'short' if duration < 5 else 'long'
+
+            # Create and show toast notification
+            toast = self.notification_class(
+                app_id="OneTaskAtATime",
+                title=title,
+                msg=message,
+                duration=toast_duration
+            )
+
             # Get icon based on notification type
             icon_path = self._get_icon_path(type)
+            if icon_path:
+                toast.set_icon(icon_path)
 
             # Show toast in background thread to avoid blocking
             thread = threading.Thread(
-                target=self._show_toast_threaded,
-                args=(title, message, icon_path, duration),
+                target=toast.show,
                 daemon=True
             )
             thread.start()
@@ -95,33 +108,6 @@ class ToastNotificationService:
         except Exception as e:
             logger.error(f"Error showing toast notification: {e}", exc_info=True)
             return False
-
-    def _show_toast_threaded(
-        self,
-        title: str,
-        message: str,
-        icon_path: Optional[str],
-        duration: int
-    ) -> None:
-        """
-        Show toast notification in background thread.
-
-        Args:
-            title: Notification title
-            message: Notification message
-            icon_path: Optional path to icon file
-            duration: Duration in seconds
-        """
-        try:
-            self.toaster.show_toast(
-                title=title,
-                msg=message,
-                icon_path=icon_path,
-                duration=duration,
-                threaded=False  # Already in a thread
-            )
-        except Exception as e:
-            logger.error(f"Error in toast thread: {e}", exc_info=True)
 
     def _get_icon_path(self, type: NotificationType) -> Optional[str]:
         """
@@ -144,4 +130,4 @@ class ToastNotificationService:
         Returns:
             True if toast notifications can be shown, False otherwise
         """
-        return self.is_windows and self.toaster is not None
+        return self.is_windows and self.notification_class is not None

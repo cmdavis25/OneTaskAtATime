@@ -235,9 +235,19 @@ OneTaskAtATime/
 - Build Windows notification system (win10toast)
 - In-app notification panel
 - Resurfacing settings dialog
-- "Review someday tasks" modal
+- Review delegated tasks dialog
+- Review someday tasks dialog
+- Activated tasks display dialog
+- Postponement pattern intervention
+- 17 new user settings
+- Notifications table and DAO
+- Complete notification management system
 
-**Deliverable**: Automated task resurfacing
+**Deliverable**: Automated task resurfacing and notification system
+
+**Detailed Plan**: See [phase_6_plan.md](phase_6_plan.md)
+
+**Status**: ✅ Complete - See [PHASE6_STATUS.md](PHASE6_STATUS.md) for details
 
 ### Phase 7: Settings & Customization
 - Settings dialog (comparison decrement, intervals, theme)
@@ -323,8 +333,10 @@ OneTaskAtATime/
 
 ✅ **Focus Mode**: Presents ONE task at a time
 ✅ **Priority resolution**: Elo-based comparison ranking eliminates "all high priority" problem
-✅ **No purgatory**: Strategic resurfacing of deferred/delegated/someday tasks
+✅ **No purgatory**: Strategic resurfacing of deferred/delegated/someday tasks (Phase 6 complete)
 ✅ **Flat structure**: Tags instead of hierarchies
 ✅ **Blocker awareness**: Capture postpone reasons and create dependencies
+✅ **Automated resurfacing**: Background scheduler prevents tasks from languishing
+✅ **Dual notifications**: Windows toast + in-app panel for maximum visibility
 
 **Ultimate Goal**: Users spend more time executing tasks, less time managing lists.
