@@ -1,14 +1,13 @@
 """
 Notification Panel Widget for OneTaskAtATime application.
 
-Displays in-app notifications in a collapsible panel.
-Shows unread count badge and allows users to view, mark read, and dismiss notifications.
+Displays a compact notification button/badge that opens a popup dialog overlay.
 """
 
 import sqlite3
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QScrollArea, QFrame, QSizePolicy
+    QScrollArea, QFrame, QDialog, QSizePolicy
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QCursor
@@ -19,9 +18,7 @@ from ..services.notification_manager import NotificationManager
 
 
 class NotificationItem(QFrame):
-    """
-    Widget representing a single notification in the panel.
-    """
+    """Widget representing a single notification."""
 
     # Signals
     mark_read_clicked = pyqtSignal(int)  # notification_id
@@ -29,13 +26,6 @@ class NotificationItem(QFrame):
     action_clicked = pyqtSignal(Notification)  # Full notification object
 
     def __init__(self, notification: Notification, parent=None):
-        """
-        Initialize notification item widget.
-
-        Args:
-            notification: Notification object to display
-            parent: Parent widget
-        """
         super().__init__(parent)
         self.notification = notification
         self._init_ui()
@@ -62,7 +52,7 @@ class NotificationItem(QFrame):
         layout.setContentsMargins(8, 8, 8, 8)
         self.setLayout(layout)
 
-        # Header row: Icon + Title + Time + Dismiss
+        # Header row
         header_layout = QHBoxLayout()
 
         # Icon
@@ -160,7 +150,7 @@ class NotificationItem(QFrame):
             layout.addLayout(action_layout)
 
     def _get_action_label(self) -> str:
-        """Get display label for action button based on action type."""
+        """Get display label for action button."""
         action_labels = {
             'open_focus': 'View Tasks',
             'open_review_delegated': 'Review Tasks',
@@ -170,123 +160,42 @@ class NotificationItem(QFrame):
         return action_labels.get(self.notification.action_type, 'View')
 
 
-class NotificationPanel(QWidget):
-    """
-    Collapsible notification panel widget.
+class NotificationDialog(QDialog):
+    """Popup dialog displaying notifications."""
 
-    Displays unread notification count badge and expandable notification list.
-    """
+    action_requested = pyqtSignal(Notification)
 
-    # Signals
-    action_requested = pyqtSignal(Notification)  # When user clicks action button
-
-    def __init__(self, db_connection: sqlite3.Connection, notification_manager: NotificationManager, parent=None):
-        """
-        Initialize notification panel.
-
-        Args:
-            db_connection: Database connection
-            notification_manager: NotificationManager instance
-            parent: Parent widget
-        """
+    def __init__(self, notification_manager: NotificationManager, parent=None):
         super().__init__(parent)
-        self.db_connection = db_connection
         self.notification_manager = notification_manager
-        self.is_expanded = False
-
         self._init_ui()
-        self._connect_signals()
-        self._refresh_badge()
+        self._refresh_notifications()
 
     def _init_ui(self):
         """Initialize the user interface."""
+        self.setWindowTitle("Notifications")
+        self.setModal(False)  # Allow interaction with main window
+        self.setMinimumSize(500, 600)
+        self.setMaximumSize(500, 800)
+
         layout = QVBoxLayout()
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
         self.setLayout(layout)
 
-        # Header bar (always visible)
-        self.header_widget = QFrame()
-        self.header_widget.setFrameShape(QFrame.StyledPanel)
-        self.header_widget.setStyleSheet("""
-            QFrame {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 8px;
-            }
-        """)
-
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(8, 8, 8, 8)
-        self.header_widget.setLayout(header_layout)
-
-        # Bell icon and title
-        title_label = QLabel("🔔 Notifications")
-        title_font = QFont()
-        title_font.setBold(True)
-        title_label.setFont(title_font)
-        header_layout.addWidget(title_label)
-
-        # Unread count badge
-        self.badge_label = QLabel("0")
-        self.badge_label.setAlignment(Qt.AlignCenter)
-        self.badge_label.setFixedSize(24, 24)
-        self.badge_label.setStyleSheet("""
-            QLabel {
-                background-color: #dc3545;
-                color: white;
-                border-radius: 12px;
-                font-size: 11px;
-                font-weight: bold;
-            }
-        """)
-        header_layout.addWidget(self.badge_label)
-
-        header_layout.addStretch()
-
-        # Expand/collapse button
-        self.toggle_btn = QPushButton("▼")
-        self.toggle_btn.setFixedSize(30, 30)
-        self.toggle_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #e9ecef;
-                border-radius: 4px;
-            }
-        """)
-        self.toggle_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        self.toggle_btn.clicked.connect(self._toggle_panel)
-        header_layout.addWidget(self.toggle_btn)
-
-        layout.addWidget(self.header_widget)
-
-        # Notification list (collapsible)
-        self.content_widget = QFrame()
-        self.content_widget.setVisible(False)
-        self.content_widget.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border: 1px solid #dee2e6;
-                border-top: none;
-                border-radius: 0 0 4px 4px;
-            }
-        """)
-
-        content_layout = QVBoxLayout()
-        content_layout.setContentsMargins(8, 8, 8, 8)
-        self.content_widget.setLayout(content_layout)
+        # Header
+        header_label = QLabel("Notifications")
+        header_font = QFont()
+        header_font.setPointSize(14)
+        header_font.setBold(True)
+        header_label.setFont(header_font)
+        layout.addWidget(header_label)
 
         # Scroll area for notifications
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMaximumHeight(400)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setStyleSheet("QScrollArea { border: none; }")
+        scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
         self.notifications_container = QWidget()
         self.notifications_layout = QVBoxLayout()
@@ -295,7 +204,7 @@ class NotificationPanel(QWidget):
         self.notifications_container.setLayout(self.notifications_layout)
 
         scroll_area.setWidget(self.notifications_container)
-        content_layout.addWidget(scroll_area)
+        layout.addWidget(scroll_area)
 
         # Footer buttons
         footer_layout = QHBoxLayout()
@@ -306,7 +215,7 @@ class NotificationPanel(QWidget):
                 background-color: #6c757d;
                 color: white;
                 border: none;
-                padding: 6px 16px;
+                padding: 8px 16px;
                 border-radius: 4px;
             }
             QPushButton:hover {
@@ -319,49 +228,38 @@ class NotificationPanel(QWidget):
 
         footer_layout.addStretch()
 
-        content_layout.addLayout(footer_layout)
+        close_btn = QPushButton("Close")
+        close_btn.setStyleSheet("""
+            QPushButton {
+                padding: 8px 16px;
+                border-radius: 4px;
+            }
+        """)
+        close_btn.clicked.connect(self.accept)
+        footer_layout.addWidget(close_btn)
 
-        layout.addWidget(self.content_widget)
-
-        # Set size policy
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
-
-    def _connect_signals(self):
-        """Connect notification manager signals."""
-        self.notification_manager.new_notification.connect(self._on_new_notification)
-        self.notification_manager.notification_updated.connect(self._on_notification_updated)
-        self.notification_manager.notification_dismissed.connect(self._on_notification_dismissed)
-
-    def _toggle_panel(self):
-        """Toggle panel expand/collapse."""
-        self.is_expanded = not self.is_expanded
-        self.content_widget.setVisible(self.is_expanded)
-        self.toggle_btn.setText("▲" if self.is_expanded else "▼")
-
-        if self.is_expanded:
-            self._refresh_notifications()
-
-    def _refresh_badge(self):
-        """Refresh unread count badge."""
-        unread_count = self.notification_manager.get_unread_count()
-        self.badge_label.setText(str(unread_count))
-        self.badge_label.setVisible(unread_count > 0)
+        layout.addLayout(footer_layout)
 
     def _refresh_notifications(self):
         """Refresh notification list display."""
-        # Clear existing items
-        while self.notifications_layout.count():
-            item = self.notifications_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        # Clear existing items more thoroughly
+        for i in reversed(range(self.notifications_layout.count())):
+            item = self.notifications_layout.itemAt(i)
+            if item is not None:
+                widget = item.widget()
+                if widget is not None:
+                    widget.setParent(None)
+                    widget.deleteLater()
+                else:
+                    self.notifications_layout.removeItem(item)
 
-        # Get all unread and recent notifications
+        # Get all unread and recent notifications (fresh from database)
         notifications = self.notification_manager.get_all_notifications(include_dismissed=False)
 
         if not notifications:
             empty_label = QLabel("No notifications")
             empty_label.setAlignment(Qt.AlignCenter)
-            empty_label.setStyleSheet("color: #6c757d; padding: 20px;")
+            empty_label.setStyleSheet("color: #6c757d; padding: 40px;")
             self.notifications_layout.addWidget(empty_label)
         else:
             for notification in notifications:
@@ -376,52 +274,115 @@ class NotificationPanel(QWidget):
     def _mark_all_read(self):
         """Mark all notifications as read."""
         self.notification_manager.mark_all_read()
-        self._refresh_badge()
         self._refresh_notifications()
 
     def _on_mark_read(self, notification_id: int):
         """Handle mark read signal."""
         self.notification_manager.mark_as_read(notification_id)
-        self._refresh_badge()
         self._refresh_notifications()
 
     def _on_dismiss(self, notification_id: int):
         """Handle dismiss signal."""
         self.notification_manager.dismiss_notification(notification_id)
-        self._refresh_badge()
         self._refresh_notifications()
 
     def _on_action_clicked(self, notification: Notification):
         """Handle action button click."""
-        # Mark as read when action is clicked
+        # Mark as read
         self.notification_manager.mark_as_read(notification.id)
 
         # Emit signal for parent to handle action
         self.action_requested.emit(notification)
 
-        # Collapse panel to give visual feedback
-        if self.is_expanded:
-            self._toggle_panel()
+        # Close dialog
+        self.accept()
 
-        # Refresh display
+
+class NotificationPanel(QWidget):
+    """
+    Compact notification button that opens a popup dialog.
+    """
+
+    action_requested = pyqtSignal(Notification)
+
+    def __init__(self, db_connection: sqlite3.Connection, notification_manager: NotificationManager, parent=None):
+        super().__init__(parent)
+        self.db_connection = db_connection
+        self.notification_manager = notification_manager
+        self._init_ui()
+        self._connect_signals()
         self._refresh_badge()
-        if self.is_expanded:
-            self._refresh_notifications()
+
+    def _init_ui(self):
+        """Initialize the user interface."""
+        layout = QHBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        self.setLayout(layout)
+
+        layout.addStretch()
+
+        # Notification button
+        self.notification_btn = QPushButton("🔔 Notifications")
+        self.notification_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #e9ecef;
+            }
+        """)
+        self.notification_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.notification_btn.clicked.connect(self._show_notifications)
+        layout.addWidget(self.notification_btn)
+
+        # Unread count badge
+        self.badge_label = QLabel("0")
+        self.badge_label.setAlignment(Qt.AlignCenter)
+        self.badge_label.setFixedSize(24, 24)
+        self.badge_label.setStyleSheet("""
+            QLabel {
+                background-color: #dc3545;
+                color: white;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+        """)
+        self.badge_label.setVisible(False)
+        layout.addWidget(self.badge_label)
+
+        # Set size policy to not expand
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.setMaximumHeight(50)
+
+    def _connect_signals(self):
+        """Connect notification manager signals."""
+        self.notification_manager.new_notification.connect(self._on_new_notification)
+        self.notification_manager.notification_updated.connect(self._refresh_badge)
+        self.notification_manager.notification_dismissed.connect(self._refresh_badge)
+
+    def _show_notifications(self):
+        """Show notification dialog."""
+        dialog = NotificationDialog(self.notification_manager, self)
+        dialog.action_requested.connect(self._on_action_requested)
+        dialog.exec_()
+        self._refresh_badge()
+
+    def _refresh_badge(self):
+        """Refresh unread count badge."""
+        unread_count = self.notification_manager.get_unread_count()
+        self.badge_label.setText(str(unread_count))
+        self.badge_label.setVisible(unread_count > 0)
 
     def _on_new_notification(self, notification: Notification):
         """Handle new notification signal."""
         self._refresh_badge()
-        if self.is_expanded:
-            self._refresh_notifications()
 
-    def _on_notification_updated(self, notification: Notification):
-        """Handle notification updated signal."""
-        self._refresh_badge()
-        if self.is_expanded:
-            self._refresh_notifications()
-
-    def _on_notification_dismissed(self, notification_id: int):
-        """Handle notification dismissed signal."""
-        self._refresh_badge()
-        if self.is_expanded:
-            self._refresh_notifications()
+    def _on_action_requested(self, notification: Notification):
+        """Forward action request to parent."""
+        self.action_requested.emit(notification)

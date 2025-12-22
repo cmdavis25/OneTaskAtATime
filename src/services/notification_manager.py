@@ -195,12 +195,11 @@ class NotificationManager(QObject):
         try:
             count = self.notification_dao.mark_all_read()
 
-            if count > 0:
-                logger.info(f"Marked {count} notifications as read")
+            logger.info(f"Marked {count} notifications as read")
 
-                # Emit update signal (UI should refresh)
-                # Using a special signal with ID=0 to indicate "all notifications"
-                self.notification_updated.emit(Notification(id=0))
+            # Emit update signal regardless of count (UI should refresh)
+            # Using a special signal with ID=0 to indicate "all notifications"
+            self.notification_updated.emit(Notification(id=0))
 
             return count
 
