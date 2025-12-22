@@ -22,6 +22,7 @@ class NotificationItem(QFrame):
 
     # Signals
     mark_read_clicked = pyqtSignal(int)  # notification_id
+    mark_unread_clicked = pyqtSignal(int)  # notification_id
     dismiss_clicked = pyqtSignal(int)  # notification_id
     action_clicked = pyqtSignal(Notification)  # Full notification object
 
@@ -34,18 +35,36 @@ class NotificationItem(QFrame):
         """Initialize the user interface."""
         self.setFrameShape(QFrame.StyledPanel)
         self.setFrameShadow(QFrame.Raised)
-        self.setStyleSheet("""
-            NotificationItem {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 8px;
-                margin: 4px;
-            }
-            NotificationItem:hover {
-                background-color: #e9ecef;
-            }
-        """)
+
+        # Different styling for read vs unread notifications
+        if self.notification.is_read:
+            # Read notification - lighter background
+            self.setStyleSheet("""
+                NotificationItem {
+                    background-color: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    padding: 8px;
+                    margin: 4px;
+                }
+                NotificationItem:hover {
+                    background-color: #e9ecef;
+                }
+            """)
+        else:
+            # Unread notification - highlighted background
+            self.setStyleSheet("""
+                NotificationItem {
+                    background-color: #e7f3ff;
+                    border: 2px solid #0066cc;
+                    border-radius: 4px;
+                    padding: 8px;
+                    margin: 4px;
+                }
+                NotificationItem:hover {
+                    background-color: #d0e8ff;
+                }
+            """)
 
         layout = QVBoxLayout()
         layout.setSpacing(6)
@@ -55,7 +74,16 @@ class NotificationItem(QFrame):
         # Header row
         header_layout = QHBoxLayout()
 
-        # Icon
+        # Read/Unread envelope icon
+        envelope_icon = "📧" if self.notification.is_read else "📩"
+        envelope_label = QLabel(envelope_icon)
+        envelope_font = QFont()
+        envelope_font.setPointSize(14)
+        envelope_label.setFont(envelope_font)
+        envelope_label.setToolTip("Read" if self.notification.is_read else "Unread")
+        header_layout.addWidget(envelope_label)
+
+        # Notification type icon
         icon_label = QLabel(self.notification.get_icon())
         icon_font = QFont()
         icon_font.setPointSize(14)
@@ -102,52 +130,70 @@ class NotificationItem(QFrame):
         message_label.setStyleSheet("color: #495057; font-size: 12px;")
         layout.addWidget(message_label)
 
-        # Action buttons row
-        if self.notification.action_type or not self.notification.is_read:
-            action_layout = QHBoxLayout()
-            action_layout.addStretch()
+        # Action buttons row (always show)
+        action_layout = QHBoxLayout()
+        action_layout.addStretch()
 
-            # Action button (if available)
-            if self.notification.action_type:
-                action_btn = QPushButton(self._get_action_label())
-                action_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #007bff;
-                        color: white;
-                        border: none;
-                        padding: 4px 12px;
-                        border-radius: 3px;
-                        font-size: 11px;
-                    }
-                    QPushButton:hover {
-                        background-color: #0056b3;
-                    }
-                """)
-                action_btn.setCursor(QCursor(Qt.PointingHandCursor))
-                action_btn.clicked.connect(lambda: self.action_clicked.emit(self.notification))
-                action_layout.addWidget(action_btn)
+        # Action button (if available)
+        if self.notification.action_type:
+            action_btn = QPushButton(self._get_action_label())
+            action_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 4px 12px;
+                    border-radius: 3px;
+                    font-size: 11px;
+                }
+                QPushButton:hover {
+                    background-color: #0056b3;
+                }
+            """)
+            action_btn.setCursor(QCursor(Qt.PointingHandCursor))
+            action_btn.clicked.connect(lambda: self.action_clicked.emit(self.notification))
+            action_layout.addWidget(action_btn)
 
-            # Mark as read button (if unread)
-            if not self.notification.is_read:
-                mark_read_btn = QPushButton("Mark Read")
-                mark_read_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: transparent;
-                        color: #6c757d;
-                        border: 1px solid #6c757d;
-                        padding: 4px 12px;
-                        border-radius: 3px;
-                        font-size: 11px;
-                    }
-                    QPushButton:hover {
-                        background-color: #e9ecef;
-                    }
-                """)
-                mark_read_btn.setCursor(QCursor(Qt.PointingHandCursor))
-                mark_read_btn.clicked.connect(lambda: self.mark_read_clicked.emit(self.notification.id))
-                action_layout.addWidget(mark_read_btn)
+        # Mark as read/unread toggle button
+        if not self.notification.is_read:
+            mark_btn = QPushButton("Mark as Read")
+            mark_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    color: #0066cc;
+                    border: 1px solid #0066cc;
+                    padding: 4px 12px;
+                    border-radius: 3px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #e7f3ff;
+                }
+            """)
+            mark_btn.setCursor(QCursor(Qt.PointingHandCursor))
+            mark_btn.clicked.connect(lambda: self.mark_read_clicked.emit(self.notification.id))
+            action_layout.addWidget(mark_btn)
+        else:
+            mark_btn = QPushButton("Mark as Unread")
+            mark_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    color: #6c757d;
+                    border: 1px solid #6c757d;
+                    padding: 4px 12px;
+                    border-radius: 3px;
+                    font-size: 11px;
+                }
+                QPushButton:hover {
+                    background-color: #e9ecef;
+                }
+            """)
+            mark_btn.setCursor(QCursor(Qt.PointingHandCursor))
+            mark_btn.clicked.connect(lambda: self.mark_unread_clicked.emit(self.notification.id))
+            action_layout.addWidget(mark_btn)
 
-            layout.addLayout(action_layout)
+        layout.addLayout(action_layout)
 
     def _get_action_label(self) -> str:
         """Get display label for action button."""
@@ -265,6 +311,7 @@ class NotificationDialog(QDialog):
             for notification in notifications:
                 item = NotificationItem(notification)
                 item.mark_read_clicked.connect(self._on_mark_read)
+                item.mark_unread_clicked.connect(self._on_mark_unread)
                 item.dismiss_clicked.connect(self._on_dismiss)
                 item.action_clicked.connect(self._on_action_clicked)
                 self.notifications_layout.addWidget(item)
@@ -279,6 +326,11 @@ class NotificationDialog(QDialog):
     def _on_mark_read(self, notification_id: int):
         """Handle mark read signal."""
         self.notification_manager.mark_as_read(notification_id)
+        self._refresh_notifications()
+
+    def _on_mark_unread(self, notification_id: int):
+        """Handle mark unread signal."""
+        self.notification_manager.mark_as_unread(notification_id)
         self._refresh_notifications()
 
     def _on_dismiss(self, notification_id: int):

@@ -185,6 +185,33 @@ class NotificationManager(QObject):
             logger.error(f"Error marking notification as read: {e}", exc_info=True)
             return False
 
+    def mark_as_unread(self, notification_id: int) -> bool:
+        """
+        Mark a notification as unread.
+
+        Args:
+            notification_id: ID of notification to mark as unread
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            success = self.notification_dao.mark_unread(notification_id)
+
+            if success:
+                # Get updated notification and emit signal
+                notification = self.notification_dao.get_by_id(notification_id)
+                if notification:
+                    self.notification_updated.emit(notification)
+
+                logger.debug(f"Marked notification {notification_id} as unread")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Error marking notification as unread: {e}", exc_info=True)
+            return False
+
     def mark_all_read(self) -> int:
         """
         Mark all notifications as read.

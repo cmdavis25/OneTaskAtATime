@@ -176,6 +176,25 @@ class NotificationDAO:
 
         return cursor.rowcount > 0
 
+    def mark_unread(self, notification_id: int) -> bool:
+        """
+        Mark a notification as unread.
+
+        Args:
+            notification_id: ID of notification to mark as unread
+
+        Returns:
+            True if notification was updated, False if not found
+        """
+        cursor = self.db.cursor()
+        cursor.execute(
+            "UPDATE notifications SET is_read = 0 WHERE id = ?",
+            (notification_id,)
+        )
+        self.db.commit()
+
+        return cursor.rowcount > 0
+
     def mark_all_read(self) -> int:
         """
         Mark all notifications as read.
