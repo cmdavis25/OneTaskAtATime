@@ -253,8 +253,15 @@ OneTaskAtATime/
 - Settings dialog (comparison decrement, intervals, theme)
 - Import/export (JSON backup)
 - Data reset functionality
+- Theme system (light/dark/system modes)
+- Advanced Elo tuning settings
+- Multi-step nuclear reset with safety confirmations
 
 **Deliverable**: User configuration system
+
+**Detailed Plan**: See [phase_7_plan.md](phase_7_plan.md)
+
+**Status**: ✅ Complete - See [PHASE7_STATUS.md](PHASE7_STATUS.md) for details
 
 ### Phase 8: Polish & UX
 - Keyboard shortcuts

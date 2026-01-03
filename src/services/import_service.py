@@ -309,25 +309,37 @@ class ImportService:
             if context_id and merge_mode and context_id in self._id_mappings['contexts']:
                 context_id = self._id_mappings['contexts'][context_id]
 
-            # Prepare task data
+            # Remap recurrence_parent_id if needed
+            recurrence_parent_id = task.get('recurrence_parent_id')
+            if recurrence_parent_id and merge_mode and recurrence_parent_id in self._id_mappings['tasks']:
+                recurrence_parent_id = self._id_mappings['tasks'][recurrence_parent_id]
+
+            # Prepare task data (matching actual schema)
             task_data = (
                 task['title'],
                 task.get('description'),
                 task['state'],
                 task['base_priority'],
-                task.get('urgency'),
                 task.get('elo_rating', 1500.0),
                 task.get('comparison_count', 0),
                 context_id,
                 task.get('due_date'),
                 task.get('start_date'),
                 task.get('delegated_to'),
-                task.get('delegated_date'),
-                task.get('delegated_notes'),
-                task.get('someday_notes'),
+                task.get('follow_up_date'),
+                task.get('completed_at'),
+                task.get('last_resurfaced_at'),
+                task.get('resurface_count', 0),
+                task.get('is_recurring', 0),
+                task.get('recurrence_pattern'),
+                recurrence_parent_id,
+                task.get('share_elo_rating', 0),
+                task.get('shared_elo_rating'),
+                task.get('shared_comparison_count'),
+                task.get('recurrence_end_date'),
+                task.get('occurrence_count', 0),
                 task.get('created_at'),
-                task.get('updated_at'),
-                task.get('last_state_change')
+                task.get('updated_at')
             )
 
             if merge_mode:
@@ -336,11 +348,15 @@ class ImportService:
                     # ID conflict - insert with new ID
                     cursor.execute(
                         """INSERT INTO tasks (
-                            title, description, state, base_priority, urgency,
+                            title, description, state, base_priority,
                             elo_rating, comparison_count, context_id, due_date,
-                            start_date, delegated_to, delegated_date, delegated_notes,
-                            someday_notes, created_at, updated_at, last_state_change
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            start_date, delegated_to, follow_up_date, completed_at,
+                            last_resurfaced_at, resurface_count,
+                            is_recurring, recurrence_pattern, recurrence_parent_id,
+                            share_elo_rating, shared_elo_rating, shared_comparison_count,
+                            recurrence_end_date, occurrence_count,
+                            created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         task_data
                     )
                     new_id = cursor.lastrowid
@@ -349,11 +365,15 @@ class ImportService:
                     # No conflict - use original ID
                     cursor.execute(
                         """INSERT INTO tasks (
-                            id, title, description, state, base_priority, urgency,
+                            id, title, description, state, base_priority,
                             elo_rating, comparison_count, context_id, due_date,
-                            start_date, delegated_to, delegated_date, delegated_notes,
-                            someday_notes, created_at, updated_at, last_state_change
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            start_date, delegated_to, follow_up_date, completed_at,
+                            last_resurfaced_at, resurface_count,
+                            is_recurring, recurrence_pattern, recurrence_parent_id,
+                            share_elo_rating, shared_elo_rating, shared_comparison_count,
+                            recurrence_end_date, occurrence_count,
+                            created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (old_id,) + task_data
                     )
                     self._id_mappings['tasks'][old_id] = old_id
@@ -361,11 +381,15 @@ class ImportService:
                 # Replace mode - use original ID
                 cursor.execute(
                     """INSERT INTO tasks (
-                        id, title, description, state, base_priority, urgency,
+                        id, title, description, state, base_priority,
                         elo_rating, comparison_count, context_id, due_date,
-                        start_date, delegated_to, delegated_date, delegated_notes,
-                        someday_notes, created_at, updated_at, last_state_change
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        start_date, delegated_to, follow_up_date, completed_at,
+                        last_resurfaced_at, resurface_count,
+                        is_recurring, recurrence_pattern, recurrence_parent_id,
+                        share_elo_rating, shared_elo_rating, shared_comparison_count,
+                        recurrence_end_date, occurrence_count,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (old_id,) + task_data
                 )
                 new_id = old_id
@@ -390,18 +414,18 @@ class ImportService:
         count = 0
 
         for dep in deps_data:
-            task_id = dep['task_id']
-            depends_on_id = dep['depends_on_task_id']
+            blocked_id = dep.get('blocked_task_id', dep.get('task_id'))  # Support old format
+            blocking_id = dep.get('blocking_task_id', dep.get('depends_on_task_id'))  # Support old format
 
             # Remap IDs if in merge mode
             if merge_mode:
-                task_id = self._id_mappings['tasks'].get(task_id, task_id)
-                depends_on_id = self._id_mappings['tasks'].get(depends_on_id, depends_on_id)
+                blocked_id = self._id_mappings['tasks'].get(blocked_id, blocked_id)
+                blocking_id = self._id_mappings['tasks'].get(blocking_id, blocking_id)
 
             cursor.execute(
-                """INSERT INTO dependencies (task_id, depends_on_task_id, created_at)
+                """INSERT INTO dependencies (blocked_task_id, blocking_task_id, created_at)
                    VALUES (?, ?, ?)""",
-                (task_id, depends_on_id, dep.get('created_at'))
+                (blocked_id, blocking_id, dep.get('created_at'))
             )
             count += 1
 
@@ -413,27 +437,21 @@ class ImportService:
         count = 0
 
         for comp in comps_data:
-            task_a_id = comp['task_a_id']
-            task_b_id = comp['task_b_id']
             winner_id = comp['winner_task_id']
+            loser_id = comp['loser_task_id']
 
             # Remap IDs if in merge mode
             if merge_mode:
-                task_a_id = self._id_mappings['tasks'].get(task_a_id, task_a_id)
-                task_b_id = self._id_mappings['tasks'].get(task_b_id, task_b_id)
                 winner_id = self._id_mappings['tasks'].get(winner_id, winner_id)
+                loser_id = self._id_mappings['tasks'].get(loser_id, loser_id)
 
             cursor.execute(
                 """INSERT INTO task_comparisons (
-                    task_a_id, task_b_id, winner_task_id,
-                    task_a_elo_before, task_a_elo_after,
-                    task_b_elo_before, task_b_elo_after,
-                    comparison_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (task_a_id, task_b_id, winner_id,
-                 comp['task_a_elo_before'], comp['task_a_elo_after'],
-                 comp['task_b_elo_before'], comp['task_b_elo_after'],
-                 comp['comparison_date'])
+                    winner_task_id, loser_task_id, adjustment_amount, compared_at
+                ) VALUES (?, ?, ?, ?)""",
+                (winner_id, loser_id,
+                 comp.get('adjustment_amount', 0.0),
+                 comp.get('compared_at', comp.get('comparison_date')))  # Support old format
             )
             count += 1
 
@@ -446,24 +464,20 @@ class ImportService:
 
         for record in hist_data:
             task_id = record['task_id']
-            blocker_id = record.get('blocker_task_id')
-            next_action_id = record.get('next_action_task_id')
 
             # Remap IDs if in merge mode
             if merge_mode:
                 task_id = self._id_mappings['tasks'].get(task_id, task_id)
-                if blocker_id:
-                    blocker_id = self._id_mappings['tasks'].get(blocker_id, blocker_id)
-                if next_action_id:
-                    next_action_id = self._id_mappings['tasks'].get(next_action_id, next_action_id)
 
             cursor.execute(
                 """INSERT INTO postpone_history (
-                    task_id, postponed_at, reason, action_taken,
-                    blocker_task_id, next_action_task_id
-                ) VALUES (?, ?, ?, ?, ?, ?)""",
-                (task_id, record['postponed_at'], record.get('reason'),
-                 record.get('action_taken'), blocker_id, next_action_id)
+                    task_id, reason_type, reason_notes, action_taken, postponed_at
+                ) VALUES (?, ?, ?, ?, ?)""",
+                (task_id,
+                 record.get('reason_type', record.get('reason', 'other')),  # Support old format
+                 record.get('reason_notes'),
+                 record.get('action_taken'),
+                 record['postponed_at'])
             )
             count += 1
 
@@ -477,12 +491,16 @@ class ImportService:
         for notif in notif_data:
             cursor.execute(
                 """INSERT INTO notifications (
-                    notification_type, title, message, severity,
-                    is_read, action_type, action_data, created_at, read_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (notif['notification_type'], notif['title'], notif['message'],
-                 notif['severity'], notif['is_read'], notif.get('action_type'),
-                 notif.get('action_data'), notif['created_at'], notif.get('read_at'))
+                    type, title, message, is_read,
+                    action_type, action_data, created_at, dismissed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (notif.get('type', notif.get('notification_type', 'info')),  # Support old format
+                 notif['title'], notif['message'],
+                 notif.get('is_read', 0),
+                 notif.get('action_type'),
+                 notif.get('action_data'),
+                 notif['created_at'],
+                 notif.get('dismissed_at', notif.get('read_at')))  # Support old format
             )
             count += 1
 
