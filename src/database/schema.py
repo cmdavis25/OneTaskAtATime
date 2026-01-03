@@ -202,6 +202,27 @@ class DatabaseSchema:
                 description TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+            """,
+
+            # Table 9: Task History (comprehensive audit log)
+            """
+            CREATE TABLE IF NOT EXISTS task_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL CHECK(event_type IN (
+                    'created', 'edited', 'completed', 'deferred', 'delegated',
+                    'activated', 'moved_to_someday', 'moved_to_trash', 'restored',
+                    'priority_changed', 'due_date_changed', 'dependency_added',
+                    'dependency_removed', 'tag_added', 'tag_removed',
+                    'context_changed', 'comparison_won', 'comparison_lost'
+                )),
+                event_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                old_value TEXT,  -- JSON serialized
+                new_value TEXT,  -- JSON serialized
+                changed_by TEXT DEFAULT 'user',
+                context_data TEXT,  -- Additional metadata
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            )
             """
         ]
 
@@ -231,7 +252,12 @@ class DatabaseSchema:
             "CREATE INDEX IF NOT EXISTS idx_postpone_task_id ON postpone_history(task_id)",
 
             # Task-project tags index (already has PRIMARY KEY, but index for reverse lookup)
-            "CREATE INDEX IF NOT EXISTS idx_task_project_tags_project ON task_project_tags(project_tag_id)"
+            "CREATE INDEX IF NOT EXISTS idx_task_project_tags_project ON task_project_tags(project_tag_id)",
+
+            # Task history indexes
+            "CREATE INDEX IF NOT EXISTS idx_task_history_task_id ON task_history(task_id)",
+            "CREATE INDEX IF NOT EXISTS idx_task_history_timestamp ON task_history(event_timestamp DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_task_history_type ON task_history(event_type)"
         ]
 
     @staticmethod
@@ -291,7 +317,15 @@ class DatabaseSchema:
             ('postpone_intervention_threshold', '3', 'integer',
              'Postponements before intervention'),
             ('postpone_pattern_days', '7', 'integer',
-             'Days window for pattern detection')
+             'Days window for pattern detection'),
+
+            # Onboarding and help system
+            ('onboarding_completed', 'false', 'boolean',
+             'Whether first-run onboarding has been completed'),
+            ('tutorial_shown', 'false', 'boolean',
+             'Whether interactive tutorial has been shown'),
+            ('undo_stack_max_size', '50', 'integer',
+             'Maximum number of undo operations to keep in history')
         ]
 
     @staticmethod

@@ -7,10 +7,10 @@ delegating, or moving tasks to different states.
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextEdit, QFrame, QMessageBox, QGroupBox
+    QTextEdit, QFrame, QMessageBox, QGroupBox, QShortcut
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QKeySequence
 from typing import Optional, Set
 from ..models.task import Task
 from ..models.enums import TaskState
@@ -61,6 +61,7 @@ class FocusModeWidget(QWidget):
         self._load_project_tags()
         self._load_filter_state()
         self._init_ui()
+        self._setup_shortcuts()  # Phase 8: Keyboard shortcuts
 
     def _load_contexts(self):
         """Load contexts from database for filter options."""
@@ -593,3 +594,39 @@ class FocusModeWidget(QWidget):
 
         except Exception as e:
             print(f"Error saving filter state: {e}")
+
+    def _setup_shortcuts(self):
+        """Configure keyboard shortcuts for Focus Mode actions (Phase 8)."""
+        # Complete: Alt+C
+        complete_shortcut = QShortcut(QKeySequence("Alt+C"), self)
+        complete_shortcut.activated.connect(self._on_complete_clicked)
+
+        # Defer: Alt+D
+        defer_shortcut = QShortcut(QKeySequence("Alt+D"), self)
+        defer_shortcut.activated.connect(self._on_defer_clicked)
+
+        # Delegate: Alt+G (G for "deLeGate")
+        delegate_shortcut = QShortcut(QKeySequence("Alt+G"), self)
+        delegate_shortcut.activated.connect(self._on_delegate_clicked)
+
+        # Someday: Alt+S
+        someday_shortcut = QShortcut(QKeySequence("Alt+S"), self)
+        someday_shortcut.activated.connect(self._on_someday_clicked)
+
+        # Trash: Alt+X
+        trash_shortcut = QShortcut(QKeySequence("Alt+X"), self)
+        trash_shortcut.activated.connect(self._on_trash_clicked)
+
+        # Update button text to include keyboard shortcuts
+        self.complete_button.setText("✓ Complete (Alt+C)")
+        self.defer_button.setText("Defer (Alt+D)")
+        self.delegate_button.setText("Delegate (Alt+G)")
+        self.someday_button.setText("Someday (Alt+S)")
+        self.trash_button.setText("Trash (Alt+X)")
+
+        # Update tooltips with more detailed descriptions
+        self.complete_button.setToolTip("Mark task as complete")
+        self.defer_button.setToolTip("Defer task to later date")
+        self.delegate_button.setToolTip("Delegate task to someone else")
+        self.someday_button.setToolTip("Move to Someday/Maybe list")
+        self.trash_button.setToolTip("Move to trash")

@@ -33,6 +33,11 @@ from ..services.notification_manager import NotificationManager
 from ..services.toast_notification_service import ToastNotificationService
 from ..services.resurfacing_scheduler import ResurfacingScheduler
 from ..services.theme_service import ThemeService
+from ..services.task_history_service import TaskHistoryService
+from ..services.error_service import ErrorService
+from ..services.accessibility_service import AccessibilityService
+from ..services.undo_manager import UndoManager
+from ..services.first_run_detector import FirstRunDetector
 from ..database.connection import DatabaseConnection
 from ..database.settings_dao import SettingsDAO
 from ..models.enums import TaskState
@@ -82,6 +87,13 @@ class MainWindow(QMainWindow):
             current_theme = self.settings_dao.get_str('theme', default='light')
             self.theme_service.apply_theme(current_theme)
 
+        # Initialize Phase 8 services
+        self.task_history_service = TaskHistoryService(self.db_connection.get_connection())
+        self.error_service = ErrorService()
+        self.accessibility_service = AccessibilityService()
+        self.undo_manager = UndoManager(max_stack_size=50)
+        self.first_run_detector = FirstRunDetector(self.db_connection.get_connection())
+
         self._init_ui()
         self._create_menu_bar()
         self._create_status_bar()
@@ -91,6 +103,19 @@ class MainWindow(QMainWindow):
 
         # Start background scheduler
         self.resurfacing_scheduler.start()
+
+        # Connect undo/redo signals to update menu state
+        self.undo_manager.can_undo_changed.connect(self._update_undo_action)
+        self.undo_manager.can_redo_changed.connect(self._update_redo_action)
+
+        # Apply accessibility features
+        self.accessibility_service.configure_keyboard_navigation(self)
+        self.accessibility_service.apply_accessible_labels(self)
+
+        # Show welcome wizard on first run (Phase 8)
+        from PyQt5.QtCore import QTimer
+        if self.first_run_detector.is_first_run():
+            QTimer.singleShot(500, self._show_welcome_wizard)
 
         # Load initial task
         self._refresh_focus_task()
@@ -158,14 +183,14 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
 
         # Import/Export submenu (Phase 7)
-        export_action = QAction("&Export Data...", self)
-        export_action.setShortcut("Ctrl+E")
+        export_action = QAction("E&xport Data...", self)
+        export_action.setShortcut("Ctrl+Shift+E")
         export_action.setStatusTip("Export data to JSON or create database backup")
         export_action.triggered.connect(self._export_data)
         file_menu.addAction(export_action)
 
         import_action = QAction("&Import Data...", self)
-        import_action.setShortcut("Ctrl+I")
+        import_action.setShortcut("Ctrl+Shift+I")
         import_action.setStatusTip("Import data from JSON backup")
         import_action.triggered.connect(self._import_data)
         file_menu.addAction(import_action)
@@ -178,17 +203,34 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
+        # Edit Menu (Phase 8)
+        edit_menu = menubar.addMenu("&Edit")
+
+        self.undo_action = QAction("&Undo", self)
+        self.undo_action.setShortcut("Ctrl+Z")
+        self.undo_action.setStatusTip("Undo last action")
+        self.undo_action.triggered.connect(self._undo_last_action)
+        self.undo_action.setEnabled(False)
+        edit_menu.addAction(self.undo_action)
+
+        self.redo_action = QAction("&Redo", self)
+        self.redo_action.setShortcut("Ctrl+Y")
+        self.redo_action.setStatusTip("Redo last undone action")
+        self.redo_action.triggered.connect(self._redo_last_action)
+        self.redo_action.setEnabled(False)
+        edit_menu.addAction(self.redo_action)
+
         # View Menu
         view_menu = menubar.addMenu("&View")
 
         focus_mode_action = QAction("&Focus Mode", self)
-        focus_mode_action.setShortcut("Ctrl+F")
+        focus_mode_action.setShortcut("Ctrl+1")
         focus_mode_action.setStatusTip("Switch to Focus Mode")
         focus_mode_action.triggered.connect(self._show_focus_mode)
         view_menu.addAction(focus_mode_action)
 
         task_list_action = QAction("&Task List", self)
-        task_list_action.setShortcut("Ctrl+L")
+        task_list_action.setShortcut("Ctrl+2")
         task_list_action.setStatusTip("Switch to Task List view")
         task_list_action.triggered.connect(self._show_task_list)
         view_menu.addAction(task_list_action)
@@ -247,8 +289,22 @@ class MainWindow(QMainWindow):
         reset_all_action.triggered.connect(self._reset_all_data)
         tools_menu.addAction(reset_all_action)
 
-        # Help Menu
+        # Help Menu (Phase 8 enhancements)
         help_menu = menubar.addMenu("&Help")
+
+        help_contents_action = QAction("&Help Contents", self)
+        help_contents_action.setShortcut("F1")
+        help_contents_action.setStatusTip("Show help documentation")
+        help_contents_action.triggered.connect(self._show_help)
+        help_menu.addAction(help_contents_action)
+
+        shortcuts_action = QAction("&Keyboard Shortcuts", self)
+        shortcuts_action.setShortcut("Ctrl+?")
+        shortcuts_action.setStatusTip("Show keyboard shortcuts reference")
+        shortcuts_action.triggered.connect(self._show_shortcuts)
+        help_menu.addAction(shortcuts_action)
+
+        help_menu.addSeparator()
 
         about_action = QAction("&About", self)
         about_action.setStatusTip("About OneTaskAtATime")
@@ -756,8 +812,66 @@ class MainWindow(QMainWindow):
             "A focused to-do list application designed to help users\n"
             "concentrate on executing one task at a time using\n"
             "GTD-inspired principles.\n\n"
-            "Phase 6: Task Resurfacing and Notification System Complete"
+            "Phase 8: Polish & UX Complete"
         )
+
+    def _show_help(self):
+        """Show help dialog (Phase 8)."""
+        from .help_dialog import HelpDialog
+        dialog = HelpDialog(self)
+        dialog.exec_()
+
+    def _show_shortcuts(self):
+        """Show keyboard shortcuts reference (Phase 8)."""
+        from .shortcuts_dialog import ShortcutsDialog
+        dialog = ShortcutsDialog(self)
+        dialog.exec_()
+
+    def _show_welcome_wizard(self):
+        """Show welcome wizard on first run (Phase 8)."""
+        from .welcome_wizard import WelcomeWizard
+        from PyQt5.QtWidgets import QWizard
+
+        wizard = WelcomeWizard(self.db_connection.get_connection(), self)
+        if wizard.exec_() == QWizard.Accepted:
+            self.first_run_detector.mark_onboarding_complete()
+            self._refresh_focus_task()
+
+    def _undo_last_action(self):
+        """Undo last action (Phase 8)."""
+        desc = self.undo_manager.get_undo_description()
+        if self.undo_manager.undo():
+            self.statusBar().showMessage(f"Undone: {desc}", 3000)
+            self._refresh_focus_task()
+            if hasattr(self, 'task_list_view'):
+                self.task_list_view.refresh_tasks()
+        else:
+            self.statusBar().showMessage("Nothing to undo", 2000)
+
+    def _redo_last_action(self):
+        """Redo last undone action (Phase 8)."""
+        if self.undo_manager.redo():
+            self.statusBar().showMessage("Action redone", 3000)
+            self._refresh_focus_task()
+            if hasattr(self, 'task_list_view'):
+                self.task_list_view.refresh_tasks()
+        else:
+            self.statusBar().showMessage("Nothing to redo", 2000)
+
+    def _update_undo_action(self, can_undo: bool):
+        """Update undo action enabled state (Phase 8)."""
+        if hasattr(self, 'undo_action'):
+            self.undo_action.setEnabled(can_undo)
+            if can_undo:
+                desc = self.undo_manager.get_undo_description()
+                self.undo_action.setText(f"&Undo {desc}")
+            else:
+                self.undo_action.setText("&Undo")
+
+    def _update_redo_action(self, can_redo: bool):
+        """Update redo action enabled state (Phase 8)."""
+        if hasattr(self, 'redo_action'):
+            self.redo_action.setEnabled(can_redo)
 
     def _export_data(self):
         """Show export data dialog (Phase 7)."""

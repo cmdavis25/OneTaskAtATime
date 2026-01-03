@@ -8,10 +8,10 @@ Phase 4: Full task management interface.
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QLineEdit, QComboBox, QLabel,
-    QMessageBox, QMenu, QCheckBox, QGroupBox, QGridLayout
+    QMessageBox, QMenu, QCheckBox, QGroupBox, QGridLayout, QShortcut
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QColor, QBrush
+from PyQt5.QtGui import QColor, QBrush, QKeySequence
 from typing import List, Optional
 from datetime import date
 from ..models import Task, TaskState
@@ -87,6 +87,7 @@ class TaskListView(QWidget):
         self._load_project_tags()
         self._load_filter_state()
         self._init_ui()
+        self._setup_shortcuts()  # Phase 8: Keyboard shortcuts
         self.refresh_tasks()
 
     def _load_contexts(self):
@@ -453,6 +454,16 @@ class TaskListView(QWidget):
         button_layout.addWidget(self.count_label)
 
         layout.addLayout(button_layout)
+
+    def _setup_shortcuts(self):
+        """Configure keyboard shortcuts for Task List View (Phase 8)."""
+        # Enter key - Edit selected task
+        edit_shortcut = QShortcut(QKeySequence(Qt.Key_Return), self)
+        edit_shortcut.activated.connect(self._on_edit_task)
+
+        # Alternative: Enter on numpad
+        edit_shortcut_numpad = QShortcut(QKeySequence(Qt.Key_Enter), self)
+        edit_shortcut_numpad.activated.connect(self._on_edit_task)
 
     def refresh_tasks(self):
         """Refresh the task list from the database."""

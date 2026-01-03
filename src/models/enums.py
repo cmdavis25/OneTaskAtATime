@@ -64,3 +64,31 @@ class Priority(Enum):
 
     def __str__(self) -> str:
         return self.name.capitalize()
+
+
+class TaskEventType(Enum):
+    """
+    Types of events that can occur in a task's history.
+    Used for comprehensive audit logging and timeline view.
+    """
+    CREATED = 'created'
+    EDITED = 'edited'
+    COMPLETED = 'completed'
+    DEFERRED = 'deferred'
+    DELEGATED = 'delegated'
+    ACTIVATED = 'activated'
+    MOVED_TO_SOMEDAY = 'moved_to_someday'
+    MOVED_TO_TRASH = 'moved_to_trash'
+    RESTORED = 'restored'
+    PRIORITY_CHANGED = 'priority_changed'
+    DUE_DATE_CHANGED = 'due_date_changed'
+    DEPENDENCY_ADDED = 'dependency_added'
+    DEPENDENCY_REMOVED = 'dependency_removed'
+    TAG_ADDED = 'tag_added'
+    TAG_REMOVED = 'tag_removed'
+    CONTEXT_CHANGED = 'context_changed'
+    COMPARISON_WON = 'comparison_won'
+    COMPARISON_LOST = 'comparison_lost'
+
+    def __str__(self) -> str:
+        return self.value
