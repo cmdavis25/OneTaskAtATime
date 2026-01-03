@@ -164,6 +164,11 @@ class SettingsDAO:
             return value.lower() in ('true', '1', 'yes')
         return bool(value) if value is not None else default
 
+    def get_float(self, key: str, default: float = 0.0) -> float:
+        """Get a float setting value."""
+        value = self.get(key, default)
+        return float(value) if value is not None else default
+
     def get_datetime(self, key: str, default: Optional[datetime] = None) -> Optional[datetime]:
         """Get a datetime setting value."""
         value = self.get(key, default)

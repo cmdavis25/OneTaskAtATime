@@ -19,7 +19,7 @@ def main():
     app.setOrganizationName("OneTaskAtATime")
     app.setApplicationVersion("1.0.0")
 
-    window = MainWindow()
+    window = MainWindow(app)
     window.show()
 
     sys.exit(app.exec_())

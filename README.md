@@ -332,14 +332,93 @@ The automated resurfacing and notification system is now fully functional:
 
 See [PHASE6_STATUS.md](PHASE6_STATUS.md) for complete details.
 
-**Next Phase: Future Enhancements**
+**Phase 7: Settings & Customization** ✅ COMPLETE
 
-Potential future improvements:
+The final phase delivers comprehensive data management and customization features:
+
+**Theme System:**
+- **Light/Dark Themes**: Professional Qt stylesheets with complete widget coverage
+- **System Detection**: Automatic Windows theme detection via registry
+- **Font Customization**: Adjustable base font size (8-16pt)
+- **Instant Application**: Theme changes apply immediately on settings save
+
+**Data Export:**
+- **JSON Export**: Full database export with structured schema (tasks, contexts, tags, dependencies, comparisons, history, notifications, settings)
+- **Database Backup**: Direct SQLite file backup for disaster recovery
+- **Progress Tracking**: Threaded export with real-time progress bar
+- **Metadata Preservation**: Export date, app version, schema version tracking
+- **File Menu Integration**: Quick access via Ctrl+E
+
+**Data Import:**
+- **Replace Mode**: Nuclear replacement of all data with validation
+- **Merge Mode**: Smart ID conflict resolution with automatic remapping
+- **Schema Validation**: Version compatibility checking (reject newer schemas)
+- **File Preview**: Summary display before import (date, version, counts)
+- **Transaction Safety**: Automatic rollback on error
+- **Relationship Preservation**: Maintains all foreign key references during merge
+- **File Menu Integration**: Quick access via Ctrl+I
+
+**Nuclear Reset:**
+- **Multi-Step Verification**: Triple confirmation process
+  1. Real-time deletion summary
+  2. Type "RESET" exactly
+  3. Acknowledge permanence checkbox
+  4. Final system warning dialog
+- **Selective Deletion**: Choose to preserve contexts, tags, and/or settings
+- **Detailed Reporting**: Shows counts of deleted items
+- **Transaction-Based**: Safe atomic operation with rollback protection
+- **Tools Menu Integration**: No keyboard shortcut (prevents accidents)
+
+**Advanced Settings:**
+- **Elo K-Factors**: Tune comparison sensitivity for new (16-64) and established (8-32) tasks
+- **Threshold Configuration**: Set comparison count before K-factor transition (5-20)
+- **Epsilon Tuning**: Adjust tie detection threshold (0.001-0.1)
+- **Visual Reference**: Read-only Elo band ranges display
+- **Reset to Defaults**: One-click restoration of recommended values
+
+**Settings Dialog Expansion:**
+- **6 Total Tabs**: Resurfacing, Notifications, Triggers, Intervention, Theme, Advanced
+- **30+ Settings**: Complete application configuration
+- **Tooltips**: Helpful guidance for advanced features
+- **Persistent Storage**: All settings saved to database
+
+**Testing:**
+- **50+ Unit Tests**: Comprehensive coverage of ExportService, ImportService, DataResetService
+- **Export/Import Roundtrip**: Verified data integrity
+- **Edge Case Handling**: Empty databases, missing files, schema mismatches
+- **Transaction Testing**: Rollback safety verification
+
+See [PHASE7_STATUS.md](PHASE7_STATUS.md) for complete details.
+
+---
+
+## Application Complete
+
+**OneTaskAtATime** is now feature-complete with all 7 planned phases implemented:
+
+✅ Phase 0: Project Setup
+✅ Phase 1: Data Layer
+✅ Phase 2: MVP Focus Mode
+✅ Phase 3: Comparison-Based Priority Resolution
+✅ Phase 4: Task Management Interface
+✅ Phase 5: Dependency & Blocker System
+✅ Phase 6: Task Resurfacing and Notification System
+✅ **Phase 7: Settings & Customization**
+
+**Total Project Stats:**
+- **~15,000+ lines of code**
+- **150+ comprehensive unit tests**
+- **Complete GTD-inspired task management system**
+- **Professional UI with light/dark themes**
+- **Full data portability and backup capabilities**
+
+**Future Enhancements (Potential):**
 - Advanced analytics dashboard (completion trends, time-to-completion metrics)
 - Search and filter enhancements (full-text search, saved filter presets)
-- Export and reporting (CSV/JSON/Markdown, printable reports)
-- Performance optimizations (query optimization, lazy loading, caching)
+- Scheduled automatic backups
+- Cloud backup integration
+- Theme editor and custom theme creation
+- Export filtering (date ranges, specific states)
 - Keyboard shortcut customization
-- Task history and undo/redo functionality
 
 See [implementation_plan.md](implementation_plan.md) for the full development roadmap.

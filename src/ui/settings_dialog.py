@@ -11,7 +11,7 @@ import sqlite3
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTabWidget, QWidget, QFormLayout, QSpinBox, QTimeEdit,
-    QCheckBox, QGroupBox, QMessageBox
+    QCheckBox, QGroupBox, QMessageBox, QComboBox, QDoubleSpinBox
 )
 from PyQt5.QtCore import Qt, QTime, pyqtSignal
 from PyQt5.QtGui import QFont
@@ -73,11 +73,15 @@ class SettingsDialog(QDialog):
         self.notifications_tab = self._create_notifications_tab()
         self.triggers_tab = self._create_triggers_tab()
         self.intervention_tab = self._create_intervention_tab()
+        self.theme_tab = self._create_theme_tab()
+        self.advanced_tab = self._create_advanced_tab()
 
         self.tab_widget.addTab(self.resurfacing_tab, "Resurfacing")
         self.tab_widget.addTab(self.notifications_tab, "Notifications")
         self.tab_widget.addTab(self.triggers_tab, "Notification Triggers")
         self.tab_widget.addTab(self.intervention_tab, "Intervention")
+        self.tab_widget.addTab(self.theme_tab, "Theme")
+        self.tab_widget.addTab(self.advanced_tab, "Advanced")
 
         layout.addWidget(self.tab_widget)
 
@@ -272,6 +276,117 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         return tab
 
+    def _create_theme_tab(self) -> QWidget:
+        """Create the theme settings tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        tab.setLayout(layout)
+
+        # Theme selection group
+        theme_group = QGroupBox("Appearance")
+        theme_form = QFormLayout()
+
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["Light", "Dark", "System Default"])
+        self.theme_combo.setToolTip("Select application theme")
+        theme_form.addRow("Theme:", self.theme_combo)
+
+        self.font_size_spin = QSpinBox()
+        self.font_size_spin.setRange(8, 16)
+        self.font_size_spin.setSuffix(" pt")
+        self.font_size_spin.setToolTip("Base font size for the application")
+        theme_form.addRow("Font Size:", self.font_size_spin)
+
+        theme_group.setLayout(theme_form)
+        layout.addWidget(theme_group)
+
+        # Info label
+        info_label = QLabel(
+            "Theme changes will be applied immediately when you save settings."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: #666; margin-top: 10px;")
+        layout.addWidget(info_label)
+
+        layout.addStretch()
+        return tab
+
+    def _create_advanced_tab(self) -> QWidget:
+        """Create the advanced settings tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        tab.setLayout(layout)
+
+        # Warning label
+        warning_label = QLabel(
+            "⚠️ Only change these settings if you understand the Elo comparison system."
+        )
+        warning_label.setWordWrap(True)
+        warning_label.setStyleSheet("color: #ff6600; font-weight: bold; margin-bottom: 10px;")
+        layout.addWidget(warning_label)
+
+        # Elo system parameters
+        elo_group = QGroupBox("Elo System Parameters")
+        elo_form = QFormLayout()
+
+        self.k_factor_new_spin = QSpinBox()
+        self.k_factor_new_spin.setRange(16, 64)
+        self.k_factor_new_spin.setToolTip(
+            "Sensitivity for first 10 comparisons (higher = larger rating changes)"
+        )
+        elo_form.addRow("K-factor (new tasks):", self.k_factor_new_spin)
+
+        self.k_factor_spin = QSpinBox()
+        self.k_factor_spin.setRange(8, 32)
+        self.k_factor_spin.setToolTip(
+            "Sensitivity after 10 comparisons (lower = more stable ratings)"
+        )
+        elo_form.addRow("K-factor (established):", self.k_factor_spin)
+
+        self.new_task_threshold_spin = QSpinBox()
+        self.new_task_threshold_spin.setRange(5, 20)
+        self.new_task_threshold_spin.setToolTip(
+            "Number of comparisons before switching to base K-factor"
+        )
+        elo_form.addRow("New task threshold:", self.new_task_threshold_spin)
+
+        self.score_epsilon_spin = QDoubleSpinBox()
+        self.score_epsilon_spin.setRange(0.001, 0.1)
+        self.score_epsilon_spin.setDecimals(3)
+        self.score_epsilon_spin.setSingleStep(0.001)
+        self.score_epsilon_spin.setToolTip(
+            "Threshold for tie detection (smaller = stricter equality)"
+        )
+        elo_form.addRow("Score epsilon:", self.score_epsilon_spin)
+
+        elo_group.setLayout(elo_form)
+        layout.addWidget(elo_group)
+
+        # Elo band ranges (read-only)
+        band_group = QGroupBox("Elo Band Ranges")
+        band_layout = QVBoxLayout()
+
+        band_label = QLabel(
+            "High Priority   (base=3): [2.0, 3.0]\n"
+            "Medium Priority (base=2): [1.0, 2.0]\n"
+            "Low Priority    (base=1): [0.0, 1.0]"
+        )
+        band_label.setStyleSheet("font-family: monospace; color: #666;")
+        band_layout.addWidget(band_label)
+
+        band_group.setLayout(band_layout)
+        layout.addWidget(band_group)
+
+        # Reset defaults button
+        reset_button = QPushButton("Reset to Defaults")
+        reset_button.clicked.connect(self._reset_advanced_defaults)
+        layout.addWidget(reset_button)
+
+        layout.addStretch()
+        return tab
+
     def _load_settings(self):
         """Load current settings from database."""
         # Resurfacing tab
@@ -329,6 +444,32 @@ class SettingsDialog(QDialog):
 
         self.postpone_pattern_days_spin.setValue(
             self.settings_dao.get_int('postpone_pattern_days', default=7)
+        )
+
+        # Theme tab
+        theme = self.settings_dao.get_str('theme', default='light')
+        theme_index = {"light": 0, "dark": 1, "system": 2}.get(theme, 0)
+        self.theme_combo.setCurrentIndex(theme_index)
+
+        self.font_size_spin.setValue(
+            self.settings_dao.get_int('font_size', default=10)
+        )
+
+        # Advanced tab
+        self.k_factor_new_spin.setValue(
+            self.settings_dao.get_int('elo_k_factor_new', default=32)
+        )
+
+        self.k_factor_spin.setValue(
+            self.settings_dao.get_int('elo_k_factor', default=16)
+        )
+
+        self.new_task_threshold_spin.setValue(
+            self.settings_dao.get_int('elo_new_task_threshold', default=10)
+        )
+
+        self.score_epsilon_spin.setValue(
+            self.settings_dao.get_float('score_epsilon', default=0.01)
         )
 
     def _save_settings(self):
@@ -436,6 +577,52 @@ class SettingsDialog(QDialog):
                 'Days window for pattern detection'
             )
 
+            # Theme settings
+            theme_map = {0: 'light', 1: 'dark', 2: 'system'}
+            theme_value = theme_map.get(self.theme_combo.currentIndex(), 'light')
+            self.settings_dao.set(
+                'theme',
+                theme_value,
+                'string',
+                'UI theme (light/dark/system)'
+            )
+
+            self.settings_dao.set(
+                'font_size',
+                self.font_size_spin.value(),
+                'integer',
+                'Base font size in points'
+            )
+
+            # Advanced settings
+            self.settings_dao.set(
+                'elo_k_factor_new',
+                self.k_factor_new_spin.value(),
+                'integer',
+                'K-factor for new tasks'
+            )
+
+            self.settings_dao.set(
+                'elo_k_factor',
+                self.k_factor_spin.value(),
+                'integer',
+                'K-factor for established tasks'
+            )
+
+            self.settings_dao.set(
+                'elo_new_task_threshold',
+                self.new_task_threshold_spin.value(),
+                'integer',
+                'Comparisons before base K-factor'
+            )
+
+            self.settings_dao.set(
+                'score_epsilon',
+                self.score_epsilon_spin.value(),
+                'float',
+                'Threshold for tie detection'
+            )
+
             # Emit signal and close
             self.settings_saved.emit()
 
@@ -462,3 +649,10 @@ class SettingsDialog(QDialog):
             return QTime(int(parts[0]), int(parts[1]))
         except (ValueError, IndexError):
             return QTime(9, 0)  # Default to 9:00 AM
+
+    def _reset_advanced_defaults(self):
+        """Reset advanced settings to default values."""
+        self.k_factor_new_spin.setValue(32)
+        self.k_factor_spin.setValue(16)
+        self.new_task_threshold_spin.setValue(10)
+        self.score_epsilon_spin.setValue(0.01)

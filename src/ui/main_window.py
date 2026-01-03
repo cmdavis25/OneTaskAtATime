@@ -6,7 +6,7 @@ Provides the main application container with menu bar and navigation.
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel,
-    QMenuBar, QMenu, QAction, QStatusBar, QMessageBox, QStackedWidget
+    QMenuBar, QMenu, QAction, QStatusBar, QMessageBox, QStackedWidget, QDialog
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -23,13 +23,18 @@ from .settings_dialog import SettingsDialog
 from .review_delegated_dialog import ReviewDelegatedDialog
 from .review_someday_dialog import ReviewSomedayDialog
 from .activated_tasks_dialog import ActivatedTasksDialog
+from .export_dialog import ExportDialog
+from .import_dialog import ImportDialog
+from .reset_confirmation_dialog import ResetConfirmationDialog
 from ..services.task_service import TaskService
 from ..services.comparison_service import ComparisonService
 from ..services.postpone_workflow_service import PostponeWorkflowService
 from ..services.notification_manager import NotificationManager
 from ..services.toast_notification_service import ToastNotificationService
 from ..services.resurfacing_scheduler import ResurfacingScheduler
+from ..services.theme_service import ThemeService
 from ..database.connection import DatabaseConnection
+from ..database.settings_dao import SettingsDAO
 from ..models.enums import TaskState
 from ..models.notification import Notification
 
@@ -41,14 +46,20 @@ class MainWindow(QMainWindow):
     Phase 4: Full task management interface with multiple views.
     """
 
-    def __init__(self):
-        """Initialize the main window."""
+    def __init__(self, app=None):
+        """Initialize the main window.
+
+        Args:
+            app: QApplication instance for theme management
+        """
         super().__init__()
+        self.app = app
         self.setWindowTitle("OneTaskAtATime")
         self.setGeometry(100, 100, 1000, 700)
 
         # Initialize database and services
         self.db_connection = DatabaseConnection()
+        self.settings_dao = SettingsDAO(self.db_connection.get_connection())
         self.task_service = TaskService(self.db_connection)
         self.comparison_service = ComparisonService(self.db_connection)
         self.postpone_workflow_service = PostponeWorkflowService(self.db_connection.get_connection())
@@ -63,6 +74,13 @@ class MainWindow(QMainWindow):
             self.db_connection.get_connection(),
             self.notification_manager
         )
+
+        # Initialize Phase 7 services (theme system)
+        if self.app:
+            self.theme_service = ThemeService(self.db_connection.get_connection(), self.app)
+            # Apply saved theme
+            current_theme = self.settings_dao.get_str('theme', default='light')
+            self.theme_service.apply_theme(current_theme)
 
         self._init_ui()
         self._create_menu_bar()
@@ -139,6 +157,21 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
+        # Import/Export submenu (Phase 7)
+        export_action = QAction("&Export Data...", self)
+        export_action.setShortcut("Ctrl+E")
+        export_action.setStatusTip("Export data to JSON or create database backup")
+        export_action.triggered.connect(self._export_data)
+        file_menu.addAction(export_action)
+
+        import_action = QAction("&Import Data...", self)
+        import_action.setShortcut("Ctrl+I")
+        import_action.setStatusTip("Import data from JSON backup")
+        import_action.triggered.connect(self._import_data)
+        file_menu.addAction(import_action)
+
+        file_menu.addSeparator()
+
         exit_action = QAction("E&xit", self)
         exit_action.setShortcut("Ctrl+Q")
         exit_action.setStatusTip("Exit application")
@@ -208,10 +241,11 @@ class MainWindow(QMainWindow):
 
         tools_menu.addSeparator()
 
-        delete_all_tasks_action = QAction("Delete &All Tasks...", self)
-        delete_all_tasks_action.setStatusTip("Delete all tasks from the database")
-        delete_all_tasks_action.triggered.connect(self._delete_all_tasks)
-        tools_menu.addAction(delete_all_tasks_action)
+        # Phase 7: Replace "Delete All Tasks" with comprehensive "Reset All Data"
+        reset_all_action = QAction("Reset All &Data...", self)
+        reset_all_action.setStatusTip("Reset all data (nuclear option with multi-step confirmation)")
+        reset_all_action.triggered.connect(self._reset_all_data)
+        tools_menu.addAction(reset_all_action)
 
         # Help Menu
         help_menu = menubar.addMenu("&Help")
@@ -634,6 +668,12 @@ class MainWindow(QMainWindow):
         """Handle settings saved signal."""
         # Reload scheduler settings
         self.resurfacing_scheduler.reload_settings()
+
+        # Reapply theme if changed (Phase 7)
+        if hasattr(self, 'theme_service'):
+            current_theme = self.settings_dao.get_str('theme', default='light')
+            self.theme_service.apply_theme(current_theme)
+
         self.statusBar().showMessage("Settings saved and scheduler updated", 3000)
 
     def _connect_scheduler_signals(self):
@@ -718,6 +758,31 @@ class MainWindow(QMainWindow):
             "GTD-inspired principles.\n\n"
             "Phase 6: Task Resurfacing and Notification System Complete"
         )
+
+    def _export_data(self):
+        """Show export data dialog (Phase 7)."""
+        dialog = ExportDialog(self.db_connection.get_connection(), self)
+        dialog.exec_()
+
+    def _import_data(self):
+        """Show import data dialog (Phase 7)."""
+        dialog = ImportDialog(self.db_connection.get_connection(), self)
+        if dialog.exec_() == QDialog.Accepted:
+            # Refresh all views after successful import
+            self._refresh_focus_task()
+            if hasattr(self, 'task_list_view'):
+                self.task_list_view.refresh_tasks()
+            self.statusBar().showMessage("Data imported successfully", 5000)
+
+    def _reset_all_data(self):
+        """Show reset all data confirmation dialog (Phase 7)."""
+        dialog = ResetConfirmationDialog(self.db_connection.get_connection(), self)
+        if dialog.exec_() == QDialog.Accepted:
+            # Refresh all views after successful reset
+            self._refresh_focus_task()
+            if hasattr(self, 'task_list_view'):
+                self.task_list_view.refresh_tasks()
+            self.statusBar().showMessage("All data has been reset", 5000)
 
     def closeEvent(self, event):
         """Handle application close event."""
