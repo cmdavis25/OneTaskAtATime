@@ -369,6 +369,7 @@ QCalendarWidget QWidget {
 
 QPushButton:focus {
     border: 2px solid #4CC2FF;  /* High contrast blue for dark theme */
+    padding: 5px 11px;  /* Compensate for thicker border to prevent text cutoff */
     outline: none;
 }
 
@@ -394,6 +395,7 @@ QCheckBox:focus, QRadioButton:focus {
 
 QTabBar::tab:focus {
     border: 2px solid #4CC2FF;
+    padding: 5px 11px;  /* Compensate for thicker border to prevent text cutoff */
 }
 
 QTableWidget:focus {
@@ -428,4 +430,68 @@ QLabel[warning="true"] {
 
 QLabel[success="true"] {
     color: #6BCF7F;  /* Success green with sufficient contrast */
+}
+
+/* Sequential Ranking Dialog Styles */
+QFrame#newTaskItem {
+    background-color: #1e3a1e;  /* Dark green for new tasks */
+    border: 2px solid #4caf50;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+}
+
+QFrame#existingTaskItem {
+    background-color: #1e2a3a;  /* Dark blue for existing tasks */
+    border: 2px solid #2196f3;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+}
+
+QFrame#instructionsFrame {
+    background-color: #3a3520;  /* Dark yellow-ish background */
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 4px 0px;
+}
+
+QListWidget#rankingList {
+    border: 1px solid #555555;
+    border-radius: 4px;
+}
+
+QListWidget#rankingList::item {
+    border: none;
+    padding: 0px;
+    margin: 0px;
+}
+
+QLabel#subtitleLabel {
+    color: #b0b0b0;  /* Muted gray for subtitle text */
+}
+
+QFrame#selectedTaskItem {
+    background-color: #2a2a3a;  /* Darker background for selected */
+    border: 3px solid #ffa726;  /* Orange border for selection mode */
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+}
+
+QFrame#movingTaskItem {
+    background-color: #2a2a3a;  /* Darker background for moving */
+    border: 3px solid #ff5722;  /* Red-orange border for movement mode */
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+}
+
+QLabel#modeIndicator {
+    color: #ffa726;  /* Orange to match selection border */
+    padding: 4px 8px;
+    background-color: #3a3520;
+    border: 1px solid #ffa726;
+    border-radius: 3px;
 }

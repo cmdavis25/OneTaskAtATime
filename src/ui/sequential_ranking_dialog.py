@@ -12,9 +12,16 @@ from PyQt5.QtWidgets import (
     QMessageBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont, QDrag
+from PyQt5.QtGui import QFont, QDrag, QPalette, QColor
 from typing import List, Optional
+from enum import Enum
 from ..models.task import Task
+
+
+class RankingMode(Enum):
+    """Modes for the ranking dialog."""
+    SELECTION = "selection"  # Navigating to select a task
+    MOVEMENT = "movement"    # Moving the selected task
 
 
 class TaskRankingItem(QFrame):
@@ -40,33 +47,21 @@ class TaskRankingItem(QFrame):
         self.setFrameShape(QFrame.StyledPanel)
         self.setFrameShadow(QFrame.Raised)
 
-        # Style differently for new vs existing tasks
+        # Set object name for styling via QSS
         if is_existing:
-            border_color = "#007bff"  # Blue for existing tasks
-            bg_color = "#e7f3ff"
+            self.setObjectName("existingTaskItem")
         else:
-            border_color = "#28a745"  # Green for new tasks
-            bg_color = "#e8f5e9"
-
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {bg_color};
-                border: 2px solid {border_color};
-                border-radius: 6px;
-                padding: 10px;
-                margin: 4px;
-            }}
-        """)
+            self.setObjectName("newTaskItem")
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(4)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(2)
         self.setLayout(layout)
 
         # Task title (single line with ellipsis)
         title_label = QLabel(task.title)
         title_font = QFont()
-        title_font.setPointSize(11)
+        title_font.setPointSize(9)
         title_font.setBold(True)
         title_label.setFont(title_font)
         title_label.setWordWrap(False)
@@ -121,6 +116,47 @@ class TaskRankingItem(QFrame):
         title_label.setToolTip("<br>".join(tooltip_parts))
         layout.addWidget(title_label)
 
+        # Mode indicator label (initially hidden, positioned below title)
+        self.mode_label = QLabel("")
+        mode_font = QFont()
+        mode_font.setPointSize(7)
+        mode_font.setBold(True)
+        self.mode_label.setFont(mode_font)
+        self.mode_label.setVisible(False)
+        self.mode_label.setWordWrap(True)
+        layout.addWidget(self.mode_label)
+
+    def set_mode_indicator(self, mode: Optional[RankingMode]):
+        """
+        Set the visual mode indicator for this item.
+
+        Args:
+            mode: The current mode (SELECTION or MOVEMENT), or None to clear
+        """
+        if mode is None:
+            self.mode_label.setVisible(False)
+            # Reset to default styling
+            if self.is_existing:
+                self.setObjectName("existingTaskItem")
+            else:
+                self.setObjectName("newTaskItem")
+        elif mode == RankingMode.SELECTION:
+            self.mode_label.setText("[Up/Down to Change Task Selection]\n[Enter to Confirm Selection]")
+            self.mode_label.setVisible(True)
+            self.setObjectName("selectedTaskItem")
+        elif mode == RankingMode.MOVEMENT:
+            self.mode_label.setText("[Up/Down to Change Task Ranking]\n[Enter or Esc to Confirm Ranking]")
+            self.mode_label.setVisible(True)
+            self.setObjectName("movingTaskItem")
+
+        # Force style update
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+        # Update size to accommodate the mode label
+        self.adjustSize()
+        self.updateGeometry()
+
 
 class SequentialRankingDialog(QDialog):
     """
@@ -157,6 +193,10 @@ class SequentialRankingDialog(QDialog):
         self.priority_band = priority_band
         self.db_connection = db_connection
         self.ranked_tasks: List[Task] = []
+
+        # Mode tracking
+        self.current_mode = RankingMode.SELECTION
+        self.previous_selected_row = -1
 
         priority_names = {1: "Low", 2: "Medium", 3: "High"}
         self.priority_name = priority_names.get(priority_band, "Unknown")
@@ -216,30 +256,23 @@ class SequentialRankingDialog(QDialog):
         subtitle_font.setPointSize(10)
         subtitle_label.setFont(subtitle_font)
         subtitle_label.setAlignment(Qt.AlignCenter)
-        subtitle_label.setStyleSheet("color: #666;")
         subtitle_label.setWordWrap(True)
+        subtitle_label.setObjectName("subtitleLabel")
         layout.addWidget(subtitle_label)
 
     def _create_instructions(self, layout: QVBoxLayout):
         """Create the instructions section."""
         instructions_frame = QFrame()
-        instructions_frame.setStyleSheet("""
-            QFrame {
-                background-color: #fff3cd;
-                border: 1px solid #ffc107;
-                border-radius: 4px;
-                padding: 10px;
-            }
-        """)
+        instructions_frame.setObjectName("instructionsFrame")
         instructions_layout = QVBoxLayout()
         instructions_frame.setLayout(instructions_layout)
 
         instructions_label = QLabel(
-            "<b>Instructions:</b><br>"
-            "• Drag and drop tasks to arrange them from <b>highest priority (top)</b> to <b>lowest priority (bottom)</b><br>"
-            "• <span style='color: #28a745;'>Green tasks</span> are new and need ranking<br>"
-            "• <span style='color: #007bff;'>Blue tasks</span> are existing tasks shown for reference<br>"
-            "• Click <b>Save Ranking</b> when done, or <b>Skip</b> to rank later"
+            "<b>Keyboard Controls:</b><br>"
+            "• <b>Up/Down</b>: Navigate tasks (Selection mode) or move task (Movement mode)<br>"
+            "• <b>Enter</b>: Toggle between Selection and Movement modes<br>"
+            "• <b>Ctrl+S</b>: Save ranking and close | <b>Escape</b>: Exit Movement mode or skip ranking<br>"
+            "• Or <b>drag and drop</b> tasks to reorder them"
         )
         instructions_label.setWordWrap(True)
         instructions_layout.addWidget(instructions_label)
@@ -248,30 +281,46 @@ class SequentialRankingDialog(QDialog):
 
     def _create_ranking_list(self, layout: QVBoxLayout):
         """Create the drag-and-drop ranking list."""
-        list_label = QLabel("Drag tasks to arrange in priority order (highest first):")
-        list_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
-        layout.addWidget(list_label)
+        # Header with list label and mode indicator
+        header_layout = QHBoxLayout()
+
+        list_label = QLabel("Arrange tasks in priority order (highest first):")
+        list_label_font = QFont()
+        list_label_font.setBold(True)
+        list_label.setFont(list_label_font)
+        header_layout.addWidget(list_label)
+
+        header_layout.addStretch()
+
+        # Mode indicator
+        self.mode_indicator = QLabel("Mode: SELECTION")
+        mode_indicator_font = QFont()
+        mode_indicator_font.setBold(True)
+        mode_indicator_font.setPointSize(9)
+        self.mode_indicator.setFont(mode_indicator_font)
+        self.mode_indicator.setObjectName("modeIndicator")
+        header_layout.addWidget(self.mode_indicator)
+
+        layout.addLayout(header_layout)
 
         # Create the list widget with drag-and-drop enabled
         self.ranking_list = QListWidget()
         self.ranking_list.setDragDropMode(QListWidget.InternalMove)
         self.ranking_list.setSelectionMode(QListWidget.SingleSelection)
-        self.ranking_list.setMinimumHeight(300)
-        self.ranking_list.setStyleSheet("""
-            QListWidget {
-                background-color: white;
-                border: 2px solid #ddd;
-                border-radius: 4px;
-            }
-            QListWidget::item {
-                border: none;
-                padding: 0px;
-                margin: 0px;
-            }
-        """)
+        self.ranking_list.setMinimumHeight(250)
+        self.ranking_list.setObjectName("rankingList")
+
+        # Install event filter to intercept key presses
+        self.ranking_list.installEventFilter(self)
 
         # Populate the list with task items
         self._populate_ranking_list()
+
+        # Set focus to list and select first item
+        self.ranking_list.setFocus()
+        if self.ranking_list.count() > 0:
+            self.ranking_list.setCurrentRow(0)
+            self._update_mode_visuals()
 
         layout.addWidget(self.ranking_list)
 
@@ -296,10 +345,15 @@ class SequentialRankingDialog(QDialog):
         # Add items to the list
         for task, is_existing in all_items:
             item = QListWidgetItem(self.ranking_list)
-            item.setSizeHint(QWidget().sizeHint())
 
             # Create the task card widget
             task_widget = TaskRankingItem(task, is_existing, self.db_connection)
+
+            # Force the widget to calculate its size
+            task_widget.adjustSize()
+
+            # Set the item size hint to match the widget's actual size with some padding
+            widget_height = task_widget.sizeHint().height()
             item.setSizeHint(task_widget.sizeHint())
 
             self.ranking_list.addItem(item)
@@ -314,45 +368,18 @@ class SequentialRankingDialog(QDialog):
         button_layout = QHBoxLayout()
 
         # Skip button
-        skip_button = QPushButton("Skip for Now")
-        skip_button.setStyleSheet("""
-            QPushButton {
-                background-color: #6c757d;
-                color: white;
-                font-size: 11pt;
-                border: none;
-                border-radius: 4px;
-                padding: 10px 20px;
-                min-width: 120px;
-            }
-            QPushButton:hover {
-                background-color: #5a6268;
-            }
-        """)
-        skip_button.clicked.connect(self.reject)
-        button_layout.addWidget(skip_button)
+        self.skip_button = QPushButton("Skip for Now")
+        self.skip_button.clicked.connect(self.reject)
+        button_layout.addWidget(self.skip_button)
 
         button_layout.addStretch()
 
         # Save ranking button
-        save_button = QPushButton("Save Ranking")
-        save_button.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                font-size: 11pt;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 10px 20px;
-                min-width: 120px;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-        """)
-        save_button.clicked.connect(self._on_save_ranking)
-        button_layout.addWidget(save_button)
+        self.save_button = QPushButton("Save Ranking")
+        self.save_button.setObjectName("primaryButton")
+        self.save_button.setDefault(True)
+        self.save_button.clicked.connect(self._on_save_ranking)
+        button_layout.addWidget(self.save_button)
 
         layout.addLayout(button_layout)
 
@@ -390,3 +417,253 @@ class SequentialRankingDialog(QDialog):
             List of tasks ordered from highest to lowest priority
         """
         return self.ranked_tasks
+
+    def eventFilter(self, obj, event):
+        """
+        Event filter to intercept key presses on the ranking list.
+
+        Args:
+            obj: The object that generated the event
+            event: The event
+
+        Returns:
+            True if event was handled, False otherwise
+        """
+        from PyQt5.QtCore import QEvent
+
+        # Only filter key presses on the ranking list
+        if obj == self.ranking_list and event.type() == QEvent.KeyPress:
+            key = event.key()
+
+            # Intercept control keys and pass to dialog handler
+            if key in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Return, Qt.Key_Enter, Qt.Key_Escape):
+                self.keyPressEvent(event)
+                return True  # Prevent default list widget behavior
+
+            # Also intercept Ctrl+S
+            if key == Qt.Key_S and event.modifiers() == Qt.ControlModifier:
+                self.keyPressEvent(event)
+                return True
+
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event):
+        """
+        Handle keyboard events for two-mode navigation system.
+
+        Selection Mode:
+        - Up/Down: Navigate between tasks
+        - Enter: Enter Movement mode for selected task
+
+        Movement Mode:
+        - Up/Down: Move selected task up/down
+        - Enter: Return to Selection mode (or save if no changes)
+        - Escape: Return to Selection mode
+
+        Args:
+            event: The key press event
+        """
+        from PyQt5.QtCore import Qt
+
+        key = event.key()
+
+        # Escape key behavior depends on mode
+        if key == Qt.Key_Escape:
+            if self.current_mode == RankingMode.MOVEMENT:
+                # Exit movement mode back to selection
+                self._switch_to_selection_mode()
+                return
+            else:
+                # Cancel/skip the dialog
+                self.reject()
+                return
+
+        # Ctrl+S to save and close
+        if key == Qt.Key_S and event.modifiers() == Qt.ControlModifier:
+            self._on_save_ranking()
+            return
+
+        # Enter key behavior depends on mode
+        if key in (Qt.Key_Return, Qt.Key_Enter):
+            if self.current_mode == RankingMode.SELECTION:
+                # Enter movement mode
+                self._switch_to_movement_mode()
+                return
+            else:  # MOVEMENT mode
+                # Return to selection mode
+                self._switch_to_selection_mode()
+                return
+
+        # Up/Down key behavior depends on mode
+        if key == Qt.Key_Up:
+            if self.current_mode == RankingMode.SELECTION:
+                # Navigate to previous task
+                self._navigate_up()
+                return
+            else:  # MOVEMENT mode
+                # Move task up
+                self._move_selected_item_up()
+                return
+
+        if key == Qt.Key_Down:
+            if self.current_mode == RankingMode.SELECTION:
+                # Navigate to next task
+                self._navigate_down()
+                return
+            else:  # MOVEMENT mode
+                # Move task down
+                self._move_selected_item_down()
+                return
+
+        # Pass other events to parent
+        super().keyPressEvent(event)
+
+    def _switch_to_movement_mode(self):
+        """Switch from Selection mode to Movement mode."""
+        self.current_mode = RankingMode.MOVEMENT
+        self.mode_indicator.setText("Mode: MOVEMENT")
+        self._update_mode_visuals()
+
+    def _switch_to_selection_mode(self):
+        """Switch from Movement mode to Selection mode."""
+        self.current_mode = RankingMode.SELECTION
+        self.mode_indicator.setText("Mode: SELECTION")
+        self._update_mode_visuals()
+
+    def _update_mode_visuals(self):
+        """Update visual indicators for all items based on current mode and selection."""
+        current_row = self.ranking_list.currentRow()
+        if current_row < 0:
+            return  # No selection
+
+        for i in range(self.ranking_list.count()):
+            item = self.ranking_list.item(i)
+            if not item:
+                continue
+
+            widget = self.ranking_list.itemWidget(item)
+            if not isinstance(widget, TaskRankingItem):
+                continue
+
+            try:
+                if i == current_row:
+                    # Current item shows mode indicator
+                    widget.set_mode_indicator(self.current_mode)
+                    # Update item size hint to accommodate mode label
+                    item.setSizeHint(widget.sizeHint())
+                else:
+                    # Other items have no indicator
+                    widget.set_mode_indicator(None)
+                    # Update item size hint
+                    item.setSizeHint(widget.sizeHint())
+            except Exception as e:
+                # Log error but don't crash
+                print(f"Error updating mode visuals for item {i}: {e}")
+                continue
+
+    def _navigate_up(self):
+        """Navigate to the previous task in Selection mode."""
+        current_row = self.ranking_list.currentRow()
+        if current_row > 0:
+            self.ranking_list.setCurrentRow(current_row - 1)
+            self._update_mode_visuals()
+
+    def _navigate_down(self):
+        """Navigate to the next task in Selection mode."""
+        current_row = self.ranking_list.currentRow()
+        if current_row < self.ranking_list.count() - 1:
+            self.ranking_list.setCurrentRow(current_row + 1)
+            self._update_mode_visuals()
+
+    def _move_selected_item_up(self):
+        """Move the currently selected item up in Movement mode."""
+        current_row = self.ranking_list.currentRow()
+        if current_row <= 0:
+            return  # Already at top
+
+        # Get the task data from both items
+        current_item = self.ranking_list.item(current_row)
+        above_item = self.ranking_list.item(current_row - 1)
+
+        if not current_item or not above_item:
+            return
+
+        current_task = current_item.data(Qt.UserRole)
+        current_is_existing = current_item.data(Qt.UserRole + 1)
+        above_task = above_item.data(Qt.UserRole)
+        above_is_existing = above_item.data(Qt.UserRole + 1)
+
+        # Swap the data
+        current_item.setData(Qt.UserRole, above_task)
+        current_item.setData(Qt.UserRole + 1, above_is_existing)
+        above_item.setData(Qt.UserRole, current_task)
+        above_item.setData(Qt.UserRole + 1, current_is_existing)
+
+        # Recreate widgets with swapped data
+        self._recreate_widget_for_item(current_item, above_task, above_is_existing)
+        self._recreate_widget_for_item(above_item, current_task, current_is_existing)
+
+        # Update the current selection
+        self.ranking_list.setCurrentRow(current_row - 1)
+
+        # Update visuals
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(0, self._update_mode_visuals)
+
+    def _move_selected_item_down(self):
+        """Move the currently selected item down in Movement mode."""
+        current_row = self.ranking_list.currentRow()
+        if current_row < 0 or current_row >= self.ranking_list.count() - 1:
+            return  # Already at bottom or invalid
+
+        # Get the task data from both items
+        current_item = self.ranking_list.item(current_row)
+        below_item = self.ranking_list.item(current_row + 1)
+
+        if not current_item or not below_item:
+            return
+
+        current_task = current_item.data(Qt.UserRole)
+        current_is_existing = current_item.data(Qt.UserRole + 1)
+        below_task = below_item.data(Qt.UserRole)
+        below_is_existing = below_item.data(Qt.UserRole + 1)
+
+        # Swap the data
+        current_item.setData(Qt.UserRole, below_task)
+        current_item.setData(Qt.UserRole + 1, below_is_existing)
+        below_item.setData(Qt.UserRole, current_task)
+        below_item.setData(Qt.UserRole + 1, current_is_existing)
+
+        # Recreate widgets with swapped data
+        self._recreate_widget_for_item(current_item, below_task, below_is_existing)
+        self._recreate_widget_for_item(below_item, current_task, current_is_existing)
+
+        # Update the current selection
+        self.ranking_list.setCurrentRow(current_row + 1)
+
+        # Update visuals
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(0, self._update_mode_visuals)
+
+    def _recreate_widget_for_item(self, item: QListWidgetItem, task: Task, is_existing: bool):
+        """
+        Recreate the widget for a list item with new task data.
+
+        Args:
+            item: The list widget item
+            task: The task to display
+            is_existing: Whether this is an existing reference task
+        """
+        # Remove old widget if it exists
+        old_widget = self.ranking_list.itemWidget(item)
+        if old_widget:
+            old_widget.setParent(None)
+            old_widget.deleteLater()
+
+        # Create new widget
+        new_widget = TaskRankingItem(task, is_existing, self.db_connection)
+        new_widget.adjustSize()
+
+        # Set the new widget
+        item.setSizeHint(new_widget.sizeHint())
+        self.ranking_list.setItemWidget(item, new_widget)

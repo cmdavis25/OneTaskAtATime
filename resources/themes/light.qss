@@ -266,6 +266,7 @@ QScrollBar::handle:horizontal:hover {
 
 QPushButton:focus {
     border: 2px solid #0078D4;  /* High contrast blue */
+    padding: 5px 11px;  /* Compensate for thicker border to prevent text cutoff */
     outline: none;
 }
 
@@ -291,6 +292,7 @@ QCheckBox:focus, QRadioButton:focus {
 
 QTabBar::tab:focus {
     border: 2px solid #0078D4;
+    padding: 5px 11px;  /* Compensate for thicker border to prevent text cutoff */
 }
 
 QTableWidget:focus {
@@ -325,4 +327,68 @@ QLabel[warning="true"] {
 
 QLabel[success="true"] {
     color: #0F5132;  /* Success green with sufficient contrast */
+}
+
+/* Sequential Ranking Dialog Styles */
+QFrame#newTaskItem {
+    background-color: #e8f5e9;  /* Light green for new tasks */
+    border: 2px solid #4caf50;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+}
+
+QFrame#existingTaskItem {
+    background-color: #e3f2fd;  /* Light blue for existing tasks */
+    border: 2px solid #2196f3;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+}
+
+QFrame#instructionsFrame {
+    background-color: #fff8e1;  /* Light yellow background */
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 4px 0px;
+}
+
+QListWidget#rankingList {
+    border: 1px solid #bdbdbd;
+    border-radius: 4px;
+}
+
+QListWidget#rankingList::item {
+    border: none;
+    padding: 0px;
+    margin: 0px;
+}
+
+QLabel#subtitleLabel {
+    color: #616161;  /* Muted gray for subtitle text */
+}
+
+QFrame#selectedTaskItem {
+    background-color: #fff3e0;  /* Light orange background for selected */
+    border: 3px solid #ff9800;  /* Orange border for selection mode */
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+}
+
+QFrame#movingTaskItem {
+    background-color: #ffebee;  /* Light red background for moving */
+    border: 3px solid #f44336;  /* Red border for movement mode */
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+}
+
+QLabel#modeIndicator {
+    color: #e65100;  /* Dark orange text */
+    padding: 4px 8px;
+    background-color: #fff3e0;
+    border: 1px solid #ff9800;
+    border-radius: 3px;
 }
