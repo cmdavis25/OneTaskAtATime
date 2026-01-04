@@ -45,6 +45,37 @@ class BlockerSelectionDialog(QDialog):
         self.setWindowTitle("Create Blocker")
         self.setMinimumWidth(550)
 
+        # Apply stylesheet for QComboBox to show clear dropdown arrows
+        self.setStyleSheet("""
+            QComboBox {
+                padding: 5px;
+                padding-right: 25px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #495057;
+                width: 0;
+                height: 0;
+                margin-right: 5px;
+            }
+            QComboBox:hover {
+                border-color: #80bdff;
+            }
+            QComboBox:disabled {
+                background-color: #e9ecef;
+                color: #6c757d;
+            }
+        """)
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         self.setLayout(layout)

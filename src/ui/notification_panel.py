@@ -105,17 +105,19 @@ class NotificationItem(QFrame):
 
         # Dismiss button
         dismiss_btn = QPushButton("×")
-        dismiss_btn.setFixedSize(20, 20)
+        dismiss_btn.setFixedSize(32, 32)  # Increased from 20x20 to 32x32 for better clickability
         dismiss_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
                 border: none;
-                font-size: 18px;
+                font-size: 24px;
                 font-weight: bold;
                 color: #6c757d;
             }
             QPushButton:hover {
                 color: #dc3545;
+                background-color: #f8d7da;
+                border-radius: 16px;
             }
         """)
         dismiss_btn.setCursor(QCursor(Qt.PointingHandCursor))

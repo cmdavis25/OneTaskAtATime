@@ -18,10 +18,13 @@ from ..models import Task, TaskState
 from ..models.recurrence_pattern import RecurrencePattern
 from ..database.connection import DatabaseConnection
 from ..services.task_service import TaskService
+from ..services.task_history_service import TaskHistoryService
 from ..database.context_dao import ContextDAO
 from ..database.project_tag_dao import ProjectTagDAO
 from ..database.dependency_dao import DependencyDAO
+from ..database.task_history_dao import TaskHistoryDAO
 from ..algorithms.priority import calculate_urgency_for_tasks, calculate_importance
+from .task_history_dialog import TaskHistoryDialog
 
 
 class TaskListView(QWidget):
@@ -56,6 +59,11 @@ class TaskListView(QWidget):
         super().__init__(parent)
         self.db_connection = db_connection
         self.task_service = TaskService(db_connection)
+
+        # Initialize task history service
+        task_history_dao = TaskHistoryDAO(db_connection.get_connection())
+        self.task_history_service = TaskHistoryService(task_history_dao)
+
         self.tasks: List[Task] = []
         self.contexts = {}  # Map of context_id -> context_name
         self.project_tags = {}  # Map of tag_id -> tag_name
@@ -89,6 +97,38 @@ class TaskListView(QWidget):
         self._init_ui()
         self._setup_shortcuts()  # Phase 8: Keyboard shortcuts
         self.refresh_tasks()
+
+    def _style_combobox(self, combobox: QComboBox):
+        """Apply consistent styling to a QComboBox to show clear dropdown arrow."""
+        combobox.setStyleSheet("""
+            QComboBox {
+                padding: 5px;
+                padding-right: 25px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #495057;
+                width: 0;
+                height: 0;
+                margin-right: 5px;
+            }
+            QComboBox:hover {
+                border-color: #80bdff;
+            }
+            QComboBox:disabled {
+                background-color: #e9ecef;
+                color: #6c757d;
+            }
+        """)
 
     def _load_contexts(self):
         """Load contexts from database for display."""
@@ -132,6 +172,8 @@ class TaskListView(QWidget):
 
     def _init_ui(self):
         """Initialize the user interface."""
+        self.setFocusPolicy(Qt.NoFocus)  # Parent should not steal focus from children
+
         layout = QVBoxLayout()
         layout.setSpacing(10)
         self.setLayout(layout)
@@ -179,10 +221,17 @@ class TaskListView(QWidget):
 
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Search tasks...")
-        self.search_box.textChanged.connect(self._on_filter_changed)
         self.search_box.setMaximumWidth(300)
+        self.search_box.setFocusPolicy(Qt.StrongFocus)
 
-        # Restore saved search text
+        # Fix: Override mousePressEvent to explicitly set focus
+        # This works around an issue where QLineEdit doesn't properly gain focus
+        self.search_box.mousePressEvent = lambda event: self._search_box_mouse_click(event)
+
+        # Override keyPressEvent to handle up/down arrows for table navigation
+        self.search_box.keyPressEvent = lambda event: self._search_box_key_press(event)
+
+        # Restore saved search text (before connecting signal to avoid triggering filter before UI is ready)
         try:
             from ..database.settings_dao import SettingsDAO
             settings_dao = SettingsDAO(self.db_connection.get_connection())
@@ -191,6 +240,9 @@ class TaskListView(QWidget):
                 self.search_box.setText(saved_search)
         except Exception:
             pass
+
+        # Connect signal AFTER setting initial text to avoid premature filter calls
+        self.search_box.textChanged.connect(self._on_filter_changed)
 
         filter_layout.addWidget(self.search_box)
 
@@ -359,6 +411,7 @@ class TaskListView(QWidget):
         self.primary_sort_combo.addItem("State", ("state", True))
         self.primary_sort_combo.addItem("Title", ("title", True))
         self.primary_sort_combo.currentIndexChanged.connect(self._on_sort_changed)
+        self._style_combobox(self.primary_sort_combo)
         sort_layout.addWidget(self.primary_sort_combo)
 
         sort_layout.addWidget(QLabel("Then by:"))
@@ -374,6 +427,7 @@ class TaskListView(QWidget):
         self.secondary_sort_combo.addItem("State", ("state", True))
         self.secondary_sort_combo.addItem("Title", ("title", True))
         self.secondary_sort_combo.currentIndexChanged.connect(self._on_sort_changed)
+        self._style_combobox(self.secondary_sort_combo)
         sort_layout.addWidget(self.secondary_sort_combo)
 
         sort_layout.addStretch()
@@ -457,13 +511,26 @@ class TaskListView(QWidget):
 
     def _setup_shortcuts(self):
         """Configure keyboard shortcuts for Task List View (Phase 8)."""
-        # Enter key - Edit selected task
-        edit_shortcut = QShortcut(QKeySequence(Qt.Key_Return), self)
+        # Enter key - Edit selected task (only when table has focus, not when editing search box)
+        edit_shortcut = QShortcut(QKeySequence(Qt.Key_Return), self.task_table)
         edit_shortcut.activated.connect(self._on_edit_task)
 
         # Alternative: Enter on numpad
-        edit_shortcut_numpad = QShortcut(QKeySequence(Qt.Key_Enter), self)
+        edit_shortcut_numpad = QShortcut(QKeySequence(Qt.Key_Enter), self.task_table)
         edit_shortcut_numpad.activated.connect(self._on_edit_task)
+
+        # Ctrl+H - View task history
+        history_shortcut = QShortcut(QKeySequence("Ctrl+H"), self)
+        history_shortcut.activated.connect(self._on_view_task_history)
+
+    def focus_search_box(self):
+        """
+        Set focus to the search box.
+
+        Called by Ctrl+F shortcut from main window.
+        """
+        self.search_box.setFocus(Qt.ShortcutFocusReason)
+        self.search_box.selectAll()  # Select all text for easy replacement
 
     def refresh_tasks(self):
         """Refresh the task list from the database."""
@@ -892,6 +959,8 @@ class TaskListView(QWidget):
             task = dialog.get_updated_task()
             if task:
                 created_task = self.task_service.create_task(task)
+                # Record task creation in history
+                self.task_history_service.record_task_created(created_task)
                 self.refresh_tasks()
                 self.task_created.emit(created_task.id)
 
@@ -915,7 +984,12 @@ class TaskListView(QWidget):
         if dialog.exec_():
             updated_task = dialog.get_updated_task()
             if updated_task:
+                # Store old task for history comparison
+                old_task = self.task_service.get_task_by_id(task_id)
                 self.task_service.update_task(updated_task)
+                # Record task edit in history
+                if old_task:
+                    self.task_history_service.record_task_edited(updated_task, old_task)
                 self.refresh_tasks()
                 self.task_updated.emit(task_id)
 
@@ -937,6 +1011,23 @@ class TaskListView(QWidget):
 
         graph_view = DependencyGraphView(task, self.db_connection, self)
         graph_view.exec_()
+
+    def _on_view_task_history(self):
+        """Handle view task history action."""
+        current_row = self.task_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "No Selection", "Please select a task to view its history.")
+            return
+
+        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
+        task = self.task_service.get_task_by_id(task_id)
+
+        if not task:
+            QMessageBox.warning(self, "Error", "Task not found.")
+            return
+
+        history_dialog = TaskHistoryDialog(task, self.task_history_service, self)
+        history_dialog.exec_()
 
     def _on_delete_task(self):
         """Handle delete task action."""
@@ -1188,6 +1279,11 @@ class TaskListView(QWidget):
         graph_action = menu.addAction("📊 View Dependency Graph")
         graph_action.triggered.connect(self._on_view_dependency_graph)
 
+        # Add task history option
+        history_action = menu.addAction("📜 View History")
+        history_action.setShortcut("Ctrl+H")
+        history_action.triggered.connect(self._on_view_task_history)
+
         menu.addSeparator()
 
         # Add Change State submenu
@@ -1219,3 +1315,31 @@ class TaskListView(QWidget):
         delete_action.triggered.connect(self._on_delete_task)
 
         menu.exec_(self.task_table.viewport().mapToGlobal(position))
+
+    def _search_box_mouse_click(self, event):
+        """
+        Handle mouse click on search box.
+
+        Explicitly sets focus when clicked to work around focus issue.
+        """
+        # Set focus explicitly
+        self.search_box.setFocus(Qt.MouseFocusReason)
+        # Call original handler for cursor positioning, selection, etc.
+        QLineEdit.mousePressEvent(self.search_box, event)
+
+    def _search_box_key_press(self, event):
+        """
+        Handle key press in search box.
+
+        Intercepts up/down arrow keys to navigate the task table even when
+        the search box has focus. All other keys are handled normally.
+        """
+        key = event.key()
+
+        # Check if it's an up or down arrow key
+        if key == Qt.Key_Up or key == Qt.Key_Down:
+            # Forward the event to the task table
+            self.task_table.keyPressEvent(event)
+        else:
+            # Normal search box behavior for all other keys
+            QLineEdit.keyPressEvent(self.search_box, event)

@@ -37,6 +37,7 @@ from ..services.task_history_service import TaskHistoryService
 from ..services.error_service import ErrorService
 from ..services.accessibility_service import AccessibilityService
 from ..services.undo_manager import UndoManager
+from ..database.task_history_dao import TaskHistoryDAO
 from ..services.first_run_detector import FirstRunDetector
 from ..database.connection import DatabaseConnection
 from ..database.settings_dao import SettingsDAO
@@ -88,7 +89,8 @@ class MainWindow(QMainWindow):
             self.theme_service.apply_theme(current_theme)
 
         # Initialize Phase 8 services
-        self.task_history_service = TaskHistoryService(self.db_connection.get_connection())
+        task_history_dao = TaskHistoryDAO(self.db_connection.get_connection())
+        self.task_history_service = TaskHistoryService(task_history_dao)
         self.error_service = ErrorService()
         self.accessibility_service = AccessibilityService()
         self.undo_manager = UndoManager(max_stack_size=50)
@@ -237,6 +239,12 @@ class MainWindow(QMainWindow):
 
         view_menu.addSeparator()
 
+        search_action = QAction("&Search Tasks...", self)
+        search_action.setShortcut("Ctrl+F")
+        search_action.setStatusTip("Focus search box in Task List")
+        search_action.triggered.connect(self._focus_search_box)
+        view_menu.addAction(search_action)
+
         refresh_action = QAction("&Refresh", self)
         refresh_action.setShortcut("F5")
         refresh_action.setStatusTip("Refresh current view")
@@ -370,15 +378,25 @@ class MainWindow(QMainWindow):
         if dialog.exec_():
             task = dialog.get_updated_task()
             if task:
-                self.task_service.create_task(task)
+                created_task = self.task_service.create_task(task)
+                # Record task creation in history
+                self.task_history_service.record_task_created(created_task)
                 self._refresh_focus_task()
                 self.statusBar().showMessage("Task created successfully", 3000)
 
     def _on_task_completed(self, task_id: int):
         """Handle task completion."""
-        self.task_service.complete_task(task_id)
-        self.statusBar().showMessage("Task completed! 🎉", 3000)
-        self._refresh_focus_task()
+        task = self.task_service.get_task_by_id(task_id)
+        if task:
+            self.task_service.complete_task(task_id)
+            # Record completion in history
+            completed_task = self.task_service.get_task_by_id(task_id)
+            if completed_task:
+                self.task_history_service.record_state_change(
+                    completed_task, task.state, TaskState.COMPLETED
+                )
+            self.statusBar().showMessage("Task completed! 🎉", 3000)
+            self._refresh_focus_task()
 
     def _on_task_deferred(self, task_id: int):
         """Handle task deferral with reflection check and associated workflows."""
@@ -677,6 +695,21 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentWidget(self.task_list_view)
         self.task_list_view.refresh_tasks()
         self.statusBar().showMessage("Switched to Task List", 2000)
+
+    def _focus_search_box(self):
+        """
+        Focus the search box in Task List.
+
+        If currently in Focus Mode, automatically switches to Task List first.
+        """
+        # Switch to Task List if not already there
+        current_widget = self.stacked_widget.currentWidget()
+        if current_widget != self.task_list_view:
+            self._show_task_list()
+
+        # Focus the search box
+        self.task_list_view.focus_search_box()
+        self.statusBar().showMessage("Search box focused", 2000)
 
     def _refresh_current_view(self):
         """Refresh the currently visible view."""
