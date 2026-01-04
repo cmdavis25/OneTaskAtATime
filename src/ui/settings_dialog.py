@@ -17,9 +17,10 @@ from PyQt5.QtCore import Qt, QTime, pyqtSignal
 from PyQt5.QtGui import QFont
 
 from ..database.settings_dao import SettingsDAO
+from .geometry_mixin import GeometryMixin
 
 
-class SettingsDialog(QDialog):
+class SettingsDialog(QDialog, GeometryMixin):
     """
     Dialog for application settings configuration.
 
@@ -44,6 +45,9 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.db_connection = db_connection
         self.settings_dao = SettingsDAO(db_connection)
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=600, default_height=500)
 
         self._init_ui()
         self._load_settings()

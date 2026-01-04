@@ -15,9 +15,10 @@ from ..models.dependency import Dependency
 from ..database.connection import DatabaseConnection
 from ..database.task_dao import TaskDAO
 from ..database.dependency_dao import DependencyDAO
+from .geometry_mixin import GeometryMixin
 
 
-class DependencySelectionDialog(QDialog):
+class DependencySelectionDialog(QDialog, GeometryMixin):
     """
     Dialog for selecting task dependencies.
 
@@ -53,6 +54,9 @@ class DependencySelectionDialog(QDialog):
 
         self.all_tasks: List[Task] = []
         self.current_dependencies: Set[int] = set()  # Set of blocking task IDs
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=600, default_height=400)
 
         self._init_ui()
         self._load_data()

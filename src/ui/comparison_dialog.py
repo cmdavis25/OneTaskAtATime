@@ -13,9 +13,10 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from typing import List, Optional, Tuple
 from ..models.task import Task
+from .geometry_mixin import GeometryMixin
 
 
-class ComparisonDialog(QDialog):
+class ComparisonDialog(QDialog, GeometryMixin):
     """
     Dialog for comparing two tasks side-by-side.
 
@@ -38,6 +39,9 @@ class ComparisonDialog(QDialog):
         self.task2 = task2
         self.db_connection = db_connection
         self.selected_task: Optional[Task] = None
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=800, default_height=500)
 
         self.setWindowTitle("Choose Your Priority")
         self.setMinimumSize(800, 500)
@@ -319,7 +323,7 @@ class ComparisonDialog(QDialog):
         return (winner, loser)
 
 
-class MultipleComparisonDialog(QDialog):
+class MultipleComparisonDialog(QDialog, GeometryMixin):
     """
     Dialog for handling multiple tied tasks (more than 2).
 
@@ -339,6 +343,9 @@ class MultipleComparisonDialog(QDialog):
         self.tied_tasks = tied_tasks.copy()
         self.db_connection = db_connection
         self.comparison_results: List[Tuple[Task, Task]] = []  # (winner, loser) pairs
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=850, default_height=550)
 
         self.setWindowTitle("Resolve Priority Ties")
         self.setMinimumSize(850, 550)

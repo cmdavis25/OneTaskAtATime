@@ -11,9 +11,10 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 from ..services.data_reset_service import DataResetService
+from .geometry_mixin import GeometryMixin
 
 
-class ResetConfirmationDialog(QDialog):
+class ResetConfirmationDialog(QDialog, GeometryMixin):
     """Dialog for confirming nuclear reset with multiple verification steps."""
 
     CONFIRMATION_TEXT = "RESET"
@@ -28,6 +29,9 @@ class ResetConfirmationDialog(QDialog):
         super().__init__(parent)
         self.db_connection = db_connection
         self.reset_service = DataResetService(db_connection)
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=500, default_height=550)
 
         self._init_ui()
         self._update_button_state()

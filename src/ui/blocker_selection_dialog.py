@@ -14,9 +14,10 @@ from ..database.connection import DatabaseConnection
 from ..database.task_dao import TaskDAO
 from ..models.task import Task
 from ..models.enums import TaskState
+from .geometry_mixin import GeometryMixin
 
 
-class BlockerSelectionDialog(QDialog):
+class BlockerSelectionDialog(QDialog, GeometryMixin):
     """
     Dialog for creating or selecting a blocker task.
 
@@ -38,6 +39,10 @@ class BlockerSelectionDialog(QDialog):
         self.task = task
         self.db_connection = db_connection
         self.task_dao = TaskDAO(db_connection.get_connection())
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=600, default_height=400)
+
         self._init_ui()
 
     def _init_ui(self):

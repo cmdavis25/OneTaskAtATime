@@ -14,9 +14,10 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from ..services.postpone_suggestion_service import PostponeSuggestion, SuggestionType
 from ..models.enums import TaskState
+from .geometry_mixin import GeometryMixin
 
 
-class ReflectionDialog(QDialog):
+class ReflectionDialog(QDialog, GeometryMixin):
     """
     Blocking modal dialog for mandatory reflection on postpone patterns.
 
@@ -45,6 +46,10 @@ class ReflectionDialog(QDialog):
         self.task_title = task_title
         self.reflection_text = ""
         self.disposition_action: Optional[TaskState] = None
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=600, default_height=500)
 
         self.setWindowTitle("Reflection Required")
         self.setModal(True)  # Blocking dialog

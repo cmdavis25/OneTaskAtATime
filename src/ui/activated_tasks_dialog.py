@@ -14,9 +14,10 @@ from PyQt5.QtGui import QFont
 from typing import List
 
 from ..models.task import Task
+from .geometry_mixin import GeometryMixin
 
 
-class ActivatedTasksDialog(QDialog):
+class ActivatedTasksDialog(QDialog, GeometryMixin):
     """
     Dialog showing recently activated tasks.
 
@@ -37,6 +38,9 @@ class ActivatedTasksDialog(QDialog):
         self.task_ids = task_ids
         self.db_connection = db_connection
         self.tasks: List[Task] = []
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=700, default_height=400)
 
         self._init_ui()
         self._load_tasks()

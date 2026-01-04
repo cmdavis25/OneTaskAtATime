@@ -19,9 +19,10 @@ from datetime import date, timedelta
 from ..models.task import Task, TaskState
 from ..services.task_service import TaskService
 from ..algorithms.priority import calculate_importance_for_tasks
+from .geometry_mixin import GeometryMixin
 
 
-class ReviewDelegatedDialog(QDialog):
+class ReviewDelegatedDialog(QDialog, GeometryMixin):
     """
     Dialog for reviewing delegated tasks needing follow-up.
 
@@ -44,6 +45,9 @@ class ReviewDelegatedDialog(QDialog):
         self.task_service = TaskService(db_connection)
         self.reviewable_tasks: List[Task] = tasks or []
         self.selected_task_ids: Set[int] = set()
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=1000, default_height=600)
 
         self._init_ui()
         if not tasks:

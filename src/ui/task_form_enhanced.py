@@ -24,9 +24,10 @@ from ..database.context_dao import ContextDAO
 from ..database.project_tag_dao import ProjectTagDAO
 from ..database.dependency_dao import DependencyDAO
 from ..database.task_dao import TaskDAO
+from .geometry_mixin import GeometryMixin
 
 
-class EnhancedTaskFormDialog(QDialog):
+class EnhancedTaskFormDialog(QDialog, GeometryMixin):
     """
     Comprehensive dialog for creating or editing tasks.
 
@@ -56,6 +57,10 @@ class EnhancedTaskFormDialog(QDialog):
         self.task = task
         self.is_new = (task is None)
         self.db_connection = db_connection
+
+        # Initialize geometry persistence
+        if db_connection:
+            self._init_geometry_persistence(db_connection, default_width=700, default_height=650)
 
         # Load reference data
         self.contexts: List[Context] = []

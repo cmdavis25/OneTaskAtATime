@@ -13,6 +13,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
 
 from ..services.export_service import ExportService
+from .geometry_mixin import GeometryMixin
 
 
 class ExportWorker(QThread):
@@ -58,7 +59,7 @@ class ExportWorker(QThread):
             self.error.emit(str(e))
 
 
-class ExportDialog(QDialog):
+class ExportDialog(QDialog, GeometryMixin):
     """Dialog for exporting application data."""
 
     def __init__(self, db_connection: sqlite3.Connection, parent=None):
@@ -72,6 +73,9 @@ class ExportDialog(QDialog):
         self.db_connection = db_connection
         self.export_service = ExportService(db_connection)
         self.export_worker = None
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=500, default_height=400)
 
         self._init_ui()
 

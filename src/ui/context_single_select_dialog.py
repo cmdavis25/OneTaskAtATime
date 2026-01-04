@@ -13,9 +13,10 @@ from typing import Optional
 from ..models.context import Context
 from ..database.connection import DatabaseConnection
 from ..database.context_dao import ContextDAO
+from .geometry_mixin import GeometryMixin
 
 
-class ContextSingleSelectDialog(QDialog):
+class ContextSingleSelectDialog(QDialog, GeometryMixin):
     """
     Dialog for selecting a single context filter.
 
@@ -45,6 +46,9 @@ class ContextSingleSelectDialog(QDialog):
 
         self.all_contexts = []
         self.selected_context_id = selected_context_id
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=400, default_height=400)
 
         self._init_ui()
         self._load_data()

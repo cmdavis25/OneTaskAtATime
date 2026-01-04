@@ -15,9 +15,10 @@ from typing import List, Optional
 from ..models.project_tag import ProjectTag
 from ..database.connection import DatabaseConnection
 from ..database.project_tag_dao import ProjectTagDAO
+from .geometry_mixin import GeometryMixin
 
 
-class ProjectTagManagementDialog(QDialog):
+class ProjectTagManagementDialog(QDialog, GeometryMixin):
     """
     Dialog for managing project tags.
 
@@ -44,6 +45,9 @@ class ProjectTagManagementDialog(QDialog):
         self.tag_dao = ProjectTagDAO(db_connection.get_connection())
         self.tags: List[ProjectTag] = []
         self.selected_color: Optional[str] = None
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=600, default_height=500)
 
         self._init_ui()
         self._load_tags()

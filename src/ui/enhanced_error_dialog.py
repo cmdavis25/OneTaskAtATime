@@ -12,9 +12,10 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QPixmap
 
 from src.services.error_service import ErrorContext, ErrorSeverity
+from .geometry_mixin import GeometryMixin
 
 
-class EnhancedErrorDialog(QDialog):
+class EnhancedErrorDialog(QDialog, GeometryMixin):
     """
     Enhanced error dialog with user-friendly messages and recovery suggestions.
 
@@ -35,6 +36,10 @@ class EnhancedErrorDialog(QDialog):
         """
         super().__init__(parent)
         self.context = context
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=500, default_height=300)
 
         self._setup_ui()
 

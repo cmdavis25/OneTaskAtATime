@@ -12,9 +12,10 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QTextDocument, QPageLayout
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+from .geometry_mixin import GeometryMixin
 
 
-class ShortcutsDialog(QDialog):
+class ShortcutsDialog(QDialog, GeometryMixin):
     """
     Dialog displaying all keyboard shortcuts in categorized tabs.
 
@@ -69,6 +70,10 @@ class ShortcutsDialog(QDialog):
             parent: Parent widget
         """
         super().__init__(parent)
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=700, default_height=500)
 
         self.setWindowTitle("Keyboard Shortcuts")
         self.setMinimumSize(650, 500)

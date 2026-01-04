@@ -20,9 +20,10 @@ from src.models.task import Task
 from src.models.task_history_event import TaskHistoryEvent
 from src.models.enums import TaskEventType
 from src.services.task_history_service import TaskHistoryService
+from .geometry_mixin import GeometryMixin
 
 
-class TaskHistoryDialog(QDialog):
+class TaskHistoryDialog(QDialog, GeometryMixin):
     """
     Dialog for viewing a task's complete history timeline.
 
@@ -43,6 +44,10 @@ class TaskHistoryDialog(QDialog):
         self.task = task
         self.history_service = history_service
         self.all_events = []
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=900, default_height=600)
 
         self.setWindowTitle(f"Task History: {task.title}")
         self.setMinimumSize(700, 500)
@@ -496,7 +501,7 @@ class TaskHistoryDialog(QDialog):
                 txtfile.write("\n")
 
 
-class EventDetailsDialog(QDialog):
+class EventDetailsDialog(QDialog, GeometryMixin):
     """
     Dialog for showing detailed information about a history event.
 
@@ -515,6 +520,10 @@ class EventDetailsDialog(QDialog):
         super().__init__(parent)
         self.event = event
         self.history_service = history_service
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=600, default_height=400)
 
         self.setWindowTitle("Event Details")
         self.setMinimumSize(600, 400)

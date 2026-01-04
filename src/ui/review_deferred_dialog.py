@@ -19,9 +19,10 @@ from ..models.enums import TaskState
 from ..database.connection import DatabaseConnection
 from ..services.task_service import TaskService
 from ..algorithms.priority import calculate_importance_for_tasks
+from .geometry_mixin import GeometryMixin
 
 
-class ReviewDeferredDialog(QDialog):
+class ReviewDeferredDialog(QDialog, GeometryMixin):
     """
     Dialog for reviewing deferred and postponed tasks.
 
@@ -43,6 +44,9 @@ class ReviewDeferredDialog(QDialog):
         self.task_service = TaskService(db_connection)
         self.reviewable_tasks: List[Task] = []
         self.selected_task_ids: Set[int] = set()
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=900, default_height=600)
 
         self._init_ui()
         self._load_tasks()

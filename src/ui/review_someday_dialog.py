@@ -20,9 +20,10 @@ from ..models.task import Task, TaskState
 from ..services.task_service import TaskService
 from ..services.resurfacing_service import ResurfacingService
 from ..algorithms.priority import calculate_importance_for_tasks
+from .geometry_mixin import GeometryMixin
 
 
-class ReviewSomedayDialog(QDialog):
+class ReviewSomedayDialog(QDialog, GeometryMixin):
     """
     Dialog for reviewing Someday/Maybe tasks.
 
@@ -45,6 +46,9 @@ class ReviewSomedayDialog(QDialog):
         self.resurfacing_service = ResurfacingService(db_connection)
         self.someday_tasks: List[Task] = []
         self.selected_task_ids: Set[int] = set()
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=1000, default_height=600)
 
         self._init_ui()
         self._load_tasks()

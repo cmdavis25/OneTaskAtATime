@@ -17,9 +17,10 @@ from ..models.task import Task
 from ..models.enums import PostponeReasonType, TaskState
 from ..database.connection import DatabaseConnection
 from ..services.postpone_suggestion_service import PostponeSuggestionService
+from .geometry_mixin import GeometryMixin
 
 
-class PostponeDialog(QDialog):
+class PostponeDialog(QDialog, GeometryMixin):
     """
     Dialog for capturing postpone reason and collecting necessary data.
 
@@ -106,6 +107,10 @@ class PostponeDialog(QDialog):
         self.action_type = action_type
         self.task = task
         self.db_connection = db_connection
+
+        # Initialize geometry persistence
+        if db_connection:
+            self._init_geometry_persistence(db_connection, default_width=500, default_height=400)
 
         # Workflow result storage
         self.blocker_result = None

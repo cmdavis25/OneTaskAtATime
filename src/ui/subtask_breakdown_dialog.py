@@ -11,9 +11,10 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from typing import List, Dict, Any
 from ..models.task import Task
+from .geometry_mixin import GeometryMixin
 
 
-class SubtaskBreakdownDialog(QDialog):
+class SubtaskBreakdownDialog(QDialog, GeometryMixin):
     """
     Dialog for breaking down a task into subtasks.
 
@@ -30,6 +31,11 @@ class SubtaskBreakdownDialog(QDialog):
         """
         super().__init__(parent)
         self.task = task
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=600, default_height=500)
+
         self._init_ui()
 
     def _init_ui(self):

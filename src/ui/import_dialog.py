@@ -14,6 +14,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
 
 from ..services.import_service import ImportService
+from .geometry_mixin import GeometryMixin
 
 
 class ImportWorker(QThread):
@@ -50,7 +51,7 @@ class ImportWorker(QThread):
             self.error.emit(str(e))
 
 
-class ImportDialog(QDialog):
+class ImportDialog(QDialog, GeometryMixin):
     """Dialog for importing application data."""
 
     def __init__(self, db_connection: sqlite3.Connection, parent=None):
@@ -65,6 +66,9 @@ class ImportDialog(QDialog):
         self.import_service = ImportService(db_connection)
         self.import_worker = None
         self.file_summary = None
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=550, default_height=550)
 
         self._init_ui()
 

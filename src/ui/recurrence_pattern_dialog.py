@@ -16,9 +16,10 @@ from PyQt5.QtCore import Qt
 from datetime import date, timedelta
 from typing import Optional
 from ..models.recurrence_pattern import RecurrencePattern, RecurrenceType
+from .geometry_mixin import GeometryMixin
 
 
-class RecurrencePatternDialog(QDialog):
+class RecurrencePatternDialog(QDialog, GeometryMixin):
     """
     Dialog for configuring advanced recurrence patterns.
 
@@ -42,6 +43,10 @@ class RecurrencePatternDialog(QDialog):
         super().__init__(parent)
         self.pattern = pattern
         self.current_due_date = current_due_date or date.today()
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=500, default_height=400)
 
         self._init_ui()
 

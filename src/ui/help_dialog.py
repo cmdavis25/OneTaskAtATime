@@ -9,9 +9,10 @@ from PyQt5.QtWidgets import (
     QWidget, QTextBrowser, QPushButton, QLineEdit, QLabel
 )
 from PyQt5.QtCore import Qt
+from .geometry_mixin import GeometryMixin
 
 
-class HelpDialog(QDialog):
+class HelpDialog(QDialog, GeometryMixin):
     """
     Help dialog with tabbed content and search functionality.
 
@@ -32,6 +33,10 @@ class HelpDialog(QDialog):
             parent: Parent widget
         """
         super().__init__(parent)
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=800, default_height=600)
 
         self.setWindowTitle("OneTaskAtATime Help")
         self.setMinimumSize(800, 600)

@@ -13,9 +13,10 @@ from typing import List, Set
 from ..models.project_tag import ProjectTag
 from ..database.connection import DatabaseConnection
 from ..database.project_tag_dao import ProjectTagDAO
+from .geometry_mixin import GeometryMixin
 
 
-class ProjectTagFilterDialog(QDialog):
+class ProjectTagFilterDialog(QDialog, GeometryMixin):
     """
     Dialog for selecting project tag filters.
 
@@ -46,6 +47,9 @@ class ProjectTagFilterDialog(QDialog):
 
         self.all_tags: List[ProjectTag] = []
         self.active_filter_ids: Set[int] = set(active_filter_ids)  # Make a copy
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=700, default_height=500)
 
         self._init_ui()
         self._load_data()

@@ -6,9 +6,10 @@ Provides the main application container with menu bar and navigation.
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel,
-    QMenuBar, QMenu, QAction, QStatusBar, QMessageBox, QStackedWidget, QDialog
+    QMenuBar, QMenu, QAction, QStatusBar, QMessageBox, QStackedWidget, QDialog,
+    QApplication
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
 from .focus_mode import FocusModeWidget
 from .task_form_dialog import TaskFormDialog
@@ -61,7 +62,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.setWindowTitle("OneTaskAtATime")
-        self.setGeometry(100, 100, 1000, 700)
 
         # Initialize database and services
         self.db_connection = DatabaseConnection()
@@ -99,6 +99,9 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._create_menu_bar()
         self._create_status_bar()
+
+        # Restore saved window geometry and state
+        self._restore_window_geometry()
 
         # Connect scheduler signals
         self._connect_scheduler_signals()
@@ -931,8 +934,129 @@ class MainWindow(QMainWindow):
                 self.task_list_view.refresh_tasks()
             self.statusBar().showMessage("All data has been reset", 5000)
 
+    def _restore_window_geometry(self):
+        """Restore saved window position, size, and maximized state."""
+        try:
+            saved_geometry = self.settings_dao.get('window_geometry_main')
+
+            if not saved_geometry:
+                # First run - use defaults
+                self.setGeometry(100, 100, 1000, 700)
+                return
+
+            # Validate screen still exists
+            app = QApplication.instance()
+            screens = app.screens()
+            screen_number = saved_geometry.get('screen_number', 0)
+
+            if screen_number >= len(screens):
+                # Screen no longer exists, use primary screen
+                screen_number = 0
+
+            target_screen = screens[screen_number]
+            screen_geometry = target_screen.availableGeometry()
+
+            # Get saved geometry values
+            x = saved_geometry.get('x', 100)
+            y = saved_geometry.get('y', 100)
+            width = saved_geometry.get('width', 1000)
+            height = saved_geometry.get('height', 700)
+
+            # Ensure at least 100px of the window is visible on screen
+            if (x + width < screen_geometry.x() + 100 or
+                x > screen_geometry.x() + screen_geometry.width() - 100 or
+                y > screen_geometry.y() + screen_geometry.height() - 100):
+                # Window would be off-screen, center on target screen
+                x = screen_geometry.x() + (screen_geometry.width() - width) // 2
+                y = screen_geometry.y() + (screen_geometry.height() - height) // 2
+
+            # Apply geometry
+            self.setGeometry(x, y, width, height)
+
+            # Move to correct screen if needed (only if windowHandle is available)
+            window_handle = self.windowHandle()
+            if window_handle:
+                window_handle.setScreen(target_screen)
+
+            # Apply maximized state
+            if saved_geometry.get('is_maximized', False):
+                self.showMaximized()
+
+        except Exception as e:
+            # On error, fall back to defaults
+            print(f"Warning: Failed to restore window geometry: {e}")
+            self.setGeometry(100, 100, 1000, 700)
+
+    def _save_window_geometry(self):
+        """Save current window geometry to settings."""
+        try:
+            # Don't save while maximized - save the restored geometry
+            if self.isMaximized():
+                # Use normalGeometry() to get pre-maximized size
+                geometry = self.normalGeometry()
+            else:
+                geometry = self.geometry()
+
+            # Determine which screen the window is on
+            window_center = self.geometry().center()
+            app = QApplication.instance()
+            screens = app.screens()
+            screen_number = 0
+
+            for i, screen in enumerate(screens):
+                if screen.geometry().contains(window_center):
+                    screen_number = i
+                    break
+
+            geometry_data = {
+                'x': geometry.x(),
+                'y': geometry.y(),
+                'width': geometry.width(),
+                'height': geometry.height(),
+                'is_maximized': self.isMaximized(),
+                'screen_number': screen_number
+            }
+
+            self.settings_dao.set(
+                'window_geometry_main',
+                geometry_data,
+                'json',
+                'Main window geometry and state'
+            )
+
+        except Exception as e:
+            # Silently fail - don't crash on save errors
+            print(f"Warning: Failed to save window geometry: {e}")
+
+    def resizeEvent(self, event):
+        """Handle window resize - save geometry with debouncing."""
+        super().resizeEvent(event)
+
+        # Use QTimer to debounce saves
+        if not hasattr(self, '_geometry_save_timer'):
+            self._geometry_save_timer = QTimer()
+            self._geometry_save_timer.setSingleShot(True)
+            self._geometry_save_timer.timeout.connect(self._save_window_geometry)
+
+        self._geometry_save_timer.start(500)  # Save after 500ms of no changes
+
+    def moveEvent(self, event):
+        """Handle window move - save geometry with debouncing."""
+        super().moveEvent(event)
+
+        # Reuse same timer as resizeEvent
+        if not hasattr(self, '_geometry_save_timer'):
+            self._geometry_save_timer = QTimer()
+            self._geometry_save_timer.setSingleShot(True)
+            self._geometry_save_timer.timeout.connect(self._save_window_geometry)
+
+        self._geometry_save_timer.start(500)
+
     def closeEvent(self, event):
         """Handle application close event."""
+        # Save window geometry before closing
+        self._save_window_geometry()
+
         # Shutdown scheduler gracefully (Phase 6)
         self.resurfacing_scheduler.shutdown(wait=True, timeout=5)
 

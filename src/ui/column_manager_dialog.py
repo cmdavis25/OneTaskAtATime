@@ -10,9 +10,10 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from typing import List, Dict
+from .geometry_mixin import GeometryMixin
 
 
-class ColumnManagerDialog(QDialog):
+class ColumnManagerDialog(QDialog, GeometryMixin):
     """
     Dialog for managing table column visibility and order.
 
@@ -41,6 +42,10 @@ class ColumnManagerDialog(QDialog):
         self.all_columns = all_columns
         self.visible_columns = list(visible_columns)  # Make a copy
         self.available_columns = [col for col in all_columns.keys() if col not in visible_columns]
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if parent and hasattr(parent, 'db_connection'):
+            self._init_geometry_persistence(parent.db_connection, default_width=700, default_height=600)
 
         self._init_ui()
         self._refresh_lists()

@@ -14,9 +14,10 @@ from typing import List, Optional
 from ..models.context import Context
 from ..database.connection import DatabaseConnection
 from ..database.context_dao import ContextDAO
+from .geometry_mixin import GeometryMixin
 
 
-class ContextManagementDialog(QDialog):
+class ContextManagementDialog(QDialog, GeometryMixin):
     """
     Dialog for managing contexts.
 
@@ -41,6 +42,9 @@ class ContextManagementDialog(QDialog):
         self.db_connection = db_connection
         self.context_dao = ContextDAO(db_connection.get_connection())
         self.contexts: List[Context] = []
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=600, default_height=500)
 
         self._init_ui()
         self._load_contexts()

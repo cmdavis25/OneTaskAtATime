@@ -13,9 +13,10 @@ from typing import List, Set
 from ..models.context import Context
 from ..database.connection import DatabaseConnection
 from ..database.context_dao import ContextDAO
+from .geometry_mixin import GeometryMixin
 
 
-class ContextFilterDialog(QDialog):
+class ContextFilterDialog(QDialog, GeometryMixin):
     """
     Dialog for selecting context filters.
 
@@ -46,6 +47,9 @@ class ContextFilterDialog(QDialog):
 
         self.all_contexts: List[Context] = []
         self.active_filter_ids: Set = set(active_filter_ids)  # Make a copy
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=700, default_height=500)
 
         self._init_ui()
         self._load_data()

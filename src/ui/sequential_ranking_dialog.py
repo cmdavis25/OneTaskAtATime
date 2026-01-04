@@ -16,6 +16,7 @@ from PyQt5.QtGui import QFont, QDrag, QPalette, QColor
 from typing import List, Optional
 from enum import Enum
 from ..models.task import Task
+from .geometry_mixin import GeometryMixin
 
 
 class RankingMode(Enum):
@@ -158,7 +159,7 @@ class TaskRankingItem(QFrame):
         self.updateGeometry()
 
 
-class SequentialRankingDialog(QDialog):
+class SequentialRankingDialog(QDialog, GeometryMixin):
     """
     Dialog for ranking new tasks sequentially within a priority band.
 
@@ -193,6 +194,9 @@ class SequentialRankingDialog(QDialog):
         self.priority_band = priority_band
         self.db_connection = db_connection
         self.ranked_tasks: List[Task] = []
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=700, default_height=600)
 
         # Mode tracking
         self.current_mode = RankingMode.SELECTION
