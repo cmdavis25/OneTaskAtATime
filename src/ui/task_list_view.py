@@ -74,7 +74,7 @@ class TaskListView(QWidget):
         # Column configuration
         self.all_columns = {
             "ID": "ID",
-            "Recurring": "Recurring",
+            "Recurring": "🔄",
             "Title": "Title",
             "Dependencies": "Dependencies",
             "Importance": "Importance",
@@ -169,6 +169,22 @@ class TaskListView(QWidget):
         except (ValueError, KeyError) as e:
             print(f"Error formatting recurrence pattern: {e}")
             return "Invalid pattern"
+
+    def _set_header_tooltips(self):
+        """Set tooltips for column headers."""
+        # Map column names to their tooltip text
+        tooltips = {
+            "Recurring": "Recurring"
+        }
+
+        # Set tooltips for visible columns
+        for col_name in self.visible_columns:
+            if col_name in tooltips:
+                col_idx = self.column_indices[col_name]
+                # Get the header item
+                header_item = self.task_table.horizontalHeaderItem(col_idx)
+                if header_item:
+                    header_item.setToolTip(tooltips[col_name])
 
     def _init_ui(self):
         """Initialize the user interface."""
@@ -437,7 +453,7 @@ class TaskListView(QWidget):
         self.task_table = QTableWidget()
         self.task_table.setColumnCount(14)
         self.task_table.setHorizontalHeaderLabels([
-            "ID", "Recurring", "Title", "Dependencies", "Importance", "Priority", "Effective Priority", "Start Date", "Due Date", "State", "Context", "Project Tags", "Delegated To", "Follow-Up Date"
+            "ID", "🔄", "Title", "Dependencies", "Importance", "Priority", "Effective Priority", "Start Date", "Due Date", "State", "Context", "Project Tags", "Delegated To", "Follow-Up Date"
         ])
 
         # Configure table appearance
@@ -468,6 +484,9 @@ class TaskListView(QWidget):
 
         # Make the last visible column stretch to fill remaining space
         header.setStretchLastSection(True)
+
+        # Set tooltips for column headers
+        self._set_header_tooltips()
 
         # Enable context menu
         self.task_table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1236,6 +1255,7 @@ class TaskListView(QWidget):
         # Set initial widths for each visible column
         default_widths = {
             "ID": 50,
+            "Recurring": 50,
             "Title": 300,
             "Dependencies": 100,
             "Importance": 100,
@@ -1255,6 +1275,9 @@ class TaskListView(QWidget):
 
         # Make the last visible column stretch to fill remaining space
         header.setStretchLastSection(True)
+
+        # Set tooltips for column headers
+        self._set_header_tooltips()
 
         # Refresh the table data
         self._apply_filters()

@@ -236,14 +236,29 @@ class EnhancedTaskFormDialog(QDialog):
         # Project Tags
         tags_container = QVBoxLayout()
 
-        self.tags_list = QListWidget()
-        self.tags_list.setSelectionMode(QListWidget.MultiSelection)
-        self.tags_list.setMaximumHeight(100)
+        # Create scrollable area with checkboxes
+        self.tags_scroll_area = QScrollArea()
+        self.tags_scroll_area.setWidgetResizable(True)
+        self.tags_scroll_area.setMaximumHeight(100)
+        self.tags_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        tags_widget = QWidget()
+        self.tags_checkboxes_layout = QVBoxLayout(tags_widget)
+        self.tags_checkboxes_layout.setContentsMargins(0, 0, 0, 0)
+        self.tags_checkboxes_layout.setSpacing(2)
+
+        # Store checkboxes for later access
+        self.tag_checkboxes = {}
+
         for tag in self.project_tags:
-            item = QListWidgetItem(tag.name)
-            item.setData(Qt.UserRole, tag.id)
-            self.tags_list.addItem(item)
-        tags_container.addWidget(self.tags_list)
+            checkbox = QCheckBox(tag.name)
+            checkbox.setProperty("tag_id", tag.id)
+            self.tag_checkboxes[tag.id] = checkbox
+            self.tags_checkboxes_layout.addWidget(checkbox)
+
+        self.tags_checkboxes_layout.addStretch()
+        self.tags_scroll_area.setWidget(tags_widget)
+        tags_container.addWidget(self.tags_scroll_area)
 
         new_tag_btn = QPushButton("+ New Project Tag")
         new_tag_btn.clicked.connect(self._on_new_project_tag)
@@ -787,21 +802,32 @@ class EnhancedTaskFormDialog(QDialog):
             # Reload project tags
             self._load_reference_data()
 
-            # Rebuild tags list
+            # Rebuild tags checkboxes
             selected_tags = []
-            for i in range(self.tags_list.count()):
-                item = self.tags_list.item(i)
-                if item.isSelected():
-                    selected_tags.append(item.data(Qt.UserRole))
+            for tag_id, checkbox in self.tag_checkboxes.items():
+                if checkbox.isChecked():
+                    selected_tags.append(tag_id)
 
-            self.tags_list.clear()
+            # Clear existing checkboxes
+            for checkbox in self.tag_checkboxes.values():
+                self.tags_checkboxes_layout.removeWidget(checkbox)
+                checkbox.deleteLater()
+
+            self.tag_checkboxes.clear()
+
+            # Recreate checkboxes with updated tag list
             for tag in self.project_tags:
-                item = QListWidgetItem(tag.name)
-                item.setData(Qt.UserRole, tag.id)
+                checkbox = QCheckBox(tag.name)
+                checkbox.setProperty("tag_id", tag.id)
                 # Restore selection state
                 if tag.id in selected_tags or tag.id == created_tag.id:
-                    item.setSelected(True)
-                self.tags_list.addItem(item)
+                    checkbox.setChecked(True)
+                self.tag_checkboxes[tag.id] = checkbox
+                # Insert before the stretch
+                self.tags_checkboxes_layout.insertWidget(
+                    self.tags_checkboxes_layout.count() - 1,
+                    checkbox
+                )
 
             QMessageBox.information(
                 self,
@@ -873,11 +899,9 @@ class EnhancedTaskFormDialog(QDialog):
 
         # Project tags
         if self.task.project_tags:
-            for i in range(self.tags_list.count()):
-                item = self.tags_list.item(i)
-                tag_id = item.data(Qt.UserRole)
+            for tag_id, checkbox in self.tag_checkboxes.items():
                 if tag_id in self.task.project_tags:
-                    item.setSelected(True)
+                    checkbox.setChecked(True)
 
         # State
         for i in range(self.state_combo.count()):
@@ -1012,10 +1036,9 @@ class EnhancedTaskFormDialog(QDialog):
 
         # Get selected project tags
         selected_tags = []
-        for i in range(self.tags_list.count()):
-            item = self.tags_list.item(i)
-            if item.isSelected():
-                selected_tags.append(item.data(Qt.UserRole))
+        for tag_id, checkbox in self.tag_checkboxes.items():
+            if checkbox.isChecked():
+                selected_tags.append(tag_id)
 
         # Get context
         context_id = self.context_combo.currentData()

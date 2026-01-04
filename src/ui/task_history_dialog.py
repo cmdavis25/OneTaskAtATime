@@ -5,12 +5,16 @@ Displays a comprehensive timeline view of all events in a task's history.
 """
 
 from datetime import datetime, timedelta
+from typing import Optional
+import json
+import csv
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
-    QPushButton, QLabel, QComboBox, QMessageBox, QHeaderView
+    QPushButton, QLabel, QComboBox, QMessageBox, QHeaderView,
+    QTextEdit, QFileDialog
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QFont
 
 from src.models.task import Task
 from src.models.task_history_event import TaskHistoryEvent
@@ -76,9 +80,9 @@ class TaskHistoryDialog(QDialog):
 
         filter_layout.addStretch()
 
-        # Export button (placeholder for future)
+        # Export button
         self.export_button = QPushButton("Export...")
-        self.export_button.setEnabled(False)  # TODO: Implement export functionality
+        self.export_button.clicked.connect(self._export_history)
         filter_layout.addWidget(self.export_button)
 
         layout.addLayout(filter_layout)
@@ -92,7 +96,20 @@ class TaskHistoryDialog(QDialog):
         self.timeline_tree.setAlternatingRowColors(True)
         self.timeline_tree.setRootIsDecorated(False)
         self.timeline_tree.header().setStretchLastSection(True)
+        self.timeline_tree.itemDoubleClicked.connect(self._show_event_details)
         layout.addWidget(self.timeline_tree)
+
+        # Details button
+        details_button_layout = QHBoxLayout()
+        details_button_layout.addStretch()
+        self.details_button = QPushButton("View Details")
+        self.details_button.clicked.connect(self._show_selected_event_details)
+        self.details_button.setEnabled(False)
+        details_button_layout.addWidget(self.details_button)
+        layout.addLayout(details_button_layout)
+
+        # Connect selection changed signal
+        self.timeline_tree.itemSelectionChanged.connect(self._on_selection_changed)
 
         # Close button
         button_layout = QHBoxLayout()
@@ -258,3 +275,346 @@ class TaskHistoryDialog(QDialog):
             filtered_events = [e for e in self.all_events if e.event_type == selected_filter]
 
         self._populate_timeline(filtered_events)
+
+    def _on_selection_changed(self):
+        """Enable/disable details button based on selection."""
+        selected_items = self.timeline_tree.selectedItems()
+        # Only enable if a single event is selected (not a date header)
+        if selected_items and len(selected_items) == 1:
+            item = selected_items[0]
+            # Date headers have empty time column
+            is_event = item.text(0) and item.text(0) != "" and ":" in item.text(0)
+            self.details_button.setEnabled(is_event)
+        else:
+            self.details_button.setEnabled(False)
+
+    def _show_selected_event_details(self):
+        """Show details for the currently selected event."""
+        selected_items = self.timeline_tree.selectedItems()
+        if not selected_items:
+            return
+        self._show_event_details(selected_items[0], 0)
+
+    def _show_event_details(self, item: QTreeWidgetItem, column: int):
+        """
+        Show detailed information about an event in a dialog.
+
+        Args:
+            item: The tree widget item that was clicked
+            column: The column that was clicked (unused)
+        """
+        # Skip if this is a date header
+        if not item.text(0) or ":" not in item.text(0):
+            return
+
+        # Find the corresponding event
+        event = self._get_event_for_item(item)
+        if not event:
+            return
+
+        # Create details dialog
+        details_dialog = EventDetailsDialog(event, self.history_service, self)
+        details_dialog.exec_()
+
+    def _get_event_for_item(self, item: QTreeWidgetItem) -> Optional[TaskHistoryEvent]:
+        """
+        Find the event corresponding to a tree widget item.
+
+        Args:
+            item: The tree widget item
+
+        Returns:
+            The corresponding TaskHistoryEvent, or None if not found
+        """
+        # Get the full timestamp by combining date and time
+        time_str = item.text(0)
+        description = item.text(1)
+
+        # Find the date header above this item
+        index = self.timeline_tree.indexOfTopLevelItem(item)
+        date_str = None
+        for i in range(index - 1, -1, -1):
+            potential_header = self.timeline_tree.topLevelItem(i)
+            if not potential_header.text(0) or ":" not in potential_header.text(0):
+                date_str = potential_header.text(0)
+                break
+
+        # Match event by timestamp and description
+        for event in self.all_events:
+            event_time = event.event_timestamp.strftime("%I:%M %p")
+            if event_time == time_str:
+                event_desc = self.history_service.get_formatted_summary(event)
+                # Remove icon prefix for comparison
+                clean_desc = description.split(" ", 1)[1] if " " in description else description
+                if event_desc == clean_desc:
+                    return event
+
+        return None
+
+    def _export_history(self):
+        """Export the complete task history to a file."""
+        if not self.all_events:
+            QMessageBox.information(
+                self,
+                "No Data",
+                "There are no history events to export."
+            )
+            return
+
+        # Ask user to select export format and location
+        file_path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Export Task History",
+            f"task_history_{self.task.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            "CSV Files (*.csv);;JSON Files (*.json);;Text Files (*.txt)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            if selected_filter == "CSV Files (*.csv)":
+                self._export_as_csv(file_path)
+            elif selected_filter == "JSON Files (*.json)":
+                self._export_as_json(file_path)
+            else:
+                self._export_as_text(file_path)
+
+            QMessageBox.information(
+                self,
+                "Export Successful",
+                f"Task history exported successfully to:\n{file_path}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                f"Failed to export task history:\n{str(e)}"
+            )
+
+    def _export_as_csv(self, file_path: str):
+        """
+        Export history as CSV file.
+
+        Args:
+            file_path: Path to save the CSV file
+        """
+        with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            # Write header
+            writer.writerow([
+                'Task ID', 'Task Title', 'Timestamp', 'Event Type',
+                'Description', 'Changed By', 'Old Value', 'New Value', 'Context Data'
+            ])
+
+            # Write events
+            for event in reversed(self.all_events):  # Chronological order (oldest first)
+                writer.writerow([
+                    self.task.id,
+                    self.task.title,
+                    event.event_timestamp.isoformat(),
+                    event.event_type.value,
+                    self.history_service.get_formatted_summary(event),
+                    event.changed_by,
+                    event.old_value or '',
+                    event.new_value or '',
+                    event.context_data or ''
+                ])
+
+    def _export_as_json(self, file_path: str):
+        """
+        Export history as JSON file.
+
+        Args:
+            file_path: Path to save the JSON file
+        """
+        export_data = {
+            'task': {
+                'id': self.task.id,
+                'title': self.task.title,
+                'current_state': self.task.state.value
+            },
+            'export_timestamp': datetime.now().isoformat(),
+            'events': []
+        }
+
+        for event in reversed(self.all_events):  # Chronological order (oldest first)
+            event_data = {
+                'timestamp': event.event_timestamp.isoformat(),
+                'event_type': event.event_type.value,
+                'description': self.history_service.get_formatted_summary(event),
+                'changed_by': event.changed_by,
+                'old_value': event.old_value,
+                'new_value': event.new_value,
+                'context_data': json.loads(event.context_data) if event.context_data else None
+            }
+            export_data['events'].append(event_data)
+
+        with open(file_path, 'w', encoding='utf-8') as jsonfile:
+            json.dump(export_data, jsonfile, indent=2, ensure_ascii=False)
+
+    def _export_as_text(self, file_path: str):
+        """
+        Export history as human-readable text file.
+
+        Args:
+            file_path: Path to save the text file
+        """
+        with open(file_path, 'w', encoding='utf-8') as txtfile:
+            txtfile.write(f"Task History Report\n")
+            txtfile.write(f"{'=' * 80}\n\n")
+            txtfile.write(f"Task ID: {self.task.id}\n")
+            txtfile.write(f"Task Title: {self.task.title}\n")
+            txtfile.write(f"Current State: {self.task.state.value}\n")
+            txtfile.write(f"Report Generated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')}\n")
+            txtfile.write(f"\n{'=' * 80}\n\n")
+
+            # Group events by date
+            grouped_events = self._group_events_by_date(list(reversed(self.all_events)))
+
+            for date_label, event_list in reversed(grouped_events):
+                txtfile.write(f"{date_label}\n")
+                txtfile.write(f"{'-' * 40}\n")
+
+                for event in event_list:
+                    time_str = event.event_timestamp.strftime("%I:%M %p")
+                    description = self.history_service.get_formatted_summary(event)
+                    txtfile.write(f"  {time_str} - {description} (by {event.changed_by})\n")
+
+                    # Add details if available
+                    if event.old_value or event.new_value:
+                        txtfile.write(f"    Old Value: {event.old_value or 'N/A'}\n")
+                        txtfile.write(f"    New Value: {event.new_value or 'N/A'}\n")
+                    if event.context_data:
+                        try:
+                            context = json.loads(event.context_data)
+                            txtfile.write(f"    Context: {json.dumps(context, indent=6)}\n")
+                        except json.JSONDecodeError:
+                            txtfile.write(f"    Context: {event.context_data}\n")
+                    txtfile.write("\n")
+
+                txtfile.write("\n")
+
+
+class EventDetailsDialog(QDialog):
+    """
+    Dialog for showing detailed information about a history event.
+
+    Displays the old state, new state, and all context data for an event.
+    """
+
+    def __init__(self, event: TaskHistoryEvent, history_service: TaskHistoryService, parent=None):
+        """
+        Initialize the Event Details Dialog.
+
+        Args:
+            event: The history event to display
+            history_service: Service for formatting event data
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.event = event
+        self.history_service = history_service
+
+        self.setWindowTitle("Event Details")
+        self.setMinimumSize(600, 400)
+        self.setModal(True)
+
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Set up the user interface."""
+        layout = QVBoxLayout(self)
+
+        # Header with event type and timestamp
+        header_label = QLabel(f"<h2>{self.event.event_type.value.replace('_', ' ').title()}</h2>")
+        layout.addWidget(header_label)
+
+        timestamp_label = QLabel(
+            f"<b>Timestamp:</b> {self.event.event_timestamp.strftime('%Y-%m-%d %I:%M:%S %p')}"
+        )
+        layout.addWidget(timestamp_label)
+
+        changed_by_label = QLabel(f"<b>Changed By:</b> {self.event.changed_by.capitalize()}")
+        layout.addWidget(changed_by_label)
+
+        # Description
+        description_label = QLabel(f"<b>Description:</b>")
+        layout.addWidget(description_label)
+
+        description_text = QLabel(self.history_service.get_formatted_summary(self.event))
+        description_text.setWordWrap(True)
+        description_text.setStyleSheet("padding: 5px; background-color: #f0f0f0; border-radius: 3px;")
+        layout.addWidget(description_text)
+
+        # Details text area
+        details_label = QLabel("<b>Details:</b>")
+        layout.addWidget(details_label)
+
+        self.details_text = QTextEdit()
+        self.details_text.setReadOnly(True)
+        self.details_text.setFont(QFont("Courier New", 9))
+        layout.addWidget(self.details_text)
+
+        # Populate details
+        self._populate_details()
+
+        # Close button
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(self.accept)
+        button_layout.addWidget(close_button)
+
+        layout.addLayout(button_layout)
+
+    def _populate_details(self):
+        """Populate the details text area with event data."""
+        details = []
+
+        # Add old value if present
+        if self.event.old_value:
+            details.append("=== OLD VALUE ===")
+            details.append(self._format_value(self.event.old_value))
+            details.append("")
+
+        # Add new value if present
+        if self.event.new_value:
+            details.append("=== NEW VALUE ===")
+            details.append(self._format_value(self.event.new_value))
+            details.append("")
+
+        # Add context data if present
+        if self.event.context_data:
+            details.append("=== CONTEXT DATA ===")
+            try:
+                context = json.loads(self.event.context_data)
+                details.append(json.dumps(context, indent=2))
+            except json.JSONDecodeError:
+                details.append(self.event.context_data)
+            details.append("")
+
+        # If no details available
+        if not details:
+            details.append("No additional details available for this event.")
+
+        self.details_text.setPlainText("\n".join(details))
+
+    def _format_value(self, value: str) -> str:
+        """
+        Format a value for display.
+
+        Args:
+            value: The value to format
+
+        Returns:
+            Formatted string
+        """
+        # Try to parse as JSON for pretty printing
+        try:
+            parsed = json.loads(value)
+            return json.dumps(parsed, indent=2)
+        except (json.JSONDecodeError, TypeError):
+            # Return as-is if not JSON
+            return value

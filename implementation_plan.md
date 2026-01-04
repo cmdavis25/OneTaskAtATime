@@ -283,6 +283,7 @@ OneTaskAtATime/
 
 ### Phase 10: Release
 - User documentation
+  - Fix Help Contents dialog search bar to actually filter/narrow down results
 - Create Windows installer
 - Demo video/screenshots
 - Beta testing

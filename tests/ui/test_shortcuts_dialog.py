@@ -89,3 +89,34 @@ def test_dialog_minimum_size(shortcuts_dialog):
     """Test that dialog has minimum size set."""
     assert shortcuts_dialog.minimumWidth() == 650
     assert shortcuts_dialog.minimumHeight() == 500
+
+
+def test_print_button_enabled(shortcuts_dialog):
+    """Test that print button is enabled."""
+    from PyQt5.QtWidgets import QPushButton
+
+    # Find the print button
+    buttons = shortcuts_dialog.findChildren(QPushButton)
+    print_button = None
+    for button in buttons:
+        if button.text() == "Print":
+            print_button = button
+            break
+
+    assert print_button is not None, "Print button should exist"
+    assert print_button.isEnabled(), "Print button should be enabled"
+
+
+def test_generate_shortcuts_html(shortcuts_dialog):
+    """Test that HTML generation works correctly."""
+    html = shortcuts_dialog._generate_shortcuts_html()
+
+    assert html is not None
+    assert "OneTaskAtATime - Keyboard Shortcuts" in html
+    assert "<table>" in html
+    assert "General" in html
+    assert "Focus Mode" in html
+
+    # Check that some shortcuts are included
+    assert "Ctrl+N" in html  # New Task
+    assert "Alt+C" in html  # Complete Task

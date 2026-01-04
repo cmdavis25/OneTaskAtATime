@@ -261,10 +261,6 @@ class DependencySelectionDialog(QDialog):
                 try:
                     created_task = self.task_dao.create(new_task)
 
-                    # Save project tags if any
-                    if created_task.project_tags:
-                        self.task_dao.set_project_tags(created_task.id, created_task.project_tags)
-
                     # Reload the task list to include the new task
                     self._load_data()
 

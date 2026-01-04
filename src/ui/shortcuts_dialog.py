@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import (
     QHeaderView, QLabel
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QTextDocument, QPageLayout
+from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 
 
 class ShortcutsDialog(QDialog):
@@ -95,9 +96,9 @@ class ShortcutsDialog(QDialog):
         # Footer with buttons
         button_layout = QHBoxLayout()
 
-        # Print button (placeholder for future)
+        # Print button
         print_button = QPushButton("Print")
-        print_button.setEnabled(False)  # TODO: Implement print functionality
+        print_button.clicked.connect(self._print_shortcuts)
         button_layout.addWidget(print_button)
 
         button_layout.addStretch()
@@ -165,3 +166,63 @@ class ShortcutsDialog(QDialog):
         layout.addWidget(table)
 
         return widget
+
+    def _print_shortcuts(self):
+        """Print the keyboard shortcuts reference."""
+        printer = QPrinter(QPrinter.HighResolution)
+        printer.setPageOrientation(QPageLayout.Portrait)
+
+        # Show print dialog
+        dialog = QPrintDialog(printer, self)
+        dialog.setWindowTitle("Print Keyboard Shortcuts")
+
+        if dialog.exec_() == QPrintDialog.Accepted:
+            # Create HTML document with all shortcuts
+            html = self._generate_shortcuts_html()
+
+            # Create text document and print
+            document = QTextDocument()
+            document.setHtml(html)
+            document.print_(printer)
+
+    def _generate_shortcuts_html(self) -> str:
+        """
+        Generate HTML representation of all shortcuts for printing.
+
+        Returns:
+            HTML string containing formatted shortcuts
+        """
+        html = """
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                h2 { color: #666; margin-top: 30px; margin-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                th { background-color: #f0f0f0; padding: 8px; text-align: left; border: 1px solid #ddd; }
+                td { padding: 8px; border: 1px solid #ddd; }
+                .shortcut { font-weight: bold; text-align: center; }
+                tr:nth-child(even) { background-color: #f9f9f9; }
+            </style>
+        </head>
+        <body>
+            <h1>OneTaskAtATime - Keyboard Shortcuts</h1>
+        """
+
+        for category, shortcuts in self.SHORTCUTS.items():
+            html += f"<h2>{category}</h2>"
+            html += "<table>"
+            html += "<tr><th>Action</th><th>Shortcut</th></tr>"
+
+            for action, shortcut in shortcuts:
+                html += f"<tr><td>{action}</td><td class='shortcut'>{shortcut}</td></tr>"
+
+            html += "</table>"
+
+        html += """
+        </body>
+        </html>
+        """
+
+        return html
