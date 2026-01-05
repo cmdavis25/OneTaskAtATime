@@ -988,8 +988,9 @@ class MainWindow(QMainWindow):
 
     def _redo_last_action(self):
         """Redo last undone action (Phase 8)."""
+        desc = self.undo_manager.get_redo_description()
         if self.undo_manager.redo():
-            self.statusBar().showMessage("Action redone", 3000)
+            self.statusBar().showMessage(f"Redone: {desc}", 3000)
 
             # Only refresh focus task if Focus Mode is active
             if self.stacked_widget.currentWidget() == self.focus_mode:
@@ -1015,6 +1016,11 @@ class MainWindow(QMainWindow):
         """Update redo action enabled state (Phase 8)."""
         if hasattr(self, 'redo_action'):
             self.redo_action.setEnabled(can_redo)
+            if can_redo:
+                desc = self.undo_manager.get_redo_description()
+                self.redo_action.setText(f"&Redo {desc}")
+            else:
+                self.redo_action.setText("&Redo")
 
     def _export_data(self):
         """Show export data dialog (Phase 7)."""
