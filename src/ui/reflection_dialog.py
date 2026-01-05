@@ -15,6 +15,7 @@ from PyQt5.QtGui import QFont
 from ..services.postpone_suggestion_service import PostponeSuggestion, SuggestionType
 from ..models.enums import TaskState
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ReflectionDialog(QDialog, GeometryMixin):
@@ -47,9 +48,19 @@ class ReflectionDialog(QDialog, GeometryMixin):
         self.reflection_text = ""
         self.disposition_action: Optional[TaskState] = None
 
-        # Initialize geometry persistence (get db_connection from parent if available)
+        # Store db_connection from parent for MessageBox usage
+        self.db_connection = None
         if parent and hasattr(parent, 'db_connection'):
-            self._init_geometry_persistence(parent.db_connection, default_width=600, default_height=500)
+            self.db_connection = parent.db_connection
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if self.db_connection:
+            # Handle both DatabaseConnection wrapper and raw connection
+            conn = self.db_connection.get_connection() if hasattr(self.db_connection, 'get_connection') else self.db_connection
+            self._init_geometry_persistence(conn, default_width=600, default_height=500)
+        else:
+            # Set flag to prevent GeometryMixin.showEvent from failing
+            self._geometry_restored = True
 
         self.setWindowTitle("Reflection Required")
         self.setModal(True)  # Blocking dialog
@@ -222,8 +233,9 @@ class ReflectionDialog(QDialog, GeometryMixin):
         state_name = "Someday/Maybe" if new_state == TaskState.SOMEDAY_MAYBE else "Trash"
 
         # Confirm action
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
             "Confirm Action",
             f"Move '{self.task_title}' to {state_name}?\n\n"
             f"This will resolve the postpone pattern by removing the task from your active list.",
@@ -240,8 +252,9 @@ class ReflectionDialog(QDialog, GeometryMixin):
         text = self.reflection_input.toPlainText().strip()
 
         if len(text) < self.MIN_REFLECTION_LENGTH:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "Reflection Too Short",
                 f"Please provide a thoughtful reflection of at least {self.MIN_REFLECTION_LENGTH} characters.\n\n"
                 f"This helps you understand why you keep postponing this task."

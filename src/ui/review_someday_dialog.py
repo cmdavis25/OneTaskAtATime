@@ -21,6 +21,7 @@ from ..services.task_service import TaskService
 from ..services.resurfacing_service import ResurfacingService
 from ..algorithms.priority import calculate_importance_for_tasks
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ReviewSomedayDialog(QDialog, GeometryMixin):
@@ -248,15 +249,17 @@ class ReviewSomedayDialog(QDialog, GeometryMixin):
     def _activate_selected(self):
         """Activate selected tasks (move to ACTIVE state)."""
         if not self.selected_task_ids:
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "No Selection",
                 "Please select tasks to activate."
             )
             return
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection,
             "Confirm Activation",
             f"Activate {len(self.selected_task_ids)} selected task(s)?",
             QMessageBox.Yes | QMessageBox.No
@@ -268,8 +271,9 @@ class ReviewSomedayDialog(QDialog, GeometryMixin):
                     task.state = TaskState.ACTIVE
                     self.task_service.update_task(task)
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Tasks Activated",
                 f"Successfully activated {len(self.selected_task_ids)} task(s)."
             )
@@ -282,15 +286,17 @@ class ReviewSomedayDialog(QDialog, GeometryMixin):
     def _trash_selected(self):
         """Move selected tasks to trash."""
         if not self.selected_task_ids:
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "No Selection",
                 "Please select tasks to trash."
             )
             return
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection,
             "Confirm Trash",
             f"Move {len(self.selected_task_ids)} selected task(s) to trash?",
             QMessageBox.Yes | QMessageBox.No
@@ -302,8 +308,9 @@ class ReviewSomedayDialog(QDialog, GeometryMixin):
                     task.state = TaskState.TRASH
                     self.task_service.update_task(task)
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Tasks Trashed",
                 f"Successfully moved {len(self.selected_task_ids)} task(s) to trash."
             )

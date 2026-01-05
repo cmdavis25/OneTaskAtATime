@@ -20,6 +20,7 @@ from ..database.connection import DatabaseConnection
 from ..services.task_service import TaskService
 from ..algorithms.priority import calculate_importance_for_tasks
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ReviewDeferredDialog(QDialog, GeometryMixin):
@@ -234,8 +235,9 @@ class ReviewDeferredDialog(QDialog, GeometryMixin):
                 selected_tasks.append(task)
 
         if not selected_tasks:
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection.get_connection(),
                 "No Selection",
                 "Please select at least one task to activate.",
                 QMessageBox.Ok
@@ -256,8 +258,9 @@ class ReviewDeferredDialog(QDialog, GeometryMixin):
                 "Activating them will make them available immediately."
             )
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection.get_connection(),
             "Activate Tasks",
             f"Activate {len(selected_tasks)} task(s)?{warning_text}\n\n{task_titles}",
             QMessageBox.Yes | QMessageBox.No,
@@ -274,8 +277,9 @@ class ReviewDeferredDialog(QDialog, GeometryMixin):
                         activated_count += 1
 
             # Show success message
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection.get_connection(),
                 "Tasks Activated",
                 f"Successfully activated {activated_count} task(s).\n\n"
                 "They are now available in Focus Mode.",

@@ -17,6 +17,7 @@ from typing import List, Optional
 from enum import Enum
 from ..models.task import Task
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class RankingMode(Enum):
@@ -402,8 +403,9 @@ class SequentialRankingDialog(QDialog, GeometryMixin):
                 ranked_order.append(task)
 
         if not ranked_order:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection else None,
                 "No New Tasks",
                 "The ranking list should contain new tasks to rank. "
                 "If you want to skip ranking, click 'Skip for Now'."

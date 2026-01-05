@@ -110,7 +110,10 @@ class PostponeDialog(QDialog, GeometryMixin):
 
         # Initialize geometry persistence
         if db_connection:
-            self._init_geometry_persistence(db_connection, default_width=500, default_height=400)
+            self._init_geometry_persistence(db_connection.get_connection(), default_width=500, default_height=400)
+        else:
+            # Set flag to prevent GeometryMixin.showEvent from failing
+            self._geometry_restored = True
 
         # Workflow result storage
         self.blocker_result = None

@@ -15,6 +15,7 @@ from ..database.task_dao import TaskDAO
 from ..models.task import Task
 from ..models.enums import TaskState
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class BlockerSelectionDialog(QDialog, GeometryMixin):
@@ -199,9 +200,9 @@ class BlockerSelectionDialog(QDialog, GeometryMixin):
             # Validate new task title
             title = self.new_task_input.text().strip()
             if not title:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.warning(
+                MessageBox.warning(
                     self,
+                    self.db_connection.get_connection(),
                     "Invalid Input",
                     "Please enter a title for the blocker task."
                 )
@@ -209,9 +210,9 @@ class BlockerSelectionDialog(QDialog, GeometryMixin):
         else:
             # Validate existing task selection
             if self.existing_task_combo.count() == 0:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.warning(
+                MessageBox.warning(
                     self,
+                    self.db_connection.get_connection(),
                     "No Tasks Available",
                     "There are no existing tasks to select as a blocker."
                 )

@@ -18,6 +18,7 @@ from PyQt5.QtGui import QFont
 
 from ..database.settings_dao import SettingsDAO
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class SettingsDialog(QDialog, GeometryMixin):
@@ -661,8 +662,9 @@ class SettingsDialog(QDialog, GeometryMixin):
             # Emit signal and close
             self.settings_saved.emit()
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Settings Saved",
                 "Settings have been saved successfully.\n\n"
                 "Changes to resurfacing intervals will take effect on the next scheduled run."
@@ -671,8 +673,9 @@ class SettingsDialog(QDialog, GeometryMixin):
             self.accept()
 
         except Exception as e:
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection,
                 "Error Saving Settings",
                 f"An error occurred while saving settings:\n\n{str(e)}"
             )

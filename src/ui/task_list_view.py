@@ -8,7 +8,7 @@ Phase 4: Full task management interface.
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QLineEdit, QComboBox, QLabel,
-    QMessageBox, QMenu, QCheckBox, QGroupBox, QGridLayout, QShortcut
+    QMenu, QCheckBox, QGroupBox, QGridLayout, QShortcut, QMessageBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QBrush, QKeySequence
@@ -25,6 +25,7 @@ from ..database.dependency_dao import DependencyDAO
 from ..database.task_history_dao import TaskHistoryDAO
 from ..algorithms.priority import calculate_urgency_for_tasks, calculate_importance
 from .task_history_dialog import TaskHistoryDialog
+from .message_box import MessageBox
 
 
 class TaskListView(QWidget):
@@ -47,6 +48,7 @@ class TaskListView(QWidget):
     task_created = pyqtSignal(int)  # task_id
     task_updated = pyqtSignal(int)  # task_id
     task_deleted = pyqtSignal(int)  # task_id
+    task_count_changed = pyqtSignal(str)  # count_message for status bar
 
     def __init__(self, db_connection: DatabaseConnection, parent=None):
         """
@@ -203,29 +205,6 @@ class TaskListView(QWidget):
 
         header_layout.addStretch()
 
-        # Manage Columns button
-        manage_cols_btn = QPushButton("Manage Columns")
-        manage_cols_btn.clicked.connect(self._on_manage_columns)
-        header_layout.addWidget(manage_cols_btn)
-
-        # New Task button
-        new_task_btn = QPushButton("+ New Task")
-        new_task_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                padding: 8px 16px;
-                border: none;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-        """)
-        new_task_btn.clicked.connect(self._on_new_task)
-        header_layout.addWidget(new_task_btn)
-
         layout.addLayout(header_layout)
 
         # Filter and search bar
@@ -263,11 +242,6 @@ class TaskListView(QWidget):
         filter_layout.addWidget(self.search_box)
 
         filter_layout.addStretch()
-
-        # Refresh button
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self.refresh_tasks)
-        filter_layout.addWidget(refresh_btn)
 
         layout.addLayout(filter_layout)
 
@@ -447,6 +421,17 @@ class TaskListView(QWidget):
         sort_layout.addWidget(self.secondary_sort_combo)
 
         sort_layout.addStretch()
+
+        # Manage Columns button (moved from header to sort row)
+        manage_cols_btn = QPushButton("Manage Columns")
+        manage_cols_btn.clicked.connect(self._on_manage_columns)
+        sort_layout.addWidget(manage_cols_btn)
+
+        # Refresh button (moved from filter row to sort row)
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.clicked.connect(self.refresh_tasks)
+        sort_layout.addWidget(refresh_btn)
+
         layout.addLayout(sort_layout)
 
         # Task table
@@ -495,36 +480,154 @@ class TaskListView(QWidget):
         # Double-click to edit
         self.task_table.doubleClicked.connect(self._on_edit_task)
 
+        # Connect selection changed to update button states
+        self.task_table.itemSelectionChanged.connect(self._on_selection_changed)
+
         layout.addWidget(self.task_table)
 
-        # Action buttons
-        button_layout = QHBoxLayout()
+        # New Task button - centered between table and action buttons
+        new_task_layout = QHBoxLayout()
+        new_task_layout.addStretch()
 
-        edit_btn = QPushButton("Edit")
-        edit_btn.clicked.connect(self._on_edit_task)
-        button_layout.addWidget(edit_btn)
-
-        delete_btn = QPushButton("Delete")
-        delete_btn.setStyleSheet("""
+        new_task_button_style = """
             QPushButton {
-                background-color: #dc3545;
+                background-color: #28a745;
                 color: white;
-                padding: 6px 12px;
+                font-size: 11pt;
+                font-weight: bold;
                 border: none;
                 border-radius: 4px;
+                padding: 8px 16px;
+                min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #c82333;
+                background-color: #218838;
             }
-        """)
-        delete_btn.clicked.connect(self._on_delete_task)
-        button_layout.addWidget(delete_btn)
+            QPushButton:pressed {
+                background-color: #1e7e34;
+            }
+            QPushButton:disabled {
+                background-color: #ccc;
+                color: #666;
+            }
+        """
+
+        self.new_task_btn = QPushButton("+ New Task (Ctrl+N)")
+        self.new_task_btn.setStyleSheet(new_task_button_style)
+        self.new_task_btn.clicked.connect(self._on_new_task)
+        new_task_layout.addWidget(self.new_task_btn)
+
+        new_task_layout.addStretch()
+        layout.addLayout(new_task_layout)
+
+        # Action buttons - two rows
+        # Row 1: State action buttons (left) aligned with Edit/Delete (right)
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(10)
+
+        # Left side: State action buttons matching Focus Mode
+        state_button_style = """
+            QPushButton {
+                background-color: #6c757d;
+                color: white;
+                font-size: 11pt;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                min-width: 100px;
+            }
+            QPushButton:hover {
+                background-color: #5a6268;
+            }
+            QPushButton:pressed {
+                background-color: #545b62;
+            }
+            QPushButton:disabled {
+                background-color: #ccc;
+                color: #666;
+            }
+        """
+
+        complete_button_style = """
+            QPushButton {
+                background-color: #28a745;
+                color: white;
+                font-size: 11pt;
+                font-weight: bold;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                min-width: 100px;
+            }
+            QPushButton:hover {
+                background-color: #218838;
+            }
+            QPushButton:pressed {
+                background-color: #1e7e34;
+            }
+            QPushButton:disabled {
+                background-color: #ccc;
+                color: #666;
+            }
+        """
+
+        trash_button_style = state_button_style.replace("#6c757d", "#ff8c00")  # Yellow-orange (dark orange)
+
+        edit_button_style = state_button_style.replace("#6c757d", "#007bff")  # Blue
+
+        delete_button_style = state_button_style.replace("#6c757d", "#dc3545")  # Red
+
+        # Complete button (green, prominent)
+        self.complete_btn = QPushButton("✓ Complete (Alt+C)")
+        self.complete_btn.setStyleSheet(complete_button_style)
+        self.complete_btn.clicked.connect(self._on_change_state_completed)
+        self.complete_btn.setEnabled(False)
+        button_layout.addWidget(self.complete_btn)
+
+        # Defer button
+        self.defer_btn = QPushButton("Defer (Alt+D)")
+        self.defer_btn.setStyleSheet(state_button_style)
+        self.defer_btn.clicked.connect(self._on_change_state_deferred)
+        self.defer_btn.setEnabled(False)
+        button_layout.addWidget(self.defer_btn)
+
+        # Delegate button
+        self.delegate_btn = QPushButton("Delegate (Alt+G)")
+        self.delegate_btn.setStyleSheet(state_button_style)
+        self.delegate_btn.clicked.connect(self._on_change_state_delegated)
+        self.delegate_btn.setEnabled(False)
+        button_layout.addWidget(self.delegate_btn)
+
+        # Someday button
+        self.someday_btn = QPushButton("Someday (Alt+S)")
+        self.someday_btn.setStyleSheet(state_button_style)
+        self.someday_btn.clicked.connect(self._on_change_state_someday)
+        self.someday_btn.setEnabled(False)
+        button_layout.addWidget(self.someday_btn)
+
+        # Trash button (red)
+        self.trash_btn = QPushButton("Trash (Alt+X)")
+        self.trash_btn.setStyleSheet(trash_button_style)
+        self.trash_btn.clicked.connect(self._on_change_state_trash)
+        self.trash_btn.setEnabled(False)
+        button_layout.addWidget(self.trash_btn)
 
         button_layout.addStretch()
 
-        # Task count label
-        self.count_label = QLabel()
-        button_layout.addWidget(self.count_label)
+        # Right side: Edit and Delete buttons
+        edit_btn = QPushButton("Edit (Enter)")
+        edit_btn.setStyleSheet(edit_button_style)
+        edit_btn.clicked.connect(self._on_edit_task)
+        self.edit_btn = edit_btn
+        self.edit_btn.setEnabled(False)
+        button_layout.addWidget(edit_btn)
+
+        delete_btn = QPushButton("Delete")
+        delete_btn.setStyleSheet(delete_button_style)
+        delete_btn.clicked.connect(self._on_delete_task)
+        self.delete_btn = delete_btn
+        self.delete_btn.setEnabled(False)
+        button_layout.addWidget(delete_btn)
 
         layout.addLayout(button_layout)
 
@@ -538,9 +641,47 @@ class TaskListView(QWidget):
         edit_shortcut_numpad = QShortcut(QKeySequence(Qt.Key_Enter), self.task_table)
         edit_shortcut_numpad.activated.connect(self._on_edit_task)
 
+        # Delete key - Delete selected task
+        delete_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self.task_table)
+        delete_shortcut.activated.connect(self._on_delete_task)
+
         # Ctrl+H - View task history
         history_shortcut = QShortcut(QKeySequence("Ctrl+H"), self)
         history_shortcut.activated.connect(self._on_view_task_history)
+
+        # State action shortcuts (matching Focus Mode)
+        # Complete: Alt+C
+        complete_shortcut = QShortcut(QKeySequence("Alt+C"), self)
+        complete_shortcut.activated.connect(self._on_change_state_completed)
+
+        # Defer: Alt+D
+        defer_shortcut = QShortcut(QKeySequence("Alt+D"), self)
+        defer_shortcut.activated.connect(self._on_change_state_deferred)
+
+        # Delegate: Alt+G
+        delegate_shortcut = QShortcut(QKeySequence("Alt+G"), self)
+        delegate_shortcut.activated.connect(self._on_change_state_delegated)
+
+        # Someday: Alt+S
+        someday_shortcut = QShortcut(QKeySequence("Alt+S"), self)
+        someday_shortcut.activated.connect(self._on_change_state_someday)
+
+        # Trash: Alt+X
+        trash_shortcut = QShortcut(QKeySequence("Alt+X"), self)
+        trash_shortcut.activated.connect(self._on_change_state_trash)
+
+    def _on_selection_changed(self):
+        """Handle task selection changes to enable/disable action buttons."""
+        has_selection = self.task_table.currentRow() >= 0
+
+        # Enable/disable all action buttons based on selection
+        self.complete_btn.setEnabled(has_selection)
+        self.defer_btn.setEnabled(has_selection)
+        self.delegate_btn.setEnabled(has_selection)
+        self.someday_btn.setEnabled(has_selection)
+        self.trash_btn.setEnabled(has_selection)
+        self.edit_btn.setEnabled(has_selection)
+        self.delete_btn.setEnabled(has_selection)
 
     def focus_search_box(self):
         """
@@ -732,8 +873,8 @@ class TaskListView(QWidget):
         # Update table
         self._populate_table(filtered_tasks)
 
-        # Update count
-        self.count_label.setText(f"Showing {len(filtered_tasks)} of {len(self.tasks)} tasks")
+        # Emit count signal for status bar
+        self.task_count_changed.emit(f"Showing {len(filtered_tasks)} of {len(self.tasks)} tasks")
 
     def _apply_sorting(self, tasks: List[Task]) -> List[Task]:
         """
@@ -855,6 +996,9 @@ class TaskListView(QWidget):
                 item = QTableWidgetItem(text)
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
+                # Center-align all cells
+                item.setTextAlignment(Qt.AlignCenter)
+
                 if user_data is not None:
                     item.setData(Qt.UserRole, user_data)
 
@@ -866,11 +1010,6 @@ class TaskListView(QWidget):
                 if col_name == "Title":
                     # Add tooltip showing full title
                     item.setToolTip(task.title)
-
-                # Special formatting for Recurring column
-                if col_name == "Recurring":
-                    # Center-align the recurring symbol
-                    item.setTextAlignment(Qt.AlignCenter)
 
                 # Special formatting for State column
                 if col_name == "State":
@@ -987,14 +1126,14 @@ class TaskListView(QWidget):
         """Handle edit task action."""
         current_row = self.task_table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "No Selection", "Please select a task to edit.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "No Selection", "Please select a task to edit.")
             return
 
         task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
         task = self.task_service.get_task_by_id(task_id)
 
         if not task:
-            QMessageBox.warning(self, "Error", "Task not found.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Task not found.")
             return
 
         from .task_form_dialog import TaskFormDialog
@@ -1016,14 +1155,14 @@ class TaskListView(QWidget):
         """Handle view dependency graph action."""
         current_row = self.task_table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "No Selection", "Please select a task to view dependencies.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "No Selection", "Please select a task to view dependencies.")
             return
 
         task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
         task = self.task_service.get_task_by_id(task_id)
 
         if not task:
-            QMessageBox.warning(self, "Error", "Task not found.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Task not found.")
             return
 
         from .dependency_graph_view import DependencyGraphView
@@ -1035,14 +1174,14 @@ class TaskListView(QWidget):
         """Handle view task history action."""
         current_row = self.task_table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "No Selection", "Please select a task to view its history.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "No Selection", "Please select a task to view its history.")
             return
 
         task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
         task = self.task_service.get_task_by_id(task_id)
 
         if not task:
-            QMessageBox.warning(self, "Error", "Task not found.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Task not found.")
             return
 
         history_dialog = TaskHistoryDialog(task, self.task_history_service, self)
@@ -1052,14 +1191,15 @@ class TaskListView(QWidget):
         """Handle delete task action."""
         current_row = self.task_table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "No Selection", "Please select a task to delete.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "No Selection", "Please select a task to delete.")
             return
 
-        task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
-        task_title = self.task_table.item(current_row, 1).text()
+        task_id = self.task_table.item(current_row, self.column_indices["ID"]).data(Qt.UserRole)
+        task_title = self.task_table.item(current_row, self.column_indices["Title"]).text()
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection.get_connection(),
             "Delete Task",
             f"Are you sure you want to delete task '{task_title}'?\n\n"
             "This action cannot be undone.",
@@ -1093,7 +1233,7 @@ class TaskListView(QWidget):
         task = self.task_service.get_task_by_id(task_id)
 
         if not task:
-            QMessageBox.warning(self, "Error", "Task not found.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Task not found.")
             return
 
         from .postpone_dialog import DeferDialog
@@ -1121,7 +1261,7 @@ class TaskListView(QWidget):
         task = self.task_service.get_task_by_id(task_id)
 
         if not task:
-            QMessageBox.warning(self, "Error", "Task not found.")
+            MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Task not found.")
             return
 
         from .postpone_dialog import DelegateDialog
@@ -1146,9 +1286,27 @@ class TaskListView(QWidget):
             return
 
         task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
-        self.task_service.move_to_someday(task_id)
-        self.refresh_tasks()
-        self.task_updated.emit(task_id)
+        task = self.task_service.get_task_by_id(task_id)
+
+        if not task:
+            MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Task not found.")
+            return
+
+        # Show confirmation dialog matching Focus Mode behavior
+        reply = MessageBox.question(
+            self,
+            self.db_connection.get_connection(),
+            "Move to Someday/Maybe?",
+            f"Move '{task.title}' to Someday/Maybe?\n\n"
+            "This task will be removed from active focus and resurfaced periodically.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            self.task_service.move_to_someday(task_id)
+            self.refresh_tasks()
+            self.task_updated.emit(task_id)
 
     def _on_change_state_completed(self):
         """Handle change task state to Completed."""
@@ -1168,9 +1326,27 @@ class TaskListView(QWidget):
             return
 
         task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
-        self.task_service.move_to_trash(task_id)
-        self.refresh_tasks()
-        self.task_updated.emit(task_id)
+        task = self.task_service.get_task_by_id(task_id)
+
+        if not task:
+            MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Task not found.")
+            return
+
+        # Show confirmation dialog matching Focus Mode behavior
+        reply = MessageBox.question(
+            self,
+            self.db_connection.get_connection(),
+            "Move to Trash?",
+            f"Move '{task.title}' to trash?\n\n"
+            "This task will be marked as unnecessary.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            self.task_service.move_to_trash(task_id)
+            self.refresh_tasks()
+            self.task_updated.emit(task_id)
 
     def _on_manage_context_filters(self):
         """Open the context filter management dialog."""
@@ -1356,13 +1532,26 @@ class TaskListView(QWidget):
 
         Intercepts up/down arrow keys to navigate the task table even when
         the search box has focus. All other keys are handled normally.
+
+        When arrowing down from search box, always go to first row.
+        When arrowing up from search box, always go to last row.
         """
         key = event.key()
 
         # Check if it's an up or down arrow key
         if key == Qt.Key_Up or key == Qt.Key_Down:
-            # Forward the event to the task table
-            self.task_table.keyPressEvent(event)
+            row_count = self.task_table.rowCount()
+
+            # Transfer focus to the task table so shortcuts work
+            self.task_table.setFocus(Qt.OtherFocusReason)
+
+            # When navigating from search box to table:
+            # Down arrow -> go to first row
+            # Up arrow -> go to last row
+            if key == Qt.Key_Down and row_count > 0:
+                self.task_table.setCurrentCell(0, 0)
+            elif key == Qt.Key_Up and row_count > 0:
+                self.task_table.setCurrentCell(row_count - 1, 0)
         else:
             # Normal search box behavior for all other keys
             QLineEdit.keyPressEvent(self.search_box, event)

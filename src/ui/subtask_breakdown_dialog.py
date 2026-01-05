@@ -6,12 +6,13 @@ Allows users to break down a complex task into multiple subtasks.
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextEdit, QCheckBox
+    QTextEdit, QCheckBox, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from typing import List, Dict, Any
 from ..models.task import Task
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class SubtaskBreakdownDialog(QDialog, GeometryMixin):
@@ -32,9 +33,17 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
         super().__init__(parent)
         self.task = task
 
-        # Initialize geometry persistence (get db_connection from parent if available)
+        # Store db_connection from parent for MessageBox usage
+        self.db_connection = None
         if parent and hasattr(parent, 'db_connection'):
-            self._init_geometry_persistence(parent.db_connection, default_width=600, default_height=500)
+            self.db_connection = parent.db_connection
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if self.db_connection:
+            self._init_geometry_persistence(self.db_connection, default_width=600, default_height=500)
+        else:
+            # Set flag to prevent GeometryMixin.showEvent from failing
+            self._geometry_restored = True
 
         self._init_ui()
 
@@ -120,9 +129,9 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
         # Get subtask titles
         text = self.subtask_edit.toPlainText().strip()
         if not text:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "Invalid Input",
                 "Please enter at least one subtask."
             )
@@ -133,9 +142,9 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
         non_empty_lines = [line for line in lines if line]
 
         if len(non_empty_lines) == 0:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "Invalid Input",
                 "Please enter at least one non-empty subtask."
             )
@@ -143,9 +152,9 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
 
         # Confirm deletion if checkbox is checked
         if self.delete_original_checkbox.isChecked():
-            from PyQt5.QtWidgets import QMessageBox
-            reply = QMessageBox.question(
+            reply = MessageBox.question(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "Confirm Deletion",
                 f"Are you sure you want to move '{self.task.title}' to trash?\n\n"
                 f"The {len(non_empty_lines)} subtask(s) will remain active.",

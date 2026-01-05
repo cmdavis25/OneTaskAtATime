@@ -16,6 +16,7 @@ from ..database.connection import DatabaseConnection
 from ..database.task_dao import TaskDAO
 from ..database.dependency_dao import DependencyDAO
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class DependencySelectionDialog(QDialog, GeometryMixin):
@@ -268,14 +269,16 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
                     # Reload the task list to include the new task
                     self._load_data()
 
-                    QMessageBox.information(
+                    MessageBox.information(
                         self,
+                        self.db_connection.get_connection(),
                         "Success",
                         f"Task '{created_task.title}' created successfully."
                     )
                 except Exception as e:
-                    QMessageBox.critical(
+                    MessageBox.critical(
                         self,
+                        self.db_connection.get_connection(),
                         "Error",
                         f"Failed to create task: {str(e)}"
                     )
@@ -284,8 +287,9 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
         """Handle add dependency button click."""
         current_item = self.available_list.currentItem()
         if not current_item:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection(),
                 "No Selection",
                 "Please select a task to add as a dependency."
             )
@@ -317,21 +321,24 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
                 "Unknown"
             )
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection.get_connection(),
                 "Success",
                 f"Added dependency: '{self.task.title}' is now blocked by '{task_title}'."
             )
 
         except ValueError as e:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection(),
                 "Cannot Add Dependency",
                 str(e)
             )
         except Exception as e:
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection.get_connection(),
                 "Error",
                 f"Failed to add dependency: {str(e)}"
             )
@@ -340,8 +347,9 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
         """Handle remove dependency button click."""
         current_item = self.dependencies_list.currentItem()
         if not current_item:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection(),
                 "No Selection",
                 "Please select a dependency to remove."
             )
@@ -349,8 +357,9 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
 
         blocking_task_id = current_item.data(Qt.UserRole)
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection.get_connection(),
             "Remove Dependency",
             f"Are you sure you want to remove this dependency?\n\n"
             f"'{self.task.title}' will no longer be blocked by this task.",
@@ -371,15 +380,17 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
 
                 self.dependencies_changed.emit()
 
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db_connection.get_connection(),
                     "Success",
                     "Dependency removed successfully."
                 )
 
             except Exception as e:
-                QMessageBox.critical(
+                MessageBox.critical(
                     self,
+                    self.db_connection.get_connection(),
                     "Error",
                     f"Failed to remove dependency: {str(e)}"
                 )

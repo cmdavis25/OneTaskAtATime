@@ -74,6 +74,9 @@ class ShortcutsDialog(QDialog, GeometryMixin):
         # Initialize geometry persistence (get db_connection from parent if available)
         if parent and hasattr(parent, 'db_connection'):
             self._init_geometry_persistence(parent.db_connection, default_width=700, default_height=500)
+        else:
+            # Set flag to prevent GeometryMixin.showEvent from failing
+            self._geometry_restored = True
 
         self.setWindowTitle("Keyboard Shortcuts")
         self.setMinimumSize(650, 500)

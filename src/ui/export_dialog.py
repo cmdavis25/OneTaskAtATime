@@ -14,6 +14,7 @@ from PyQt5.QtGui import QFont
 
 from ..services.export_service import ExportService
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ExportWorker(QThread):
@@ -239,8 +240,9 @@ class ExportDialog(QDialog, GeometryMixin):
         filepath = self.filepath_edit.text()
 
         if not filepath:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection,
                 "No File Selected",
                 "Please select a destination file for the export."
             )
@@ -312,16 +314,18 @@ class ExportDialog(QDialog, GeometryMixin):
                     f"Size: {size_mb:.2f} MB"
                 )
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Export Successful",
                 message
             )
             self.accept()
         else:
             error_msg = result.get('error', 'Unknown error')
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection,
                 "Export Failed",
                 f"Export failed with error:\n\n{error_msg}"
             )
@@ -333,8 +337,9 @@ class ExportDialog(QDialog, GeometryMixin):
         Args:
             error: Error message
         """
-        QMessageBox.critical(
+        MessageBox.critical(
             self,
+            self.db_connection,
             "Export Error",
             f"An error occurred during export:\n\n{error}"
         )

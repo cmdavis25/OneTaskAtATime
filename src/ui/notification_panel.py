@@ -15,6 +15,7 @@ from typing import List
 
 from ..models.notification import Notification, NotificationType
 from ..services.notification_manager import NotificationManager
+from .geometry_mixin import GeometryMixin
 
 
 class NotificationItem(QFrame):
@@ -208,14 +209,15 @@ class NotificationItem(QFrame):
         return action_labels.get(self.notification.action_type, 'View')
 
 
-class NotificationDialog(QDialog):
+class NotificationDialog(QDialog, GeometryMixin):
     """Popup dialog displaying notifications."""
 
     action_requested = pyqtSignal(Notification)
 
-    def __init__(self, notification_manager: NotificationManager, parent=None):
+    def __init__(self, notification_manager: NotificationManager, db_connection: sqlite3.Connection, parent=None):
         super().__init__(parent)
         self.notification_manager = notification_manager
+        self._init_geometry_persistence(db_connection, default_width=500, default_height=600)
         self._init_ui()
         self._refresh_notifications()
 
@@ -422,7 +424,7 @@ class NotificationPanel(QWidget):
 
     def _show_notifications(self):
         """Show notification dialog."""
-        dialog = NotificationDialog(self.notification_manager, self)
+        dialog = NotificationDialog(self.notification_manager, self.db_connection, self)
         dialog.action_requested.connect(self._on_action_requested)
         dialog.exec_()
         self._refresh_badge()

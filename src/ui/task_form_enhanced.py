@@ -25,6 +25,7 @@ from ..database.project_tag_dao import ProjectTagDAO
 from ..database.dependency_dao import DependencyDAO
 from ..database.task_dao import TaskDAO
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class EnhancedTaskFormDialog(QDialog, GeometryMixin):
@@ -61,6 +62,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         # Initialize geometry persistence
         if db_connection:
             self._init_geometry_persistence(db_connection, default_width=700, default_height=650)
+        else:
+            # Set flag to prevent GeometryMixin.showEvent from failing
+            self._geometry_restored = True
 
         # Load reference data
         self.contexts: List[Context] = []
@@ -546,8 +550,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         # Validate due date if recurring is enabled
         if enabled and not self.has_due_date_check.isChecked():
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection else None,
                 "Due Date Required",
                 "Recurring tasks must have a due date. Please set a due date first."
             )
@@ -615,8 +620,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
                 self.recurrence_interval_spin.setValue(pattern.interval)
 
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db_connection.get_connection() if self.db_connection else None,
                     "Pattern Saved",
                     f"Advanced pattern configured:\n{pattern.to_human_readable()}"
                 )
@@ -677,8 +683,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
     def _on_manage_dependencies(self):
         """Open the dependency selection dialog."""
         if not self.task or not self.task.id:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection else None,
                 "Cannot Manage Dependencies",
                 "Please save the task first before adding dependencies."
             )
@@ -714,7 +721,12 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         # Check if context already exists
         if not self.db_connection:
-            QMessageBox.warning(self, "Error", "Database connection not available.")
+            MessageBox.warning(
+                self,
+                None,
+                "Error",
+                "Database connection not available."
+            )
             return
 
         try:
@@ -722,8 +734,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
             existing = context_dao.get_by_name(name)
 
             if existing:
-                QMessageBox.warning(
+                MessageBox.warning(
                     self,
+                    self.db_connection.get_connection(),
                     "Duplicate Context",
                     f"A context named '{name}' already exists."
                 )
@@ -749,15 +762,17 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
                     self.context_combo.setCurrentIndex(i)
                     break
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection.get_connection(),
                 "Success",
                 f"Context '{name}' created successfully."
             )
 
         except Exception as e:
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection.get_connection() if self.db_connection else None,
                 "Error",
                 f"Failed to create context: {str(e)}"
             )
@@ -779,7 +794,12 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         # Check if tag already exists
         if not self.db_connection:
-            QMessageBox.warning(self, "Error", "Database connection not available.")
+            MessageBox.warning(
+                self,
+                None,
+                "Error",
+                "Database connection not available."
+            )
             return
 
         try:
@@ -787,8 +807,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
             existing = tag_dao.get_by_name(name)
 
             if existing:
-                QMessageBox.warning(
+                MessageBox.warning(
                     self,
+                    self.db_connection.get_connection(),
                     "Duplicate Project Tag",
                     f"A project tag named '{name}' already exists."
                 )
@@ -834,15 +855,17 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
                     checkbox
                 )
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection.get_connection(),
                 "Success",
                 f"Project tag '{name}' created successfully."
             )
 
         except Exception as e:
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection.get_connection() if self.db_connection else None,
                 "Error",
                 f"Failed to create project tag: {str(e)}"
             )
@@ -970,8 +993,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         # Validate title
         title = self.title_edit.text().strip()
         if not title:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection else None,
                 "Invalid Input",
                 "Please enter a task title."
             )
@@ -1000,8 +1024,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
                     parts = date_str.split('-')
                     due_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
                 except (ValueError, IndexError):
-                    QMessageBox.warning(
+                    MessageBox.warning(
                         self,
+                        self.db_connection.get_connection() if self.db_connection else None,
                         "Invalid Date",
                         "Due date must be in YYYY-MM-DD format."
                     )
@@ -1016,8 +1041,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
                     parts = date_str.split('-')
                     start_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
                 except (ValueError, IndexError):
-                    QMessageBox.warning(
+                    MessageBox.warning(
                         self,
+                        self.db_connection.get_connection() if self.db_connection else None,
                         "Invalid Date",
                         "Start date must be in YYYY-MM-DD format."
                     )
@@ -1032,8 +1058,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
                     parts = date_str.split('-')
                     follow_up_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
                 except (ValueError, IndexError):
-                    QMessageBox.warning(
+                    MessageBox.warning(
                         self,
+                        self.db_connection.get_connection() if self.db_connection else None,
                         "Invalid Date",
                         "Follow-up date must be in YYYY-MM-DD format."
                     )
@@ -1064,8 +1091,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         if is_recurring:
             # Validate that due date is set
             if not due_date:
-                QMessageBox.warning(
+                MessageBox.warning(
                     self,
+                    self.db_connection.get_connection() if self.db_connection else None,
                     "Invalid Recurrence",
                     "Recurring tasks must have a due date."
                 )
@@ -1088,8 +1116,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
                 recurrence_pattern = pattern.to_json()
             except Exception as e:
-                QMessageBox.critical(
+                MessageBox.critical(
                     self,
+                    self.db_connection.get_connection() if self.db_connection else None,
                     "Error",
                     f"Failed to create recurrence pattern: {str(e)}"
                 )
@@ -1108,15 +1137,17 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
                         # Validate end date is after due date
                         if recurrence_end_date <= due_date:
-                            QMessageBox.warning(
+                            MessageBox.warning(
                                 self,
+                                self.db_connection.get_connection() if self.db_connection else None,
                                 "Invalid End Date",
                                 "Recurrence end date must be after the due date."
                             )
                             return None
                     except (ValueError, IndexError):
-                        QMessageBox.warning(
+                        MessageBox.warning(
                             self,
+                            self.db_connection.get_connection() if self.db_connection else None,
                             "Invalid Date",
                             "Recurrence end date must be in YYYY-MM-DD format."
                         )

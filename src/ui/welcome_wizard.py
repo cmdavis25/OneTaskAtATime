@@ -16,9 +16,10 @@ from PyQt5.QtGui import QFont
 from src.models.task import Task
 from src.models.enums import Priority, TaskState
 from src.database.task_dao import TaskDAO
+from .geometry_mixin import GeometryMixin
 
 
-class WelcomeWizard(QWizard):
+class WelcomeWizard(QWizard, GeometryMixin):
     """
     Welcome wizard for first-time users.
 
@@ -42,6 +43,9 @@ class WelcomeWizard(QWizard):
 
         self.db_connection = db_connection
         self.task_dao = TaskDAO(db_connection)
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(db_connection, default_width=600, default_height=450)
 
         self.setWindowTitle("Welcome to OneTaskAtATime")
         self.setWizardStyle(QWizard.ModernStyle)

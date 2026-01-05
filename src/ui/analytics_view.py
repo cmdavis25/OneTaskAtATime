@@ -19,9 +19,10 @@ from ..models.postpone_record import PostponeRecord
 from ..models.enums import PostponeReasonType, ActionTaken
 from ..database.postpone_history_dao import PostponeHistoryDAO
 from ..database.task_dao import TaskDAO
+from .geometry_mixin import GeometryMixin
 
 
-class AnalyticsView(QDialog):
+class AnalyticsView(QDialog, GeometryMixin):
     """
     Dashboard displaying postpone analytics across all tasks.
 
@@ -47,6 +48,9 @@ class AnalyticsView(QDialog):
             self.db = db_connection.get_connection()
         else:
             self.db = db_connection
+
+        # Initialize geometry persistence
+        self._init_geometry_persistence(self.db, default_width=900, default_height=700)
 
         self.postpone_dao = PostponeHistoryDAO(self.db)
         self.task_dao = TaskDAO(self.db)

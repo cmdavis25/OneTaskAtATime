@@ -16,6 +16,7 @@ from ..models.task import Task
 from ..models.enums import TaskState
 from ..database.task_dao import TaskDAO
 from ..database.dependency_dao import DependencyDAO
+from .message_box import MessageBox
 
 
 class DependencyGraphView(QDialog):
@@ -301,14 +302,16 @@ class DependencyGraphView(QDialog):
                     f.write("\n")
                     f.write(self.graph_display.toPlainText())
 
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db,
                     "Export Successful",
                     f"Dependency graph exported to:\n{file_path}"
                 )
             except Exception as e:
-                QMessageBox.critical(
+                MessageBox.critical(
                     self,
+                    self.db,
                     "Export Failed",
                     f"Failed to export graph:\n{str(e)}"
                 )

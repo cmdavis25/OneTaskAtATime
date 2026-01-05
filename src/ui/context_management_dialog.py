@@ -15,6 +15,7 @@ from ..models.context import Context
 from ..database.connection import DatabaseConnection
 from ..database.context_dao import ContextDAO
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ContextManagementDialog(QDialog, GeometryMixin):
@@ -240,8 +241,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         name = self.name_edit.text().strip()
 
         if not name:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection(),
                 "Invalid Input",
                 "Please enter a context name."
             )
@@ -256,8 +258,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
                 self.current_context.name = name
                 self.current_context.description = description
                 self.context_dao.update(self.current_context)
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db_connection.get_connection(),
                     "Success",
                     f"Context '{name}' updated successfully."
                 )
@@ -265,8 +268,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
                 # Create new context
                 new_context = Context(name=name, description=description)
                 self.context_dao.create(new_context)
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db_connection.get_connection(),
                     "Success",
                     f"Context '{name}' created successfully."
                 )
@@ -276,8 +280,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
             self.contexts_changed.emit()
 
         except Exception as e:
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection.get_connection(),
                 "Error",
                 f"Failed to save context: {str(e)}"
             )
@@ -286,8 +291,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         """Handle delete context button click."""
         current_item = self.context_list.currentItem()
         if not current_item:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection(),
                 "No Selection",
                 "Please select a context to delete."
             )
@@ -296,8 +302,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         context_id = current_item.data(Qt.UserRole)
         context_name = current_item.text()
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection.get_connection(),
             "Delete Context",
             f"Are you sure you want to delete context '{context_name}'?\n\n"
             "Tasks using this context will have their context removed.",
@@ -311,14 +318,16 @@ class ContextManagementDialog(QDialog, GeometryMixin):
                 self._load_contexts()
                 self._clear_form()
                 self.contexts_changed.emit()
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db_connection.get_connection(),
                     "Success",
                     f"Context '{context_name}' deleted successfully."
                 )
             except Exception as e:
-                QMessageBox.critical(
+                MessageBox.critical(
                     self,
+                    self.db_connection.get_connection(),
                     "Error",
                     f"Failed to delete context: {str(e)}"
                 )

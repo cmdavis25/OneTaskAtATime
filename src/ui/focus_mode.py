@@ -15,6 +15,7 @@ from typing import Optional, Set
 from ..models.task import Task
 from ..models.enums import TaskState
 from ..database.connection import DatabaseConnection
+from .message_box import MessageBox
 
 
 class FocusModeWidget(QWidget):
@@ -317,7 +318,7 @@ class FocusModeWidget(QWidget):
         secondary_layout.addWidget(self.someday_button)
 
         self.trash_button = QPushButton("Trash")
-        self.trash_button.setStyleSheet(button_style.replace("#6c757d", "#dc3545"))
+        self.trash_button.setStyleSheet(button_style.replace("#6c757d", "#ff8c00"))  # Yellow-orange
         self.trash_button.clicked.connect(self._on_trash_clicked)
         secondary_layout.addWidget(self.trash_button)
 
@@ -435,8 +436,9 @@ class FocusModeWidget(QWidget):
     def _on_someday_clicked(self):
         """Handle Someday button click."""
         if self._current_task and self._current_task.id is not None:
-            reply = QMessageBox.question(
+            reply = MessageBox.question(
                 self,
+                self.db_connection.get_connection(),
                 "Move to Someday/Maybe?",
                 f"Move '{self._current_task.title}' to Someday/Maybe?\n\n"
                 "This task will be removed from active focus and resurfaced periodically.",
@@ -449,8 +451,9 @@ class FocusModeWidget(QWidget):
     def _on_trash_clicked(self):
         """Handle Trash button click."""
         if self._current_task and self._current_task.id is not None:
-            reply = QMessageBox.question(
+            reply = MessageBox.question(
                 self,
+                self.db_connection.get_connection(),
                 "Move to Trash?",
                 f"Move '{self._current_task.title}' to trash?\n\n"
                 "This task will be marked as unnecessary.",

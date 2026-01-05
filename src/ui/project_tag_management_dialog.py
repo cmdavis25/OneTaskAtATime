@@ -16,6 +16,7 @@ from ..models.project_tag import ProjectTag
 from ..database.connection import DatabaseConnection
 from ..database.project_tag_dao import ProjectTagDAO
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ProjectTagManagementDialog(QDialog, GeometryMixin):
@@ -293,8 +294,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         name = self.name_edit.text().strip()
 
         if not name:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection(),
                 "Invalid Input",
                 "Please enter a project tag name."
             )
@@ -310,8 +312,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
                 self.current_tag.description = description
                 self.current_tag.color = self.selected_color
                 self.tag_dao.update(self.current_tag)
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db_connection.get_connection(),
                     "Success",
                     f"Project tag '{name}' updated successfully."
                 )
@@ -323,8 +326,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
                     color=self.selected_color
                 )
                 self.tag_dao.create(new_tag)
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db_connection.get_connection(),
                     "Success",
                     f"Project tag '{name}' created successfully."
                 )
@@ -334,8 +338,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
             self.tags_changed.emit()
 
         except Exception as e:
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection.get_connection(),
                 "Error",
                 f"Failed to save project tag: {str(e)}"
             )
@@ -344,8 +349,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         """Handle delete tag button click."""
         current_item = self.tag_list.currentItem()
         if not current_item:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection(),
                 "No Selection",
                 "Please select a project tag to delete."
             )
@@ -354,8 +360,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         tag_id = current_item.data(Qt.UserRole)
         tag_name = current_item.text()
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection.get_connection(),
             "Delete Project Tag",
             f"Are you sure you want to delete project tag '{tag_name}'?\n\n"
             "This will remove the tag from all tasks.",
@@ -369,14 +376,16 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
                 self._load_tags()
                 self._clear_form()
                 self.tags_changed.emit()
-                QMessageBox.information(
+                MessageBox.information(
                     self,
+                    self.db_connection.get_connection(),
                     "Success",
                     f"Project tag '{tag_name}' deleted successfully."
                 )
             except Exception as e:
-                QMessageBox.critical(
+                MessageBox.critical(
                     self,
+                    self.db_connection.get_connection(),
                     "Error",
                     f"Failed to delete project tag: {str(e)}"
                 )

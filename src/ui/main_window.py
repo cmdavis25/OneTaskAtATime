@@ -20,6 +20,7 @@ from .project_tag_management_dialog import ProjectTagManagementDialog
 from .postpone_dialog import DeferDialog, DelegateDialog
 from .comparison_dialog import ComparisonDialog, MultipleComparisonDialog
 from .notification_panel import NotificationPanel
+from .message_box import MessageBox
 from .settings_dialog import SettingsDialog
 from .review_delegated_dialog import ReviewDelegatedDialog
 from .review_someday_dialog import ReviewSomedayDialog
@@ -168,6 +169,7 @@ class MainWindow(QMainWindow):
         self.task_list_view.task_created.connect(self._on_task_list_changed)
         self.task_list_view.task_updated.connect(self._on_task_list_changed)
         self.task_list_view.task_deleted.connect(self._on_task_list_changed)
+        self.task_list_view.task_count_changed.connect(self._on_task_count_changed)
 
         # Start with Focus Mode
         self.stacked_widget.setCurrentWidget(self.focus_mode)
@@ -326,6 +328,12 @@ class MainWindow(QMainWindow):
         """Create the status bar."""
         status_bar = QStatusBar()
         self.setStatusBar(status_bar)
+
+        # Create permanent label for task count (right side)
+        self.task_count_label = QLabel("")
+        self.task_count_label.setStyleSheet("padding: 0 10px;")
+        status_bar.addPermanentWidget(self.task_count_label)
+
         self._update_status_bar()
 
     def _update_status_bar(self):
@@ -449,7 +457,7 @@ class MainWindow(QMainWindow):
         if not current_task:
             return
 
-        dialog = DelegateDialog(current_task.title, parent=self)
+        dialog = DelegateDialog(current_task.title, current_task, self.db_connection, self)
         if dialog.exec_():
             result = dialog.get_result()
             if result and result.get('delegated_to'):
@@ -492,9 +500,9 @@ class MainWindow(QMainWindow):
                 new_blocker_title=blocker_result.get('new_blocker_title')
             )
             if result['success']:
-                QMessageBox.information(self, "Blocker Created", result['message'])
+                MessageBox.information(self, self.db_connection.get_connection(), "Blocker Created", result['message'])
             else:
-                QMessageBox.warning(self, "Blocker Failed", result['message'])
+                MessageBox.warning(self, self.db_connection.get_connection(), "Blocker Failed", result['message'])
 
         # Handle subtask workflow
         if subtask_result := postpone_result.get('subtask_result'):
@@ -505,9 +513,9 @@ class MainWindow(QMainWindow):
                 subtask_result['delete_original']
             )
             if result['success']:
-                QMessageBox.information(self, "Tasks Created", result['message'])
+                MessageBox.information(self, self.db_connection.get_connection(), "Tasks Created", result['message'])
             else:
-                QMessageBox.warning(self, "Breakdown Failed", result['message'])
+                MessageBox.warning(self, self.db_connection.get_connection(), "Breakdown Failed", result['message'])
 
         # Note: Dependency workflow doesn't need handling here because
         # DependencySelectionDialog saves dependencies directly
@@ -646,8 +654,9 @@ class MainWindow(QMainWindow):
 
     def _reset_all_priority_adjustments(self):
         """Reset all priority adjustments for all tasks."""
-        reply = QMessageBox.warning(
+        reply = MessageBox.warning(
             self,
+            self.db_connection.get_connection(),
             "Reset Priority Adjustments",
             "This will reset all comparison-based priority adjustments to zero "
             "and delete all comparison history.\n\n"
@@ -667,8 +676,9 @@ class MainWindow(QMainWindow):
 
     def _delete_all_tasks(self):
         """Delete all tasks from the database with confirmation."""
-        reply = QMessageBox.warning(
+        reply = MessageBox.warning(
             self,
+            self.db_connection.get_connection(),
             "Delete All Tasks",
             "This will permanently delete ALL tasks from the database.\n\n"
             "This action cannot be undone!\n\n"
@@ -691,13 +701,15 @@ class MainWindow(QMainWindow):
         """Switch to Focus Mode view."""
         self.stacked_widget.setCurrentWidget(self.focus_mode)
         self._refresh_focus_task()
+        # Clear task count label when switching to Focus Mode
+        self.task_count_label.setText("")
         self.statusBar().showMessage("Switched to Focus Mode", 2000)
 
     def _show_task_list(self):
         """Switch to Task List view."""
         self.stacked_widget.setCurrentWidget(self.task_list_view)
         self.task_list_view.refresh_tasks()
-        self.statusBar().showMessage("Switched to Task List", 2000)
+        # Task count will be updated automatically via the task_count_changed signal
 
     def _focus_search_box(self):
         """
@@ -733,6 +745,15 @@ class MainWindow(QMainWindow):
         # Refresh focus mode in case the change affects it
         if self.stacked_widget.currentWidget() == self.focus_mode:
             self._refresh_focus_task()
+
+    def _on_task_count_changed(self, count_message: str):
+        """
+        Update status bar with task count from Task List view.
+
+        Args:
+            count_message: Formatted message showing filtered/total count
+        """
+        self.task_count_label.setText(count_message)
 
     def _manage_contexts(self):
         """Open context management dialog."""
@@ -841,8 +862,9 @@ class MainWindow(QMainWindow):
 
     def _show_about(self):
         """Show about dialog."""
-        QMessageBox.about(
+        MessageBox.information(
             self,
+            self.db_connection.get_connection(),
             "About OneTaskAtATime",
             "OneTaskAtATime v1.0.0\n\n"
             "A focused to-do list application designed to help users\n"
@@ -936,6 +958,10 @@ class MainWindow(QMainWindow):
 
     def _restore_window_geometry(self):
         """Restore saved window position, size, and maximized state."""
+        # Set minimum size to prevent button text clipping in Task List
+        # Minimum width accounts for 7 buttons + spacing + margins
+        self.setMinimumSize(1125, 600)
+
         try:
             saved_geometry = self.settings_dao.get('window_geometry_main')
 

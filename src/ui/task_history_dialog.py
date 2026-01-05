@@ -21,6 +21,7 @@ from src.models.task_history_event import TaskHistoryEvent
 from src.models.enums import TaskEventType
 from src.services.task_history_service import TaskHistoryService
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class TaskHistoryDialog(QDialog, GeometryMixin):
@@ -45,9 +46,17 @@ class TaskHistoryDialog(QDialog, GeometryMixin):
         self.history_service = history_service
         self.all_events = []
 
-        # Initialize geometry persistence (get db_connection from parent if available)
+        # Store db_connection from parent for MessageBox usage
+        self.db_connection = None
         if parent and hasattr(parent, 'db_connection'):
-            self._init_geometry_persistence(parent.db_connection, default_width=900, default_height=600)
+            self.db_connection = parent.db_connection
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if self.db_connection:
+            self._init_geometry_persistence(self.db_connection, default_width=900, default_height=600)
+        else:
+            # Set flag to prevent GeometryMixin.showEvent from failing
+            self._geometry_restored = True
 
         self.setWindowTitle(f"Task History: {task.title}")
         self.setMinimumSize(700, 500)
@@ -132,8 +141,9 @@ class TaskHistoryDialog(QDialog, GeometryMixin):
             self.all_events = self.history_service.get_timeline(self.task.id, limit=500)
             self._populate_timeline(self.all_events)
         except Exception as e:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "Error Loading History",
                 f"Failed to load task history: {str(e)}"
             )
@@ -359,8 +369,9 @@ class TaskHistoryDialog(QDialog, GeometryMixin):
     def _export_history(self):
         """Export the complete task history to a file."""
         if not self.all_events:
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "No Data",
                 "There are no history events to export."
             )
@@ -385,14 +396,16 @@ class TaskHistoryDialog(QDialog, GeometryMixin):
             else:
                 self._export_as_text(file_path)
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "Export Successful",
                 f"Task history exported successfully to:\n{file_path}"
             )
         except Exception as e:
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "Export Failed",
                 f"Failed to export task history:\n{str(e)}"
             )
@@ -521,9 +534,17 @@ class EventDetailsDialog(QDialog, GeometryMixin):
         self.event = event
         self.history_service = history_service
 
-        # Initialize geometry persistence (get db_connection from parent if available)
+        # Store db_connection from parent for MessageBox usage
+        self.db_connection = None
         if parent and hasattr(parent, 'db_connection'):
-            self._init_geometry_persistence(parent.db_connection, default_width=600, default_height=400)
+            self.db_connection = parent.db_connection
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if self.db_connection:
+            self._init_geometry_persistence(self.db_connection, default_width=600, default_height=400)
+        else:
+            # Set flag to prevent GeometryMixin.showEvent from failing
+            self._geometry_restored = True
 
         self.setWindowTitle("Event Details")
         self.setMinimumSize(600, 400)

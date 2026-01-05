@@ -6,11 +6,12 @@ Phase 4 Enhancement: Provides a dual-list interface for managing table columns.
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QListWidget,
-    QListWidgetItem, QLabel
+    QListWidgetItem, QLabel, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from typing import List, Dict
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ColumnManagerDialog(QDialog, GeometryMixin):
@@ -43,9 +44,17 @@ class ColumnManagerDialog(QDialog, GeometryMixin):
         self.visible_columns = list(visible_columns)  # Make a copy
         self.available_columns = [col for col in all_columns.keys() if col not in visible_columns]
 
-        # Initialize geometry persistence (get db_connection from parent if available)
+        # Store db_connection from parent for MessageBox usage
+        self.db_connection = None
         if parent and hasattr(parent, 'db_connection'):
-            self._init_geometry_persistence(parent.db_connection, default_width=700, default_height=600)
+            self.db_connection = parent.db_connection
+
+        # Initialize geometry persistence (get db_connection from parent if available)
+        if self.db_connection:
+            self._init_geometry_persistence(self.db_connection, default_width=700, default_height=600)
+        else:
+            # Set flag to prevent GeometryMixin.showEvent from failing
+            self._geometry_restored = True
 
         self._init_ui()
         self._refresh_lists()
@@ -227,9 +236,9 @@ class ColumnManagerDialog(QDialog, GeometryMixin):
 
         # Don't allow hiding ID or Title columns
         if col_name in ["ID", "Title"]:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
                 "Cannot Hide Column",
                 f"The '{self.all_columns[col_name]}' column cannot be hidden."
             )
@@ -274,10 +283,9 @@ class ColumnManagerDialog(QDialog, GeometryMixin):
 
     def _on_reset_to_default(self):
         """Reset columns to default configuration."""
-        from PyQt5.QtWidgets import QMessageBox
-
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection.get_connection() if self.db_connection and hasattr(self.db_connection, 'get_connection') else self.db_connection,
             "Reset to Default",
             "Are you sure you want to reset the column configuration to default?",
             QMessageBox.Yes | QMessageBox.No,

@@ -20,6 +20,7 @@ from ..models.task import Task, TaskState
 from ..services.task_service import TaskService
 from ..algorithms.priority import calculate_importance_for_tasks
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ReviewDelegatedDialog(QDialog, GeometryMixin):
@@ -245,15 +246,17 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
     def _activate_selected(self):
         """Activate selected tasks (move to ACTIVE state)."""
         if not self.selected_task_ids:
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "No Selection",
                 "Please select tasks to activate."
             )
             return
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection,
             "Confirm Activation",
             f"Activate {len(self.selected_task_ids)} selected task(s)?",
             QMessageBox.Yes | QMessageBox.No
@@ -267,8 +270,9 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
                     task.follow_up_date = None
                     self.task_service.update_task(task)
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Tasks Activated",
                 f"Successfully activated {len(self.selected_task_ids)} task(s)."
             )
@@ -278,15 +282,17 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
     def _complete_selected(self):
         """Mark selected tasks as completed."""
         if not self.selected_task_ids:
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "No Selection",
                 "Please select tasks to complete."
             )
             return
 
-        reply = QMessageBox.question(
+        reply = MessageBox.question(
             self,
+            self.db_connection,
             "Confirm Completion",
             f"Mark {len(self.selected_task_ids)} selected task(s) as complete?",
             QMessageBox.Yes | QMessageBox.No
@@ -297,8 +303,9 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
                 if task.id in self.selected_task_ids:
                     self.task_service.complete_task(task.id)
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Tasks Completed",
                 f"Successfully completed {len(self.selected_task_ids)} task(s)."
             )
@@ -308,8 +315,9 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
     def _extend_followup(self):
         """Extend follow-up date for selected tasks."""
         if not self.selected_task_ids:
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "No Selection",
                 "Please select tasks to extend."
             )
@@ -335,8 +343,9 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
 
                     self.task_service.update_task(task)
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Follow-up Extended",
                 f"Extended follow-up for {len(self.selected_task_ids)} task(s) by {days} days."
             )

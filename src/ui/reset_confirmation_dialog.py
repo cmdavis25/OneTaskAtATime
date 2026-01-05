@@ -12,6 +12,7 @@ from PyQt5.QtGui import QFont
 
 from ..services.data_reset_service import DataResetService
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ResetConfirmationDialog(QDialog, GeometryMixin):
@@ -176,8 +177,9 @@ class ResetConfirmationDialog(QDialog, GeometryMixin):
     def _confirm_and_reset(self):
         """Show final confirmation and perform reset."""
         # Final warning with system dialog
-        reply = QMessageBox.warning(
+        reply = MessageBox.warning(
             self,
+            self.db_connection,
             "FINAL WARNING",
             "This is your LAST CHANCE to cancel!\n\n"
             "Are you ABSOLUTELY SURE you want to delete all data?\n\n"
@@ -200,8 +202,9 @@ class ResetConfirmationDialog(QDialog, GeometryMixin):
             deleted = result['deleted']
             total_deleted = sum(deleted.values())
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Reset Complete",
                 f"All data has been deleted successfully.\n\n"
                 f"Total items deleted: {total_deleted}\n\n"
@@ -217,8 +220,9 @@ class ResetConfirmationDialog(QDialog, GeometryMixin):
             )
             self.accept()
         else:
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection,
                 "Reset Failed",
                 f"Failed to reset data:\n\n{result.get('error', 'Unknown error')}"
             )

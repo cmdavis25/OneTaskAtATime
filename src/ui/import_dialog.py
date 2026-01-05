@@ -15,6 +15,7 @@ from PyQt5.QtGui import QFont
 
 from ..services.import_service import ImportService
 from .geometry_mixin import GeometryMixin
+from .message_box import MessageBox
 
 
 class ImportWorker(QThread):
@@ -303,8 +304,9 @@ class ImportDialog(QDialog, GeometryMixin):
         filepath = self.filepath_edit.text()
 
         if not filepath:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
+                self.db_connection,
                 "No File Selected",
                 "Please select an import file."
             )
@@ -315,8 +317,9 @@ class ImportDialog(QDialog, GeometryMixin):
 
         # Confirm replace mode
         if not merge_mode:
-            confirm = QMessageBox.warning(
+            confirm = MessageBox.warning(
                 self,
+                self.db_connection,
                 "Confirm Data Replacement",
                 "You are about to REPLACE ALL EXISTING DATA.\n\n"
                 "This will PERMANENTLY DELETE:\n"
@@ -389,16 +392,18 @@ class ImportDialog(QDialog, GeometryMixin):
                 for warning in result['warnings']:
                     message += f"  • {warning}\n"
 
-            QMessageBox.information(
+            MessageBox.information(
                 self,
+                self.db_connection,
                 "Import Successful",
                 message
             )
             self.accept()
         else:
             error_msg = result.get('error', 'Unknown error')
-            QMessageBox.critical(
+            MessageBox.critical(
                 self,
+                self.db_connection,
                 "Import Failed",
                 f"Import failed with error:\n\n{error_msg}"
             )
@@ -410,8 +415,9 @@ class ImportDialog(QDialog, GeometryMixin):
         Args:
             error: Error message
         """
-        QMessageBox.critical(
+        MessageBox.critical(
             self,
+            self.db_connection,
             "Import Error",
             f"An error occurred during import:\n\n{error}"
         )
