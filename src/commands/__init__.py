@@ -12,6 +12,7 @@ from src.commands.delegate_task_command import DelegateTaskCommand
 from src.commands.delete_task_command import DeleteTaskCommand
 from src.commands.edit_task_command import EditTaskCommand
 from src.commands.change_priority_command import ChangePriorityCommand
+from src.commands.change_state_command import ChangeStateCommand
 
 __all__ = [
     'Command',
@@ -21,4 +22,5 @@ __all__ = [
     'DeleteTaskCommand',
     'EditTaskCommand',
     'ChangePriorityCommand',
+    'ChangeStateCommand',
 ]

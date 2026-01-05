@@ -19,11 +19,21 @@ from ..models.recurrence_pattern import RecurrencePattern
 from ..database.connection import DatabaseConnection
 from ..services.task_service import TaskService
 from ..services.task_history_service import TaskHistoryService
+from ..services.undo_manager import UndoManager
 from ..database.context_dao import ContextDAO
 from ..database.project_tag_dao import ProjectTagDAO
 from ..database.dependency_dao import DependencyDAO
 from ..database.task_history_dao import TaskHistoryDAO
+from ..database.task_dao import TaskDAO
 from ..algorithms.priority import calculate_urgency_for_tasks, calculate_importance
+from ..commands import (
+    EditTaskCommand,
+    DeleteTaskCommand,
+    CompleteTaskCommand,
+    DeferTaskCommand,
+    DelegateTaskCommand,
+    ChangeStateCommand
+)
 from .task_history_dialog import TaskHistoryDialog
 from .message_box import MessageBox
 
@@ -50,17 +60,20 @@ class TaskListView(QWidget):
     task_deleted = pyqtSignal(int)  # task_id
     task_count_changed = pyqtSignal(str)  # count_message for status bar
 
-    def __init__(self, db_connection: DatabaseConnection, parent=None):
+    def __init__(self, db_connection: DatabaseConnection, undo_manager: UndoManager, parent=None):
         """
         Initialize the task list view.
 
         Args:
             db_connection: Database connection
+            undo_manager: Undo/redo manager for command execution
             parent: Parent widget
         """
         super().__init__(parent)
         self.db_connection = db_connection
+        self.undo_manager = undo_manager
         self.task_service = TaskService(db_connection)
+        self.task_dao = TaskDAO(db_connection.get_connection())
 
         # Initialize task history service
         task_history_dao = TaskHistoryDAO(db_connection.get_connection())
@@ -1144,12 +1157,17 @@ class TaskListView(QWidget):
             if updated_task:
                 # Store old task for history comparison
                 old_task = self.task_service.get_task_by_id(task_id)
-                self.task_service.update_task(updated_task)
-                # Record task edit in history
-                if old_task:
-                    self.task_history_service.record_task_edited(updated_task, old_task)
-                self.refresh_tasks()
-                self.task_updated.emit(task_id)
+
+                # Execute edit through undo manager
+                command = EditTaskCommand(self.task_dao, task_id, updated_task)
+                if self.undo_manager.execute_command(command):
+                    # Record task edit in history
+                    if old_task:
+                        self.task_history_service.record_task_edited(updated_task, old_task)
+                    self.refresh_tasks()
+                    self.task_updated.emit(task_id)
+                else:
+                    MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Failed to update task.")
 
     def _on_view_dependency_graph(self):
         """Handle view dependency graph action."""
@@ -1202,15 +1220,19 @@ class TaskListView(QWidget):
             self.db_connection.get_connection(),
             "Delete Task",
             f"Are you sure you want to delete task '{task_title}'?\n\n"
-            "This action cannot be undone.",
+            "You can undo this action with Ctrl+Z.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
 
         if reply == QMessageBox.Yes:
-            self.task_service.delete_task(task_id)
-            self.refresh_tasks()
-            self.task_deleted.emit(task_id)
+            # Execute delete through undo manager
+            command = DeleteTaskCommand(self.task_dao, task_id)
+            if self.undo_manager.execute_command(command):
+                self.refresh_tasks()
+                self.task_deleted.emit(task_id)
+            else:
+                MessageBox.warning(self, self.db_connection.get_connection(), "Error", "Failed to delete task.")
 
     def _on_change_state_active(self):
         """Handle change task state to Active."""
@@ -1219,9 +1241,12 @@ class TaskListView(QWidget):
             return
 
         task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
-        self.task_service.activate_task(task_id)
-        self.refresh_tasks()
-        self.task_updated.emit(task_id)
+
+        # Execute state change through undo manager
+        command = ChangeStateCommand(self.task_dao, task_id, TaskState.ACTIVE)
+        if self.undo_manager.execute_command(command):
+            self.refresh_tasks()
+            self.task_updated.emit(task_id)
 
     def _on_change_state_deferred(self):
         """Handle change task state to Deferred."""
@@ -1242,14 +1267,24 @@ class TaskListView(QWidget):
         if dialog.exec_():
             result = dialog.get_result()
             if result:
-                self.task_service.defer_task(
+                # Execute defer through undo manager
+                command = DeferTaskCommand(
+                    self.task_dao,
                     task_id,
                     result['start_date'],
-                    result.get('reason'),
-                    result.get('notes')
+                    result.get('reason')
                 )
-                self.refresh_tasks()
-                self.task_updated.emit(task_id)
+                if self.undo_manager.execute_command(command):
+                    # Handle notes separately (not part of the command)
+                    if result.get('notes'):
+                        task.notes = result.get('notes')
+                        self.task_dao.update(task)
+
+                    # Handle workflow results (blocker, dependencies, subtasks)
+                    self._handle_postpone_workflows(result, task_id, result.get('notes', ''))
+
+                    self.refresh_tasks()
+                    self.task_updated.emit(task_id)
 
     def _on_change_state_delegated(self):
         """Handle change task state to Delegated."""
@@ -1270,14 +1305,20 @@ class TaskListView(QWidget):
         if dialog.exec_():
             result = dialog.get_result()
             if result:
-                self.task_service.delegate_task(
+                # Execute delegate through undo manager
+                command = DelegateTaskCommand(
+                    self.task_dao,
                     task_id,
                     result['delegated_to'],
-                    result['follow_up_date'],
-                    result.get('notes')
+                    result['follow_up_date']
                 )
-                self.refresh_tasks()
-                self.task_updated.emit(task_id)
+                if self.undo_manager.execute_command(command):
+                    # Handle notes separately (not part of the command)
+                    if result.get('notes'):
+                        task.notes = result.get('notes')
+                        self.task_dao.update(task)
+                    self.refresh_tasks()
+                    self.task_updated.emit(task_id)
 
     def _on_change_state_someday(self):
         """Handle change task state to Someday/Maybe."""
@@ -1304,9 +1345,11 @@ class TaskListView(QWidget):
         )
 
         if reply == QMessageBox.Yes:
-            self.task_service.move_to_someday(task_id)
-            self.refresh_tasks()
-            self.task_updated.emit(task_id)
+            # Execute state change through undo manager
+            command = ChangeStateCommand(self.task_dao, task_id, TaskState.SOMEDAY)
+            if self.undo_manager.execute_command(command):
+                self.refresh_tasks()
+                self.task_updated.emit(task_id)
 
     def _on_change_state_completed(self):
         """Handle change task state to Completed."""
@@ -1315,9 +1358,12 @@ class TaskListView(QWidget):
             return
 
         task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
-        self.task_service.complete_task(task_id)
-        self.refresh_tasks()
-        self.task_updated.emit(task_id)
+
+        # Execute complete through undo manager
+        command = CompleteTaskCommand(self.task_dao, task_id)
+        if self.undo_manager.execute_command(command):
+            self.refresh_tasks()
+            self.task_updated.emit(task_id)
 
     def _on_change_state_trash(self):
         """Handle change task state to Trash."""
@@ -1344,9 +1390,53 @@ class TaskListView(QWidget):
         )
 
         if reply == QMessageBox.Yes:
-            self.task_service.move_to_trash(task_id)
-            self.refresh_tasks()
-            self.task_updated.emit(task_id)
+            # Execute state change through undo manager
+            command = ChangeStateCommand(self.task_dao, task_id, TaskState.TRASH)
+            if self.undo_manager.execute_command(command):
+                self.refresh_tasks()
+                self.task_updated.emit(task_id)
+
+    def _handle_postpone_workflows(self, postpone_result: dict, task_id: int, notes: str):
+        """
+        Process workflow results from postpone dialog.
+
+        Args:
+            postpone_result: Dictionary from PostponeDialog.get_result()
+            task_id: ID of the postponed task
+            notes: User notes about postponement
+        """
+        from ..services.postpone_workflow_service import PostponeWorkflowService
+
+        postpone_workflow_service = PostponeWorkflowService(self.db_connection.get_connection())
+
+        # Handle blocker workflow
+        if blocker_result := postpone_result.get('blocker_result'):
+            result = postpone_workflow_service.handle_blocker_workflow(
+                task_id,
+                notes,
+                blocker_task_id=blocker_result.get('blocker_task_id'),
+                new_blocker_title=blocker_result.get('new_blocker_title')
+            )
+            if result['success']:
+                MessageBox.information(self, self.db_connection.get_connection(), "Blocker Created", result['message'])
+            else:
+                MessageBox.warning(self, self.db_connection.get_connection(), "Blocker Failed", result['message'])
+
+        # Handle subtask workflow
+        if subtask_result := postpone_result.get('subtask_result'):
+            result = postpone_workflow_service.handle_subtask_breakdown(
+                task_id,
+                notes,
+                subtask_result['subtask_titles'],
+                subtask_result['delete_original']
+            )
+            if result['success']:
+                MessageBox.information(self, self.db_connection.get_connection(), "Tasks Created", result['message'])
+            else:
+                MessageBox.warning(self, self.db_connection.get_connection(), "Breakdown Failed", result['message'])
+
+        # Note: Dependency workflow doesn't need handling here because
+        # DependencySelectionDialog saves dependencies directly
 
     def _on_manage_context_filters(self):
         """Open the context filter management dialog."""

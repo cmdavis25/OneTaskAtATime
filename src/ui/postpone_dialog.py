@@ -119,6 +119,7 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.blocker_result = None
         self.subtask_result = None
         self.dependency_added = False
+        self.workflows_processed = False  # Flag to prevent re-processing workflows
 
         self._init_ui()
 
@@ -233,36 +234,43 @@ class PostponeDialog(QDialog, GeometryMixin):
 
         Shows follow-up dialogs for BLOCKER, DEPENDENCY, and MULTIPLE_SUBTASKS reasons.
         """
-        # Only trigger workflows for defer action with task and db_connection
-        if self.action_type == "defer" and self.task and self.db_connection:
-            reason = self._get_selected_reason()
+        # Only trigger workflows once
+        if not self.workflows_processed:
+            self.workflows_processed = True
 
-            # Import here to avoid circular dependency
-            from .blocker_selection_dialog import BlockerSelectionDialog
-            from .subtask_breakdown_dialog import SubtaskBreakdownDialog
-            from .dependency_selection_dialog import DependencySelectionDialog
+            # Only trigger workflows for defer action with task and db_connection
+            if self.action_type == "defer" and self.task and self.db_connection:
+                reason = self._get_selected_reason()
 
-            if reason == PostponeReasonType.BLOCKER:
-                # Show blocker selection dialog
-                blocker_dialog = BlockerSelectionDialog(self.task, self.db_connection, self)
-                if blocker_dialog.exec_() != QDialog.Accepted:
-                    return  # User canceled blocker creation
-                self.blocker_result = blocker_dialog.get_result()
+                # Import here to avoid circular dependency
+                from .blocker_selection_dialog import BlockerSelectionDialog
+                from .subtask_breakdown_dialog import SubtaskBreakdownDialog
+                from .dependency_selection_dialog import DependencySelectionDialog
 
-            elif reason == PostponeReasonType.DEPENDENCY:
-                # Reuse existing dependency selection dialog
-                dep_dialog = DependencySelectionDialog(self.task, self.db_connection, self)
-                if dep_dialog.exec_() != QDialog.Accepted:
-                    return  # User canceled dependency selection
-                # Dependencies are saved by the dialog itself
-                self.dependency_added = True
+                if reason == PostponeReasonType.BLOCKER:
+                    # Show blocker selection dialog
+                    blocker_dialog = BlockerSelectionDialog(self.task, self.db_connection, self)
+                    if blocker_dialog.exec_() != QDialog.Accepted:
+                        self.workflows_processed = False  # Reset flag if cancelled
+                        return  # User canceled blocker creation
+                    self.blocker_result = blocker_dialog.get_result()
 
-            elif reason == PostponeReasonType.MULTIPLE_SUBTASKS:
-                # Show subtask breakdown dialog
-                subtask_dialog = SubtaskBreakdownDialog(self.task, self)
-                if subtask_dialog.exec_() != QDialog.Accepted:
-                    return  # User canceled subtask breakdown
-                self.subtask_result = subtask_dialog.get_result()
+                elif reason == PostponeReasonType.DEPENDENCY:
+                    # Reuse existing dependency selection dialog
+                    dep_dialog = DependencySelectionDialog(self.task, self.db_connection, self)
+                    if dep_dialog.exec_() != QDialog.Accepted:
+                        self.workflows_processed = False  # Reset flag if cancelled
+                        return  # User canceled dependency selection
+                    # Dependencies are saved by the dialog itself
+                    self.dependency_added = True
+
+                elif reason == PostponeReasonType.MULTIPLE_SUBTASKS:
+                    # Show subtask breakdown dialog
+                    subtask_dialog = SubtaskBreakdownDialog(self.task, self)
+                    if subtask_dialog.exec_() != QDialog.Accepted:
+                        self.workflows_processed = False  # Reset flag if cancelled
+                        return  # User canceled subtask breakdown
+                    self.subtask_result = subtask_dialog.get_result()
 
         # Proceed with normal dialog acceptance
         super().accept()

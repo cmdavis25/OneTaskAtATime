@@ -153,7 +153,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.focus_mode)
 
         # Task List View
-        self.task_list_view = TaskListView(self.db_connection)
+        self.task_list_view = TaskListView(self.db_connection, self.undo_manager)
         self.stacked_widget.addWidget(self.task_list_view)
 
         # Connect Focus Mode signals
@@ -900,7 +900,12 @@ class MainWindow(QMainWindow):
         desc = self.undo_manager.get_undo_description()
         if self.undo_manager.undo():
             self.statusBar().showMessage(f"Undone: {desc}", 3000)
-            self._refresh_focus_task()
+
+            # Only refresh focus task if Focus Mode is active
+            if self.stacked_widget.currentWidget() == self.focus_mode:
+                self._refresh_focus_task()
+
+            # Refresh task list view if it exists
             if hasattr(self, 'task_list_view'):
                 self.task_list_view.refresh_tasks()
         else:
@@ -910,7 +915,12 @@ class MainWindow(QMainWindow):
         """Redo last undone action (Phase 8)."""
         if self.undo_manager.redo():
             self.statusBar().showMessage("Action redone", 3000)
-            self._refresh_focus_task()
+
+            # Only refresh focus task if Focus Mode is active
+            if self.stacked_widget.currentWidget() == self.focus_mode:
+                self._refresh_focus_task()
+
+            # Refresh task list view if it exists
             if hasattr(self, 'task_list_view'):
                 self.task_list_view.refresh_tasks()
         else:

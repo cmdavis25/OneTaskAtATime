@@ -71,13 +71,15 @@ class PostponeWorkflowService:
         """
         Create or select a blocking task and establish dependency.
 
-        Either blocker_task_id (existing) or new_blocker_title (create new) must be provided.
+        NOTE: As of the latest update, the blocker task should already be created
+        by the BlockerSelectionDialog when mode='new'. This method now primarily
+        handles creating the dependency relationship.
 
         Args:
             task_id: ID of task being blocked
             notes: Optional notes about the blocker
-            blocker_task_id: ID of existing task to use as blocker
-            new_blocker_title: Title for new blocker task to create
+            blocker_task_id: ID of blocker task (either new or existing)
+            new_blocker_title: DEPRECATED - task should already be created
 
         Returns:
             Dictionary with:
@@ -86,11 +88,11 @@ class PostponeWorkflowService:
                 - message (str): User-friendly result message
         """
         try:
-            # Validate inputs
-            if blocker_task_id is None and new_blocker_title is None:
+            # Validate inputs - blocker_task_id should always be provided now
+            if blocker_task_id is None:
                 return {
                     'success': False,
-                    'message': 'Must provide either existing blocker task ID or new blocker title'
+                    'message': 'Blocker task ID must be provided'
                 }
 
             # Get the blocked task
@@ -101,36 +103,15 @@ class PostponeWorkflowService:
                     'message': f'Task {task_id} not found'
                 }
 
-            # Create new blocker or use existing
-            if new_blocker_title:
-                # Create new blocker task in ACTIVE state (needs immediate attention)
-                # Inherit key fields from blocked task
-                blocker_task = Task(
-                    title=new_blocker_title,
-                    description=notes,
-                    base_priority=blocked_task.base_priority,  # Inherit priority
-                    priority_adjustment=blocked_task.priority_adjustment,  # Inherit adjustment
-                    due_date=blocked_task.due_date,  # Inherit urgency
-                    context_id=blocked_task.context_id,  # Inherit context
-                    state=TaskState.ACTIVE
-                )
-                blocker_task = self.task_dao.create(blocker_task)
-                blocker_task_id = blocker_task.id
+            # Verify blocker task exists
+            blocker_task = self.task_dao.get_by_id(blocker_task_id)
+            if not blocker_task:
+                return {
+                    'success': False,
+                    'message': f'Blocker task {blocker_task_id} not found'
+                }
 
-                # Copy project tags
-                if blocked_task.project_tags:
-                    self.task_dao._add_project_tags(blocker_task.id, blocked_task.project_tags)
-
-                blocker_name = new_blocker_title
-            else:
-                # Verify existing blocker task exists
-                blocker_task = self.task_dao.get_by_id(blocker_task_id)
-                if not blocker_task:
-                    return {
-                        'success': False,
-                        'message': f'Blocker task {blocker_task_id} not found'
-                    }
-                blocker_name = blocker_task.title
+            blocker_name = blocker_task.title
 
             # Create dependency relationship
             dependency = Dependency(
