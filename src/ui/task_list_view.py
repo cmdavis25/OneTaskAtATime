@@ -1422,7 +1422,7 @@ class TaskListView(QWidget):
         task_id = self.task_table.item(current_row, 0).data(Qt.UserRole)
 
         # Execute complete through undo manager
-        command = CompleteTaskCommand(self.task_dao, task_id)
+        command = CompleteTaskCommand(self.task_dao, task_id, self.dependency_dao)
         if self.undo_manager.execute_command(command):
             self.refresh_tasks()
             self.task_updated.emit(task_id)
