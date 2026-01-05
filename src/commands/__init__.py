@@ -13,6 +13,9 @@ from src.commands.delete_task_command import DeleteTaskCommand
 from src.commands.edit_task_command import EditTaskCommand
 from src.commands.change_priority_command import ChangePriorityCommand
 from src.commands.change_state_command import ChangeStateCommand
+from src.commands.defer_with_blocker_command import DeferWithBlockerCommand
+from src.commands.defer_with_subtasks_command import DeferWithSubtasksCommand
+from src.commands.defer_with_dependencies_command import DeferWithDependenciesCommand
 
 __all__ = [
     'Command',
@@ -23,4 +26,7 @@ __all__ = [
     'EditTaskCommand',
     'ChangePriorityCommand',
     'ChangeStateCommand',
+    'DeferWithBlockerCommand',
+    'DeferWithSubtasksCommand',
+    'DeferWithDependenciesCommand',
 ]

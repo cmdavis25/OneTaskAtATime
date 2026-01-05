@@ -32,7 +32,10 @@ from ..commands import (
     CompleteTaskCommand,
     DeferTaskCommand,
     DelegateTaskCommand,
-    ChangeStateCommand
+    ChangeStateCommand,
+    DeferWithBlockerCommand,
+    DeferWithSubtasksCommand,
+    DeferWithDependenciesCommand
 )
 from .task_history_dialog import TaskHistoryDialog
 from .message_box import MessageBox
@@ -74,6 +77,7 @@ class TaskListView(QWidget):
         self.undo_manager = undo_manager
         self.task_service = TaskService(db_connection)
         self.task_dao = TaskDAO(db_connection.get_connection())
+        self.dependency_dao = DependencyDAO(db_connection.get_connection())
 
         # Initialize task history service
         task_history_dao = TaskHistoryDAO(db_connection.get_connection())
@@ -1263,25 +1267,83 @@ class TaskListView(QWidget):
 
         from .postpone_dialog import DeferDialog
 
+        # Track dependencies before dialog to detect what was added
+        dependencies_before = set(
+            dep.blocking_task_id
+            for dep in self.dependency_dao.get_dependencies_for_task(task_id)
+        )
+
         dialog = DeferDialog(task.title, task, self.db_connection, self)
         if dialog.exec_():
             result = dialog.get_result()
             if result:
-                # Execute defer through undo manager
-                command = DeferTaskCommand(
-                    self.task_dao,
-                    task_id,
-                    result['start_date'],
-                    result.get('reason')
-                )
+                # Choose the appropriate command based on workflow results
+                command = None
+
+                # Check for blocker workflow
+                if blocker_result := result.get('blocker_result'):
+                    command = DeferWithBlockerCommand(
+                        self.task_dao,
+                        self.dependency_dao,
+                        task_id,
+                        result['start_date'],
+                        blocker_result.get('blocker_task_id'),
+                        blocker_result.get('mode') == 'new',  # blocker_was_created flag
+                        result.get('reason')
+                    )
+
+                # Check for subtask workflow
+                elif subtask_result := result.get('subtask_result'):
+                    command = DeferWithSubtasksCommand(
+                        self.task_dao,
+                        task_id,
+                        result['start_date'],
+                        subtask_result['subtask_titles'],
+                        subtask_result['delete_original'],
+                        result.get('reason')
+                    )
+
+                # Check for dependency workflow
+                elif result.get('dependency_added'):
+                    # Get the dependency task IDs that were just added
+                    dependencies_after = set(
+                        dep.blocking_task_id
+                        for dep in self.dependency_dao.get_dependencies_for_task(task_id)
+                    )
+                    newly_added_deps = list(dependencies_after - dependencies_before)
+
+                    if newly_added_deps:
+                        command = DeferWithDependenciesCommand(
+                            self.task_dao,
+                            self.dependency_dao,
+                            task_id,
+                            result['start_date'],
+                            newly_added_deps,
+                            result.get('reason')
+                        )
+                    else:
+                        # Fallback to basic defer if no dependencies found
+                        command = DeferTaskCommand(
+                            self.task_dao,
+                            task_id,
+                            result['start_date'],
+                            result.get('reason')
+                        )
+
+                # Default: simple defer
+                else:
+                    command = DeferTaskCommand(
+                        self.task_dao,
+                        task_id,
+                        result['start_date'],
+                        result.get('reason')
+                    )
+
                 if self.undo_manager.execute_command(command):
                     # Handle notes separately (not part of the command)
                     if result.get('notes'):
                         task.notes = result.get('notes')
                         self.task_dao.update(task)
-
-                    # Handle workflow results (blocker, dependencies, subtasks)
-                    self._handle_postpone_workflows(result, task_id, result.get('notes', ''))
 
                     self.refresh_tasks()
                     self.task_updated.emit(task_id)

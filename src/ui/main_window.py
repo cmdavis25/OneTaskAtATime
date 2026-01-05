@@ -40,11 +40,19 @@ from ..services.error_service import ErrorService
 from ..services.accessibility_service import AccessibilityService
 from ..services.undo_manager import UndoManager
 from ..database.task_history_dao import TaskHistoryDAO
+from ..database.task_dao import TaskDAO
+from ..database.dependency_dao import DependencyDAO
 from ..services.first_run_detector import FirstRunDetector
 from ..database.connection import DatabaseConnection
 from ..database.settings_dao import SettingsDAO
 from ..models.enums import TaskState
 from ..models.notification import Notification
+from ..commands import (
+    DeferTaskCommand,
+    DeferWithBlockerCommand,
+    DeferWithSubtasksCommand,
+    DeferWithDependenciesCommand
+)
 
 
 class MainWindow(QMainWindow):
@@ -96,6 +104,10 @@ class MainWindow(QMainWindow):
         self.accessibility_service = AccessibilityService()
         self.undo_manager = UndoManager(max_stack_size=50)
         self.first_run_detector = FirstRunDetector(self.db_connection.get_connection())
+
+        # Initialize DAOs needed for undo/redo commands
+        self.task_dao = TaskDAO(self.db_connection.get_connection())
+        self.dependency_dao = DependencyDAO(self.db_connection.get_connection())
 
         self._init_ui()
         self._create_menu_bar()
@@ -437,19 +449,82 @@ class MainWindow(QMainWindow):
                 self._refresh_focus_task()
                 return
 
-            # Normal defer flow
-            self.task_service.defer_task(
-                task_id,
-                result['start_date'],
-                result.get('reason'),
-                result.get('notes')
+            # Track dependencies before workflows to detect what was added
+            dependencies_before = set(
+                dep.blocking_task_id
+                for dep in self.dependency_dao.get_dependencies_for_task(task_id)
             )
 
-            # Handle workflow results
-            self._handle_postpone_workflows(result, task_id, result.get('notes', ''))
+            # Choose the appropriate command based on workflow results
+            command = None
 
-            self.statusBar().showMessage("Task deferred", 3000)
-            self._refresh_focus_task()
+            # Check for blocker workflow
+            if blocker_result := result.get('blocker_result'):
+                command = DeferWithBlockerCommand(
+                    self.task_dao,
+                    self.dependency_dao,
+                    task_id,
+                    result['start_date'],
+                    blocker_result.get('blocker_task_id'),
+                    blocker_result.get('mode') == 'new',  # blocker_was_created flag
+                    result.get('reason')
+                )
+
+            # Check for subtask workflow
+            elif subtask_result := result.get('subtask_result'):
+                command = DeferWithSubtasksCommand(
+                    self.task_dao,
+                    task_id,
+                    result['start_date'],
+                    subtask_result['subtask_titles'],
+                    subtask_result['delete_original'],
+                    result.get('reason')
+                )
+
+            # Check for dependency workflow
+            elif result.get('dependency_added'):
+                # Get the dependency task IDs that were just added
+                dependencies_after = set(
+                    dep.blocking_task_id
+                    for dep in self.dependency_dao.get_dependencies_for_task(task_id)
+                )
+                newly_added_deps = list(dependencies_after - dependencies_before)
+
+                if newly_added_deps:
+                    command = DeferWithDependenciesCommand(
+                        self.task_dao,
+                        self.dependency_dao,
+                        task_id,
+                        result['start_date'],
+                        newly_added_deps,
+                        result.get('reason')
+                    )
+                else:
+                    # Fallback to basic defer if no dependencies found
+                    command = DeferTaskCommand(
+                        self.task_dao,
+                        task_id,
+                        result['start_date'],
+                        result.get('reason')
+                    )
+
+            # Default: simple defer
+            else:
+                command = DeferTaskCommand(
+                    self.task_dao,
+                    task_id,
+                    result['start_date'],
+                    result.get('reason')
+                )
+
+            if self.undo_manager.execute_command(command):
+                # Handle notes separately (not part of the command)
+                if result.get('notes'):
+                    current_task.notes = result.get('notes')
+                    self.task_dao.update(current_task)
+
+                self.statusBar().showMessage("Task deferred", 3000)
+                self._refresh_focus_task()
 
     def _on_task_delegated(self, task_id: int):
         """Handle task delegation."""
