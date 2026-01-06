@@ -55,6 +55,7 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
 
         self.all_tasks: List[Task] = []
         self.current_dependencies: Set[int] = set()  # Set of blocking task IDs
+        self.created_blocking_task_ids: List[int] = []  # Track tasks created during this session
 
         # Initialize geometry persistence
         self._init_geometry_persistence(db_connection, default_width=600, default_height=400)
@@ -179,18 +180,40 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
 
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        bottom_layout.addWidget(close_btn)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        bottom_layout.addWidget(cancel_btn)
+
+        save_btn = QPushButton("Save Dependencies")
+        save_btn.setDefault(True)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #007bff;
+                color: white;
+                padding: 8px 20px;
+                border: none;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0056b3;
+            }
+        """)
+        save_btn.clicked.connect(self.accept)
+        bottom_layout.addWidget(save_btn)
 
         layout.addLayout(bottom_layout)
 
     def _load_data(self):
         """Load tasks and existing dependencies."""
-        # Load all tasks except the current task
+        from ..models.enums import TaskState
+
+        # Load all tasks except the current task, and exclude completed/trash tasks
         self.all_tasks = [
             t for t in self.task_dao.get_all()
-            if t.id != self.task.id and t.id is not None
+            if t.id != self.task.id
+            and t.id is not None
+            and t.state not in (TaskState.COMPLETED, TaskState.TRASH)
         ]
 
         # Load existing dependencies
@@ -253,11 +276,39 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
         """Handle creating a new task from the dependency dialog."""
         from .task_form_enhanced import EnhancedTaskFormDialog
 
+        # Create the dialog for a NEW task (task=None)
         dialog = EnhancedTaskFormDialog(
             task=None,
             db_connection=self.db_connection,
             parent=self
         )
+
+        # Pre-fill default values from the blocked task
+        # Priority
+        for i in range(dialog.priority_combo.count()):
+            if dialog.priority_combo.itemData(i) == self.task.base_priority:
+                dialog.priority_combo.setCurrentIndex(i)
+                break
+
+        # Due date
+        if self.task.due_date:
+            dialog.due_date_edit.setText(self.task.due_date.strftime("%Y-%m-%d"))
+            dialog.has_due_date_check.setChecked(True)
+            dialog.due_date_edit.setEnabled(True)
+            dialog.due_date_calendar_btn.setEnabled(True)
+
+        # Context
+        if self.task.context_id:
+            for i in range(dialog.context_combo.count()):
+                if dialog.context_combo.itemData(i) == self.task.context_id:
+                    dialog.context_combo.setCurrentIndex(i)
+                    break
+
+        # Project tags - use the tag_checkboxes dictionary
+        if self.task.project_tags:
+            for tag_id in self.task.project_tags:
+                if tag_id in dialog.tag_checkboxes:
+                    dialog.tag_checkboxes[tag_id].setChecked(True)
 
         if dialog.exec_():
             new_task = dialog.get_updated_task()
@@ -265,6 +316,10 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
                 # Save the task to the database
                 try:
                     created_task = self.task_dao.create(new_task)
+
+                    # Track this as a created blocking task
+                    if created_task.id:
+                        self.created_blocking_task_ids.append(created_task.id)
 
                     # Reload the task list to include the new task
                     self._load_data()
@@ -394,3 +449,12 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
                     "Error",
                     f"Failed to remove dependency: {str(e)}"
                 )
+
+    def get_created_blocking_task_ids(self) -> List[int]:
+        """
+        Get the list of blocking task IDs that were created during this dialog session.
+
+        Returns:
+            List of task IDs created as blocking tasks
+        """
+        return self.created_blocking_task_ids

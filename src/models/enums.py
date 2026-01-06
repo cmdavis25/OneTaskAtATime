@@ -28,8 +28,8 @@ class PostponeReasonType(Enum):
     Used to capture context and create appropriate follow-up actions.
     """
     MULTIPLE_SUBTASKS = 'multiple_subtasks'  # Task needs to be broken down
-    BLOCKER = 'blocker'                      # External blocker encountered
-    DEPENDENCY = 'dependency'                # Waiting on another task
+    BLOCKER = 'blocker'                      # Has blocking tasks/dependencies
+    DEPENDENCY = 'dependency'                # DEPRECATED: Use BLOCKER instead (kept for backward compatibility)
     NOT_READY = 'not_ready'                  # User not prepared/motivated
     OTHER = 'other'                          # Custom reason
 

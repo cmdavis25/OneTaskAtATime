@@ -49,7 +49,6 @@ from ..models.enums import TaskState
 from ..models.notification import Notification
 from ..commands import (
     DeferTaskCommand,
-    DeferWithBlockerCommand,
     DeferWithSubtasksCommand,
     DeferWithDependenciesCommand
 )
@@ -458,20 +457,8 @@ class MainWindow(QMainWindow):
             # Choose the appropriate command based on workflow results
             command = None
 
-            # Check for blocker workflow
-            if blocker_result := result.get('blocker_result'):
-                command = DeferWithBlockerCommand(
-                    self.task_dao,
-                    self.dependency_dao,
-                    task_id,
-                    result['start_date'],
-                    blocker_result.get('blocker_task_id'),
-                    blocker_result.get('mode') == 'new',  # blocker_was_created flag
-                    result.get('reason')
-                )
-
             # Check for subtask workflow
-            elif subtask_result := result.get('subtask_result'):
+            if subtask_result := result.get('subtask_result'):
                 command = DeferWithSubtasksCommand(
                     self.task_dao,
                     task_id,
@@ -481,7 +468,7 @@ class MainWindow(QMainWindow):
                     result.get('reason')
                 )
 
-            # Check for dependency workflow
+            # Check for blocker/dependency workflow (unified)
             elif result.get('dependency_added'):
                 # Get the dependency task IDs that were just added
                 dependencies_after = set(
@@ -491,13 +478,17 @@ class MainWindow(QMainWindow):
                 newly_added_deps = list(dependencies_after - dependencies_before)
 
                 if newly_added_deps:
+                    # Get created blocking task IDs from result
+                    created_blocking_task_ids = result.get('created_blocking_task_ids', [])
+
                     command = DeferWithDependenciesCommand(
                         self.task_dao,
                         self.dependency_dao,
                         task_id,
                         result['start_date'],
                         newly_added_deps,
-                        result.get('reason')
+                        result.get('reason'),
+                        created_blocking_task_ids
                     )
                 else:
                     # Fallback to basic defer if no dependencies found

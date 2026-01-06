@@ -33,10 +33,19 @@ class DependencyDAO:
             Dependency object with id populated
 
         Raises:
-            ValueError: If dependency already has an id or creates circular dependency
+            ValueError: If dependency already has an id, creates circular dependency, or is duplicate
         """
         if dependency.id is not None:
             raise ValueError("Cannot create dependency that already has an id")
+
+        # Check for duplicate dependency
+        existing_deps = self.get_dependencies_for_task(dependency.blocked_task_id)
+        for existing_dep in existing_deps:
+            if existing_dep.blocking_task_id == dependency.blocking_task_id:
+                raise ValueError(
+                    f"Dependency already exists: task {dependency.blocked_task_id} "
+                    f"is already blocked by task {dependency.blocking_task_id}"
+                )
 
         # Check for circular dependencies
         if self._would_create_cycle(dependency.blocked_task_id, dependency.blocking_task_id):

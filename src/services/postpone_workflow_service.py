@@ -65,100 +65,21 @@ class PostponeWorkflowService:
         self,
         task_id: int,
         notes: Optional[str] = None,
-        blocker_task_id: Optional[int] = None,
-        new_blocker_title: Optional[str] = None
+        blocking_task_ids: Optional[List[int]] = None,
+        created_blocking_task_ids: Optional[List[int]] = None
     ) -> Dict[str, Any]:
         """
-        Create or select a blocking task and establish dependency.
+        Add blocking tasks (dependencies) for the specified task.
 
-        NOTE: As of the latest update, the blocker task should already be created
-        by the BlockerSelectionDialog when mode='new'. This method now primarily
-        handles creating the dependency relationship.
+        This unified workflow handles both creating new blocking tasks and selecting
+        existing tasks. The DependencySelectionDialog creates tasks and saves
+        dependencies directly, so this method primarily records the postpone action.
 
         Args:
             task_id: ID of task being blocked
-            notes: Optional notes about the blocker
-            blocker_task_id: ID of blocker task (either new or existing)
-            new_blocker_title: DEPRECATED - task should already be created
-
-        Returns:
-            Dictionary with:
-                - success (bool): Whether operation succeeded
-                - blocker_task_id (int): ID of blocker task
-                - message (str): User-friendly result message
-        """
-        try:
-            # Validate inputs - blocker_task_id should always be provided now
-            if blocker_task_id is None:
-                return {
-                    'success': False,
-                    'message': 'Blocker task ID must be provided'
-                }
-
-            # Get the blocked task
-            blocked_task = self.task_dao.get_by_id(task_id)
-            if not blocked_task:
-                return {
-                    'success': False,
-                    'message': f'Task {task_id} not found'
-                }
-
-            # Verify blocker task exists
-            blocker_task = self.task_dao.get_by_id(blocker_task_id)
-            if not blocker_task:
-                return {
-                    'success': False,
-                    'message': f'Blocker task {blocker_task_id} not found'
-                }
-
-            blocker_name = blocker_task.title
-
-            # Create dependency relationship
-            dependency = Dependency(
-                blocked_task_id=task_id,
-                blocking_task_id=blocker_task_id
-            )
-            self.dependency_dao.create(dependency)
-
-            # Record the postpone action
-            self.record_postpone(
-                task_id,
-                PostponeReasonType.BLOCKER,
-                notes,
-                ActionTaken.CREATED_BLOCKER
-            )
-
-            return {
-                'success': True,
-                'blocker_task_id': blocker_task_id,
-                'message': f"Blocker created: '{blocker_name}' now blocks this task"
-            }
-
-        except ValueError as e:
-            # Circular dependency or validation error
-            return {
-                'success': False,
-                'message': f'Cannot create blocker: {str(e)}'
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Unexpected error: {str(e)}'
-            }
-
-    def handle_dependency_workflow(
-        self,
-        task_id: int,
-        notes: Optional[str] = None,
-        dependency_task_ids: Optional[List[int]] = None
-    ) -> Dict[str, Any]:
-        """
-        Add existing tasks as dependencies for the specified task.
-
-        Args:
-            task_id: ID of task being blocked
-            notes: Optional notes about the dependencies
-            dependency_task_ids: List of task IDs that block this task
+            notes: Optional notes about the blockers/dependencies
+            blocking_task_ids: List of all task IDs that block this task
+            created_blocking_task_ids: Subset of blocking_task_ids that were newly created
 
         Returns:
             Dictionary with:
@@ -167,11 +88,11 @@ class PostponeWorkflowService:
                 - message (str): User-friendly result message
         """
         try:
-            if not dependency_task_ids:
+            if not blocking_task_ids:
                 return {
                     'success': False,
                     'count': 0,
-                    'message': 'No dependency tasks specified'
+                    'message': 'No blocking tasks specified'
                 }
 
             # Verify blocked task exists
@@ -183,34 +104,30 @@ class PostponeWorkflowService:
                     'message': f'Task {task_id} not found'
                 }
 
-            # Add each dependency
-            added_count = 0
-            for blocking_task_id in dependency_task_ids:
-                try:
-                    dependency = Dependency(
-                        blocked_task_id=task_id,
-                        blocking_task_id=blocking_task_id
-                    )
-                    self.dependency_dao.create(dependency)
-                    added_count += 1
-                except ValueError:
-                    # Circular dependency or duplicate - skip this one
-                    continue
+            # Dependencies are already saved by DependencySelectionDialog
+            # Just record the postpone action with appropriate action type
+            created_blocking_task_ids = created_blocking_task_ids or []
 
-            # Record the postpone action
-            if added_count > 0:
-                self.record_postpone(
-                    task_id,
-                    PostponeReasonType.DEPENDENCY,
-                    notes,
-                    ActionTaken.ADDED_DEPENDENCY
-                )
+            if created_blocking_task_ids:
+                # At least one new blocking task was created
+                action_taken = ActionTaken.CREATED_BLOCKER
+            else:
+                # Only existing tasks were selected
+                action_taken = ActionTaken.ADDED_DEPENDENCY
 
-            plural = 'dependency' if added_count == 1 else 'dependencies'
+            self.record_postpone(
+                task_id,
+                PostponeReasonType.BLOCKER,
+                notes,
+                action_taken
+            )
+
+            count = len(blocking_task_ids)
+            plural = 'blocking task' if count == 1 else 'blocking tasks'
             return {
                 'success': True,
-                'count': added_count,
-                'message': f'{added_count} {plural} added, task is now blocked'
+                'count': count,
+                'message': f'{count} {plural} added, task is now blocked'
             }
 
         except Exception as e:

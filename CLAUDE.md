@@ -144,6 +144,26 @@ When implementing features:
 - Build systems to resurface deferred/delegated/someday tasks
 - Design interfaces that capture delay reasons and dependencies
 
+## Git Workflow Rules
+
+**CRITICAL: When staging files for commit, ALWAYS use `git add -A` to stage ALL new and modified files.**
+
+When the user asks to "stage files" or "commit changes":
+
+1. **ALWAYS use `git add -A`** - This stages all new, modified, and deleted files
+2. **NEVER selectively stage files** unless explicitly instructed by the user
+3. After staging, run `git status` to verify what will be committed
+4. Create a descriptive commit message that explains the changes
+5. Push to the remote repository when requested
+
+Example workflow:
+```bash
+git add -A
+git status
+git commit -m "Descriptive commit message"
+git push
+```
+
 ## Phase Progress Reporting
 
 When completing a development phase, create a status report following the standardized format documented in [phase_progress_report_instructions.md](phase_progress_report_instructions.md). This ensures consistent documentation across all phases and provides clear reference material for project state and progress.

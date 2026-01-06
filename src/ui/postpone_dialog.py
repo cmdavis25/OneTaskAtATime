@@ -119,6 +119,7 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.blocker_result = None
         self.subtask_result = None
         self.dependency_added = False
+        self.created_blocking_task_ids = []  # Track tasks created during blocker workflow
         self.workflows_processed = False  # Flag to prevent re-processing workflows
 
         self._init_ui()
@@ -196,24 +197,21 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.reason_group = QButtonGroup(self)
 
         self.reason_not_ready = QRadioButton("Not ready to work on it yet")
-        self.reason_blocker = QRadioButton("Encountered a blocker")
-        self.reason_dependency = QRadioButton("Waiting on another task")
+        self.reason_blocker = QRadioButton("Has blocking tasks / dependencies")
         self.reason_subtasks = QRadioButton("Needs to be broken into smaller tasks")
         self.reason_other = QRadioButton("Other reason")
 
         # Use integer IDs for button group
         self.reason_group.addButton(self.reason_not_ready, 0)
         self.reason_group.addButton(self.reason_blocker, 1)
-        self.reason_group.addButton(self.reason_dependency, 2)
-        self.reason_group.addButton(self.reason_subtasks, 3)
-        self.reason_group.addButton(self.reason_other, 4)
+        self.reason_group.addButton(self.reason_subtasks, 2)
+        self.reason_group.addButton(self.reason_other, 3)
 
         # Set default
         self.reason_not_ready.setChecked(True)
 
         layout.addWidget(self.reason_not_ready)
         layout.addWidget(self.reason_blocker)
-        layout.addWidget(self.reason_dependency)
         layout.addWidget(self.reason_subtasks)
         layout.addWidget(self.reason_other)
 
@@ -243,26 +241,19 @@ class PostponeDialog(QDialog, GeometryMixin):
                 reason = self._get_selected_reason()
 
                 # Import here to avoid circular dependency
-                from .blocker_selection_dialog import BlockerSelectionDialog
                 from .subtask_breakdown_dialog import SubtaskBreakdownDialog
                 from .dependency_selection_dialog import DependencySelectionDialog
 
                 if reason == PostponeReasonType.BLOCKER:
-                    # Show blocker selection dialog
-                    blocker_dialog = BlockerSelectionDialog(self.task, self.db_connection, self)
-                    if blocker_dialog.exec_() != QDialog.Accepted:
-                        self.workflows_processed = False  # Reset flag if cancelled
-                        return  # User canceled blocker creation
-                    self.blocker_result = blocker_dialog.get_result()
-
-                elif reason == PostponeReasonType.DEPENDENCY:
-                    # Reuse existing dependency selection dialog
+                    # Show dependency selection dialog (unified blocker/dependency workflow)
                     dep_dialog = DependencySelectionDialog(self.task, self.db_connection, self)
                     if dep_dialog.exec_() != QDialog.Accepted:
                         self.workflows_processed = False  # Reset flag if cancelled
-                        return  # User canceled dependency selection
+                        return  # User canceled blocker/dependency selection
                     # Dependencies are saved by the dialog itself
                     self.dependency_added = True
+                    # Get created blocking task IDs for undo functionality
+                    self.created_blocking_task_ids = dep_dialog.get_created_blocking_task_ids()
 
                 elif reason == PostponeReasonType.MULTIPLE_SUBTASKS:
                     # Show subtask breakdown dialog
@@ -285,9 +276,8 @@ class PostponeDialog(QDialog, GeometryMixin):
         id_to_reason = {
             0: PostponeReasonType.NOT_READY,
             1: PostponeReasonType.BLOCKER,
-            2: PostponeReasonType.DEPENDENCY,
-            3: PostponeReasonType.MULTIPLE_SUBTASKS,
-            4: PostponeReasonType.OTHER
+            2: PostponeReasonType.MULTIPLE_SUBTASKS,
+            3: PostponeReasonType.OTHER
         }
         return id_to_reason.get(selected_id, PostponeReasonType.OTHER)
 
@@ -331,12 +321,11 @@ class PostponeDialog(QDialog, GeometryMixin):
             result['start_date'] = self.start_date_edit.date().toPyDate()
 
             # Include workflow results
-            if self.blocker_result:
-                result['blocker_result'] = self.blocker_result
             if self.subtask_result:
                 result['subtask_result'] = self.subtask_result
             if self.dependency_added:
                 result['dependency_added'] = True
+                result['created_blocking_task_ids'] = self.created_blocking_task_ids
 
         else:  # delegate
             result['delegated_to'] = self.delegated_to_edit.text().strip()
