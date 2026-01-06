@@ -8,10 +8,10 @@ Phase 4: Full task management interface.
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QLineEdit, QComboBox, QLabel,
-    QMenu, QCheckBox, QGroupBox, QGridLayout, QShortcut, QMessageBox
+    QMenu, QCheckBox, QGroupBox, QGridLayout, QShortcut, QMessageBox, QSizePolicy
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QColor, QBrush, QKeySequence
+from PyQt5.QtGui import QColor, QBrush, QKeySequence, QCursor, QFont
 from typing import List, Optional
 from datetime import date
 from ..models import Task, TaskState
@@ -211,17 +211,6 @@ class TaskListView(QWidget):
         layout = QVBoxLayout()
         layout.setSpacing(10)
         self.setLayout(layout)
-
-        # Header
-        header_layout = QHBoxLayout()
-
-        title_label = QLabel("All Tasks")
-        title_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        header_layout.addWidget(title_label)
-
-        header_layout.addStretch()
-
-        layout.addLayout(header_layout)
 
         # Filter and search bar
         filter_layout = QHBoxLayout()

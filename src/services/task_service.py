@@ -146,6 +146,20 @@ class TaskService:
         """
         return self.task_dao.delete_all_tasks()
 
+    def delete_trash_tasks(self) -> int:
+        """
+        Delete all tasks in TRASH state.
+
+        Returns:
+            Number of tasks deleted
+        """
+        trash_tasks = self.get_tasks_by_state(TaskState.TRASH)
+        count = 0
+        for task in trash_tasks:
+            if self.task_dao.delete(task.id):
+                count += 1
+        return count
+
     def complete_task(self, task_id: int) -> Optional[Task]:
         """
         Mark a task as completed. Generate next occurrence if recurring.

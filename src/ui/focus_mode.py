@@ -7,10 +7,10 @@ delegating, or moving tasks to different states.
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextEdit, QFrame, QMessageBox, QGroupBox, QShortcut
+    QTextEdit, QFrame, QMessageBox, QGroupBox, QShortcut, QSizePolicy
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont, QKeySequence
+from PyQt5.QtGui import QFont, QKeySequence, QCursor
 from typing import Optional, Set
 from ..models.task import Task
 from ..models.enums import TaskState
@@ -89,35 +89,14 @@ class FocusModeWidget(QWidget):
     def _init_ui(self):
         """Initialize the user interface."""
         layout = QVBoxLayout()
-        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setContentsMargins(40, 20, 40, 40)
         layout.setSpacing(20)
         self.setLayout(layout)
-
-        # Title section
-        self._create_title_section(layout)
 
         # Filter section
         self._create_filter_section(layout)
 
-        # Task card
-        self._create_task_card(layout)
-
-        # Action buttons
-        self._create_action_buttons(layout)
-
-        # Show empty state initially
-        self._show_empty_state()
-
-    def _create_title_section(self, layout: QVBoxLayout):
-        """Create the title section at the top."""
-        title_label = QLabel("Focus Mode")
-        title_font = QFont()
-        title_font.setPointSize(20)
-        title_font.setBold(True)
-        title_label.setFont(title_font)
-        title_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title_label)
-
+        # Subtitle between filters and task card
         subtitle_label = QLabel("Your highest priority task right now")
         subtitle_font = QFont()
         subtitle_font.setPointSize(11)
@@ -125,6 +104,18 @@ class FocusModeWidget(QWidget):
         subtitle_label.setAlignment(Qt.AlignCenter)
         subtitle_label.setStyleSheet("color: #666;")
         layout.addWidget(subtitle_label)
+
+        # Task card (fixed position at top)
+        self._create_task_card(layout)
+
+        # Add stretch to push buttons to bottom
+        layout.addStretch()
+
+        # Action buttons
+        self._create_action_buttons(layout)
+
+        # Show empty state initially
+        self._show_empty_state()
 
     def _create_filter_section(self, layout: QVBoxLayout):
         """Create the filter controls section."""

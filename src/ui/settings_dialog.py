@@ -34,6 +34,8 @@ class SettingsDialog(QDialog, GeometryMixin):
 
     # Signal emitted when settings are saved
     settings_saved = pyqtSignal()
+    # Signal emitted when user wants to re-run the welcome wizard
+    rerun_wizard_requested = pyqtSignal()
 
     def __init__(self, db_connection: sqlite3.Connection, parent=None):
         """
@@ -420,6 +422,24 @@ class SettingsDialog(QDialog, GeometryMixin):
         reset_button.clicked.connect(self._reset_advanced_defaults)
         layout.addWidget(reset_button)
 
+        # Onboarding group
+        onboarding_group = QGroupBox("Onboarding")
+        onboarding_layout = QVBoxLayout()
+
+        onboarding_description = QLabel(
+            "Re-run the welcome wizard to see the introduction and create your first task again."
+        )
+        onboarding_description.setWordWrap(True)
+        onboarding_description.setStyleSheet("color: #666; margin-bottom: 10px;")
+        onboarding_layout.addWidget(onboarding_description)
+
+        self.rerun_wizard_button = QPushButton("Re-run Welcome Wizard")
+        self.rerun_wizard_button.clicked.connect(self._rerun_welcome_wizard)
+        onboarding_layout.addWidget(self.rerun_wizard_button)
+
+        onboarding_group.setLayout(onboarding_layout)
+        layout.addWidget(onboarding_group)
+
         layout.addStretch()
         return tab
 
@@ -508,156 +528,160 @@ class SettingsDialog(QDialog, GeometryMixin):
             self.settings_dao.get_float('score_epsilon', default=0.01)
         )
 
+    def _save_settings_internal(self):
+        """Internal method to save settings to database without UI feedback."""
+        # Resurfacing settings
+        self.settings_dao.set(
+            'deferred_check_hours',
+            self.deferred_check_hours_spin.value(),
+            'integer',
+            'Hours between deferred task checks'
+        )
+
+        self.settings_dao.set(
+            'delegated_check_time',
+            self.delegated_check_time_edit.time().toString("HH:mm"),
+            'string',
+            'Time of day to check delegated tasks'
+        )
+
+        self.settings_dao.set(
+            'someday_review_days',
+            self.someday_review_days_spin.value(),
+            'integer',
+            'Days between Someday/Maybe reviews'
+        )
+
+        self.settings_dao.set(
+            'someday_review_time',
+            self.someday_review_time_edit.time().toString("HH:mm"),
+            'string',
+            'Preferred time for someday review'
+        )
+
+        self.settings_dao.set(
+            'postpone_analysis_time',
+            self.postpone_analysis_time_edit.time().toString("HH:mm"),
+            'string',
+            'Time of day to analyze postponement patterns'
+        )
+
+        # Notification settings
+        self.settings_dao.set(
+            'enable_toast_notifications',
+            self.enable_toast_check.isChecked(),
+            'boolean',
+            'Enable Windows toast notifications'
+        )
+
+        self.settings_dao.set(
+            'enable_inapp_notifications',
+            self.enable_inapp_check.isChecked(),
+            'boolean',
+            'Enable in-app notification panel'
+        )
+
+        self.settings_dao.set(
+            'notification_retention_days',
+            self.notification_retention_spin.value(),
+            'integer',
+            'Days to keep old notifications'
+        )
+
+        # Trigger settings
+        self.settings_dao.set(
+            'notify_deferred_activation',
+            self.notify_deferred_check.isChecked(),
+            'boolean',
+            'Notify when deferred tasks activate'
+        )
+
+        self.settings_dao.set(
+            'notify_delegated_followup',
+            self.notify_delegated_check.isChecked(),
+            'boolean',
+            'Notify for delegated follow-ups'
+        )
+
+        self.settings_dao.set(
+            'notify_someday_review',
+            self.notify_someday_check.isChecked(),
+            'boolean',
+            'Notify for someday reviews'
+        )
+
+        self.settings_dao.set(
+            'notify_postpone_intervention',
+            self.notify_postpone_check.isChecked(),
+            'boolean',
+            'Notify for postponement patterns'
+        )
+
+        # Intervention settings
+        self.settings_dao.set(
+            'postpone_intervention_threshold',
+            self.postpone_threshold_spin.value(),
+            'integer',
+            'Postponements before intervention'
+        )
+
+        self.settings_dao.set(
+            'postpone_pattern_days',
+            self.postpone_pattern_days_spin.value(),
+            'integer',
+            'Days window for pattern detection'
+        )
+
+        # Theme settings
+        theme_map = {0: 'light', 1: 'dark', 2: 'system'}
+        theme_value = theme_map.get(self.theme_combo.currentIndex(), 'light')
+        self.settings_dao.set(
+            'theme',
+            theme_value,
+            'string',
+            'UI theme (light/dark/system)'
+        )
+
+        self.settings_dao.set(
+            'font_size',
+            self.font_size_spin.value(),
+            'integer',
+            'Base font size in points'
+        )
+
+        # Advanced settings
+        self.settings_dao.set(
+            'elo_k_factor_new',
+            self.k_factor_new_spin.value(),
+            'integer',
+            'K-factor for new tasks'
+        )
+
+        self.settings_dao.set(
+            'elo_k_factor',
+            self.k_factor_spin.value(),
+            'integer',
+            'K-factor for established tasks'
+        )
+
+        self.settings_dao.set(
+            'elo_new_task_threshold',
+            self.new_task_threshold_spin.value(),
+            'integer',
+            'Comparisons before base K-factor'
+        )
+
+        self.settings_dao.set(
+            'score_epsilon',
+            self.score_epsilon_spin.value(),
+            'float',
+            'Threshold for tie detection'
+        )
+
     def _save_settings(self):
         """Save settings to database."""
         try:
-            # Resurfacing settings
-            self.settings_dao.set(
-                'deferred_check_hours',
-                self.deferred_check_hours_spin.value(),
-                'integer',
-                'Hours between deferred task checks'
-            )
-
-            self.settings_dao.set(
-                'delegated_check_time',
-                self.delegated_check_time_edit.time().toString("HH:mm"),
-                'string',
-                'Time of day to check delegated tasks'
-            )
-
-            self.settings_dao.set(
-                'someday_review_days',
-                self.someday_review_days_spin.value(),
-                'integer',
-                'Days between Someday/Maybe reviews'
-            )
-
-            self.settings_dao.set(
-                'someday_review_time',
-                self.someday_review_time_edit.time().toString("HH:mm"),
-                'string',
-                'Preferred time for someday review'
-            )
-
-            self.settings_dao.set(
-                'postpone_analysis_time',
-                self.postpone_analysis_time_edit.time().toString("HH:mm"),
-                'string',
-                'Time of day to analyze postponement patterns'
-            )
-
-            # Notification settings
-            self.settings_dao.set(
-                'enable_toast_notifications',
-                self.enable_toast_check.isChecked(),
-                'boolean',
-                'Enable Windows toast notifications'
-            )
-
-            self.settings_dao.set(
-                'enable_inapp_notifications',
-                self.enable_inapp_check.isChecked(),
-                'boolean',
-                'Enable in-app notification panel'
-            )
-
-            self.settings_dao.set(
-                'notification_retention_days',
-                self.notification_retention_spin.value(),
-                'integer',
-                'Days to keep old notifications'
-            )
-
-            # Trigger settings
-            self.settings_dao.set(
-                'notify_deferred_activation',
-                self.notify_deferred_check.isChecked(),
-                'boolean',
-                'Notify when deferred tasks activate'
-            )
-
-            self.settings_dao.set(
-                'notify_delegated_followup',
-                self.notify_delegated_check.isChecked(),
-                'boolean',
-                'Notify for delegated follow-ups'
-            )
-
-            self.settings_dao.set(
-                'notify_someday_review',
-                self.notify_someday_check.isChecked(),
-                'boolean',
-                'Notify for someday reviews'
-            )
-
-            self.settings_dao.set(
-                'notify_postpone_intervention',
-                self.notify_postpone_check.isChecked(),
-                'boolean',
-                'Notify for postponement patterns'
-            )
-
-            # Intervention settings
-            self.settings_dao.set(
-                'postpone_intervention_threshold',
-                self.postpone_threshold_spin.value(),
-                'integer',
-                'Postponements before intervention'
-            )
-
-            self.settings_dao.set(
-                'postpone_pattern_days',
-                self.postpone_pattern_days_spin.value(),
-                'integer',
-                'Days window for pattern detection'
-            )
-
-            # Theme settings
-            theme_map = {0: 'light', 1: 'dark', 2: 'system'}
-            theme_value = theme_map.get(self.theme_combo.currentIndex(), 'light')
-            self.settings_dao.set(
-                'theme',
-                theme_value,
-                'string',
-                'UI theme (light/dark/system)'
-            )
-
-            self.settings_dao.set(
-                'font_size',
-                self.font_size_spin.value(),
-                'integer',
-                'Base font size in points'
-            )
-
-            # Advanced settings
-            self.settings_dao.set(
-                'elo_k_factor_new',
-                self.k_factor_new_spin.value(),
-                'integer',
-                'K-factor for new tasks'
-            )
-
-            self.settings_dao.set(
-                'elo_k_factor',
-                self.k_factor_spin.value(),
-                'integer',
-                'K-factor for established tasks'
-            )
-
-            self.settings_dao.set(
-                'elo_new_task_threshold',
-                self.new_task_threshold_spin.value(),
-                'integer',
-                'Comparisons before base K-factor'
-            )
-
-            self.settings_dao.set(
-                'score_epsilon',
-                self.score_epsilon_spin.value(),
-                'float',
-                'Threshold for tie detection'
-            )
+            self._save_settings_internal()
 
             # Emit signal and close
             self.settings_saved.emit()
@@ -694,3 +718,40 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.k_factor_spin.setValue(16)
         self.new_task_threshold_spin.setValue(10)
         self.score_epsilon_spin.setValue(0.01)
+
+    def _rerun_welcome_wizard(self):
+        """Handle re-running the welcome wizard."""
+        # Ask for confirmation
+        reply = MessageBox.question(
+            self,
+            self.db_connection,
+            "Re-run Welcome Wizard",
+            "This will save your current settings, reset your onboarding status, "
+            "and show the welcome wizard again.\n\n"
+            "Are you sure you want to continue?"
+        )
+
+        if reply == QMessageBox.Yes:
+            # Save current settings first (without showing confirmation message)
+            try:
+                self._save_settings_internal()
+            except Exception as e:
+                MessageBox.critical(
+                    self,
+                    self.db_connection,
+                    "Error Saving Settings",
+                    f"An error occurred while saving settings:\n\n{str(e)}"
+                )
+                return
+
+            # Reset onboarding status
+            from ..services.first_run_detector import FirstRunDetector
+            first_run_detector = FirstRunDetector(self.db_connection)
+            first_run_detector.reset_onboarding()
+
+            # Emit signals to main window
+            self.settings_saved.emit()
+            self.rerun_wizard_requested.emit()
+
+            # Close the settings dialog
+            self.accept()

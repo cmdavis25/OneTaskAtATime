@@ -373,10 +373,8 @@ class NotificationPanel(QWidget):
         """Initialize the user interface."""
         layout = QHBoxLayout()
         layout.setSpacing(8)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for better alignment in header
         self.setLayout(layout)
-
-        layout.addStretch()
 
         # Notification button
         self.notification_btn = QPushButton("🔔 Notifications")

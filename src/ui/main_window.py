@@ -5,12 +5,12 @@ Provides the main application container with menu bar and navigation.
 """
 
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QLabel,
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QMenuBar, QMenu, QAction, QStatusBar, QMessageBox, QStackedWidget, QDialog,
-    QApplication
+    QApplication, QPushButton, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QCursor
 from .focus_mode import FocusModeWidget
 from .task_form_dialog import TaskFormDialog
 from .task_form_enhanced import EnhancedTaskFormDialog
@@ -145,15 +145,62 @@ class MainWindow(QMainWindow):
 
         # Layout
         layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
         central_widget.setLayout(layout)
 
-        # Notification panel (Phase 6)
+        # Unified header row with title, switcher, and notifications
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(10)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setAlignment(Qt.AlignVCenter)  # Ensure vertical centering
+
+        # Mode title on the left (matching notification button height)
+        self.mode_title_label = QLabel("Focus Mode")
+        title_font = QFont()
+        title_font.setPointSize(12)
+        title_font.setBold(True)
+        self.mode_title_label.setFont(title_font)
+        self.mode_title_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.mode_title_label.setStyleSheet("padding: 8px 0px;")
+        header_layout.addWidget(self.mode_title_label)
+
+        # View switcher button in the center (expanding)
+        self.view_switcher_btn = QPushButton("→ Switch to Task List (Ctrl+2) →")
+        self.view_switcher_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #00CED1, stop:0.5 #4B0082, stop:1 #00CED1);
+                color: white;
+                font-size: 14pt;
+                font-weight: bold;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #00B8B8, stop:0.5 #3A006A, stop:1 #00B8B8);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #009999, stop:0.5 #2A0052, stop:1 #009999);
+            }
+        """)
+        self.view_switcher_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.view_switcher_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.view_switcher_btn.clicked.connect(self._toggle_view)
+        header_layout.addWidget(self.view_switcher_btn, 1)  # Stretch factor 1
+
+        # Notification panel on the right (Phase 6)
         self.notification_panel = NotificationPanel(
             self.db_connection.get_connection(),
             self.notification_manager
         )
         self.notification_panel.action_requested.connect(self._on_notification_action)
-        layout.addWidget(self.notification_panel)
+        header_layout.addWidget(self.notification_panel)
+
+        layout.addLayout(header_layout)
 
         # Stacked widget for switching views
         self.stacked_widget = QStackedWidget()
@@ -304,6 +351,13 @@ class MainWindow(QMainWindow):
         reset_adjustments_action.setStatusTip("Reset all comparison-based priority adjustments")
         reset_adjustments_action.triggered.connect(self._reset_all_priority_adjustments)
         tools_menu.addAction(reset_adjustments_action)
+
+        tools_menu.addSeparator()
+
+        delete_trash_action = QAction("Delete All &Trash Tasks", self)
+        delete_trash_action.setStatusTip("Permanently delete all tasks in Trash state")
+        delete_trash_action.triggered.connect(self._delete_trash_tasks)
+        tools_menu.addAction(delete_trash_action)
 
         tools_menu.addSeparator()
 
@@ -763,9 +817,55 @@ class MainWindow(QMainWindow):
             if self.stacked_widget.currentWidget() == self.task_list_view:
                 self.task_list_view.refresh_tasks()
 
+    def _delete_trash_tasks(self):
+        """Delete all tasks in Trash state with confirmation."""
+        # Count trash tasks first
+        trash_tasks = self.task_service.get_tasks_by_state(TaskState.TRASH)
+        trash_count = len(trash_tasks)
+
+        if trash_count == 0:
+            MessageBox.information(
+                self,
+                self.db_connection.get_connection(),
+                "No Trash Tasks",
+                "There are no tasks in the Trash to delete."
+            )
+            return
+
+        reply = MessageBox.warning(
+            self,
+            self.db_connection.get_connection(),
+            "Delete All Trash Tasks",
+            f"This will permanently delete {trash_count} task(s) from the Trash.\n\n"
+            "This action cannot be undone!\n\n"
+            "Are you sure you want to continue?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            count = self.task_service.delete_trash_tasks()
+            self.statusBar().showMessage(
+                f"Deleted {count} trash task(s)", 5000
+            )
+            self._refresh_focus_task()
+            # Refresh task list view if visible
+            if self.stacked_widget.currentWidget() == self.task_list_view:
+                self.task_list_view.refresh_tasks()
+
+    def _toggle_view(self):
+        """Toggle between Focus Mode and Task List view."""
+        current_widget = self.stacked_widget.currentWidget()
+        if current_widget == self.focus_mode:
+            self._show_task_list()
+        else:
+            self._show_focus_mode()
+
     def _show_focus_mode(self):
         """Switch to Focus Mode view."""
         self.stacked_widget.setCurrentWidget(self.focus_mode)
+        self.mode_title_label.setText("Focus Mode")
+        self.view_switcher_btn.setText("→ Switch to Task List (Ctrl+2) →")
         self._refresh_focus_task()
         # Clear task count label when switching to Focus Mode
         self.task_count_label.setText("")
@@ -774,6 +874,8 @@ class MainWindow(QMainWindow):
     def _show_task_list(self):
         """Switch to Task List view."""
         self.stacked_widget.setCurrentWidget(self.task_list_view)
+        self.mode_title_label.setText("Task List")
+        self.view_switcher_btn.setText("← Switch to Focus Mode (Ctrl+1) ←")
         self.task_list_view.refresh_tasks()
         # Task count will be updated automatically via the task_count_changed signal
 
@@ -841,6 +943,7 @@ class MainWindow(QMainWindow):
         """Show settings dialog (Phase 6)."""
         dialog = SettingsDialog(self.db_connection.get_connection(), self)
         dialog.settings_saved.connect(self._on_settings_saved)
+        dialog.rerun_wizard_requested.connect(self._on_wizard_rerun_requested)
         dialog.exec_()
 
     def _on_settings_saved(self):
@@ -854,6 +957,12 @@ class MainWindow(QMainWindow):
             self.theme_service.apply_theme(current_theme)
 
         self.statusBar().showMessage("Settings saved and scheduler updated", 3000)
+
+    def _on_wizard_rerun_requested(self):
+        """Handle request to re-run welcome wizard."""
+        # Use QTimer to delay showing wizard until settings dialog is fully closed
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(100, self._show_welcome_wizard)
 
     def _connect_scheduler_signals(self):
         """Connect scheduler signals to UI handlers (Phase 6)."""
