@@ -1295,9 +1295,10 @@ class TaskListView(QWidget):
                 elif subtask_result := result.get('subtask_result'):
                     command = DeferWithSubtasksCommand(
                         self.task_dao,
+                        self.dependency_dao,
                         task_id,
                         result['start_date'],
-                        subtask_result['subtask_titles'],
+                        subtask_result['created_tasks'],  # Now receives Task objects instead of strings
                         subtask_result['delete_original'],
                         result.get('reason')
                     )
