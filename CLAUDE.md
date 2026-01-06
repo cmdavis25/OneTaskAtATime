@@ -150,7 +150,7 @@ When implementing features:
 
 When the user asks to "stage files" or "commit changes":
 
-1. **ALWAYS use `git add -A`** - This stages all new, modified, and deleted files
+1. **ALWAYS use `git add -A`** - This stages all new and modified files
 2. **NEVER selectively stage files** unless explicitly instructed by the user
 3. After staging, run `git status` to verify what will be committed
 4. Create a descriptive commit message that explains the changes
