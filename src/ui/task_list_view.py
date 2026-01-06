@@ -33,7 +33,6 @@ from ..commands import (
     DeferTaskCommand,
     DelegateTaskCommand,
     ChangeStateCommand,
-    DeferWithBlockerCommand,
     DeferWithSubtasksCommand,
     DeferWithDependenciesCommand
 )
@@ -1319,7 +1318,8 @@ class TaskListView(QWidget):
                             task_id,
                             result['start_date'],
                             newly_added_deps,
-                            result.get('reason')
+                            result.get('reason'),
+                            result.get('created_blocking_task_ids', [])
                         )
                     else:
                         # Fallback to basic defer if no dependencies found

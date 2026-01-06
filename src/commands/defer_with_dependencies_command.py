@@ -12,15 +12,16 @@ from src.database.dependency_dao import DependencyDAO
 
 class DeferWithDependenciesCommand(Command):
     """
-    Compound command to defer a task and add dependencies.
+    Compound command to defer a task with dependencies.
 
     This command handles:
     1. Deferring the task (changing state to DEFERRED and setting start_date)
-    2. Creating dependency relationships with existing tasks
+    2. Tracking dependency relationships (dependencies are created by DependencySelectionDialog)
 
     On undo, it:
     1. Restores the task's original state and start_date
-    2. Removes all created dependency relationships
+    2. Removes all tracked dependency relationships
+    3. Moves created blocking tasks to TRASH (if any were created during workflow)
     """
 
     def __init__(
@@ -30,7 +31,8 @@ class DeferWithDependenciesCommand(Command):
         task_id: int,
         start_date: date,
         dependency_task_ids: List[int],
-        reason: Optional[str] = None
+        reason: Optional[str] = None,
+        created_blocking_task_ids: Optional[List[int]] = None
     ):
         """
         Initialize the command.
@@ -42,6 +44,7 @@ class DeferWithDependenciesCommand(Command):
             start_date: Date when task should become actionable
             dependency_task_ids: List of task IDs that block this task
             reason: Optional reason for deferring
+            created_blocking_task_ids: List of task IDs created as blockers during workflow
         """
         self.task_dao = task_dao
         self.dependency_dao = dependency_dao
@@ -49,6 +52,7 @@ class DeferWithDependenciesCommand(Command):
         self.new_start_date = start_date
         self.dependency_task_ids = dependency_task_ids
         self.reason = reason
+        self.created_blocking_task_ids = created_blocking_task_ids or []
 
         # State to restore on undo
         self.original_state: Optional[TaskState] = None
@@ -75,9 +79,16 @@ class DeferWithDependenciesCommand(Command):
         if not self.task_dao.update(task):
             return False
 
-        # On redo, recreate dependencies that were removed by undo
+        # On redo, restore created blocking tasks from TRASH and recreate dependencies
         if len(self.created_dependency_ids) > 0:
-            # Dependencies were already created, just need to recreate them
+            # Restore created blocking tasks from TRASH
+            for blocking_task_id in self.created_blocking_task_ids:
+                blocking_task = self.task_dao.get_by_id(blocking_task_id)
+                if blocking_task and blocking_task.state == TaskState.TRASH:
+                    blocking_task.state = TaskState.ACTIVE
+                    self.task_dao.update(blocking_task)
+
+            # Recreate dependencies that were removed by undo
             from src.models.dependency import Dependency
             temp_ids = []
             for blocking_task_id in self.dependency_task_ids:
@@ -92,24 +103,19 @@ class DeferWithDependenciesCommand(Command):
                     # Circular dependency or duplicate - skip this one but continue
                     continue
             self.created_dependency_ids = temp_ids
-        # On first execution, create dependencies
+        # On first execution, dependencies already exist (created by DependencySelectionDialog)
+        # Just get their IDs for undo tracking
         else:
-            # Create dependency relationships
-            from src.models.dependency import Dependency
-            for blocking_task_id in self.dependency_task_ids:
-                try:
-                    dependency = Dependency(
-                        blocked_task_id=self.task_id,
-                        blocking_task_id=blocking_task_id
-                    )
-                    created_dependency = self.dependency_dao.create(dependency)
-                    self.created_dependency_ids.append(created_dependency.id)
-                except ValueError:
-                    # Circular dependency or duplicate - skip this one but continue
-                    continue
+            # Get existing dependency IDs for undo tracking
+            # Dependencies were already created by the dialog, so we just need to track them
+            existing_deps = self.dependency_dao.get_dependencies_for_task(self.task_id)
+            # Only track dependencies for the blocking tasks we expect
+            for dep in existing_deps:
+                if dep.blocking_task_id in self.dependency_task_ids:
+                    self.created_dependency_ids.append(dep.id)
 
-        # Return success if at least one dependency was created
-        return len(self.created_dependency_ids) > 0
+        # Return success (task was deferred)
+        return True
 
     def undo(self) -> bool:
         """Undo the defer and dependency creation."""
@@ -127,6 +133,13 @@ class DeferWithDependenciesCommand(Command):
         # Remove all created dependency relationships
         for dependency_id in self.created_dependency_ids:
             self.dependency_dao.delete(dependency_id)
+
+        # Move created blocking tasks to TRASH
+        for blocking_task_id in self.created_blocking_task_ids:
+            blocking_task = self.task_dao.get_by_id(blocking_task_id)
+            if blocking_task:
+                blocking_task.state = TaskState.TRASH
+                self.task_dao.update(blocking_task)
 
         return True
 
