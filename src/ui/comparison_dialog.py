@@ -45,6 +45,17 @@ class ComparisonDialog(QDialog, GeometryMixin):
 
         self.setWindowTitle("Choose Your Priority")
         self.setMinimumSize(800, 500)
+
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog helps resolve tied importance scores by asking you to compare two tasks directly. "
+            "Your choice updates both tasks' Elo ratings, refining their relative priority. "
+            "Click the ? button for help on specific elements."
+        )
+
         self._init_ui()
 
     def _init_ui(self):
@@ -243,6 +254,9 @@ class ComparisonDialog(QDialog, GeometryMixin):
         select_button.clicked.connect(
             lambda: self._on_task_selected(task)
         )
+        select_button.setWhatsThis(
+            "Choose this task as more important. This updates both tasks' Elo ratings for better priority ranking."
+        )
         card_layout.addWidget(select_button)
 
         return card
@@ -267,6 +281,9 @@ class ComparisonDialog(QDialog, GeometryMixin):
             }
         """)
         cancel_button.clicked.connect(self.reject)
+        cancel_button.setWhatsThis(
+            "Cancel comparison and keep current task rankings unchanged."
+        )
 
         button_layout.addStretch()
         button_layout.addWidget(cancel_button)

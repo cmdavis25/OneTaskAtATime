@@ -6,10 +6,12 @@ Comprehensive help system with searchable content.
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTabWidget,
-    QWidget, QTextBrowser, QPushButton, QLineEdit, QLabel
+    QWidget, QTextBrowser, QPushButton, QLineEdit, QLabel, QToolButton
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 from .geometry_mixin import GeometryMixin
+import re
 
 
 class HelpDialog(QDialog, GeometryMixin):
@@ -45,6 +47,11 @@ class HelpDialog(QDialog, GeometryMixin):
         self.setMinimumSize(800, 600)
         self.setModal(False)
 
+        # Store original tab content for search restoration
+        self._original_content = {}
+        self._tab_browsers = {}
+        self._original_tab_titles = {}  # Store original tab titles
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -60,22 +67,32 @@ class HelpDialog(QDialog, GeometryMixin):
         search_label = QLabel("Search:")
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Type to search help topics...")
-        self.search_box.textChanged.connect(self._on_search)
+        self.search_box.textChanged.connect(self._on_search_changed)
+
+        # Clear button for search box
+        self.clear_button = QToolButton()
+        self.clear_button.setText("✕")
+        self.clear_button.setCursor(Qt.PointingHandCursor)
+        self.clear_button.setStyleSheet("QToolButton { border: none; padding: 0px; }")
+        self.clear_button.setToolTip("Clear search")
+        self.clear_button.clicked.connect(self._clear_search)
+        self.clear_button.hide()  # Initially hidden
 
         search_layout.addWidget(search_label)
         search_layout.addWidget(self.search_box)
+        search_layout.addWidget(self.clear_button)
         layout.addLayout(search_layout)
 
         # Tab widget for categories
         self.tab_widget = QTabWidget()
 
-        # Add tabs with content
-        self.tab_widget.addTab(self._create_getting_started_tab(), "Getting Started")
-        self.tab_widget.addTab(self._create_focus_mode_tab(), "Focus Mode")
-        self.tab_widget.addTab(self._create_task_management_tab(), "Task Management")
-        self.tab_widget.addTab(self._create_priority_system_tab(), "Priority System")
-        self.tab_widget.addTab(self._create_shortcuts_tab(), "Keyboard Shortcuts")
-        self.tab_widget.addTab(self._create_faq_tab(), "FAQ")
+        # Add tabs with content - store content and browsers for search
+        self._add_help_tab("Getting Started", self._get_getting_started_content())
+        self._add_help_tab("Focus Mode", self._get_focus_mode_content())
+        self._add_help_tab("Task Management", self._get_task_management_content())
+        self._add_help_tab("Priority System", self._get_priority_system_content())
+        self._add_help_tab("Keyboard Shortcuts", self._get_shortcuts_content())
+        self._add_help_tab("FAQ", self._get_faq_content())
 
         layout.addWidget(self.tab_widget)
 
@@ -89,9 +106,33 @@ class HelpDialog(QDialog, GeometryMixin):
 
         layout.addLayout(button_layout)
 
-    def _create_getting_started_tab(self) -> QWidget:
-        """Create Getting Started tab."""
-        return self._create_text_tab("""
+    def _add_help_tab(self, tab_name: str, html_content: str):
+        """
+        Add a help tab with searchable content.
+
+        Args:
+            tab_name: Name of the tab
+            html_content: HTML content for the tab
+        """
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        browser = QTextBrowser()
+        browser.setHtml(html_content)
+        browser.setOpenExternalLinks(True)
+
+        layout.addWidget(browser)
+
+        # Store original content, browser reference, and tab title for search
+        self._original_content[tab_name] = html_content
+        self._tab_browsers[tab_name] = browser
+        self._original_tab_titles[tab_name] = tab_name
+
+        self.tab_widget.addTab(widget, tab_name)
+
+    def _get_getting_started_content(self) -> str:
+        """Get Getting Started tab content."""
+        return """
 <h3>Getting Started with OneTaskAtATime</h3>
 
 <h4>Quick Introduction</h4>
@@ -114,11 +155,16 @@ rather than managing endless to-do lists.</p>
 <li>Complete (Ctrl+Shift+C), Defer (Ctrl+D), or take other actions</li>
 <li>The app automatically shows you the next highest-priority task</li>
 </ol>
-        """)
 
-    def _create_focus_mode_tab(self) -> QWidget:
-        """Create Focus Mode tab."""
-        return self._create_text_tab("""
+<h4>Context-Sensitive Help</h4>
+<p>Most dialogs have a <strong>?</strong> button in the title bar.
+Click it, then click any field to see specific help for that element.</p>
+<p>You can also press <strong>Shift+F1</strong> to enter WhatsThis mode.</p>
+        """
+
+    def _get_focus_mode_content(self) -> str:
+        """Get Focus Mode tab content."""
+        return """
 <h3>Focus Mode</h3>
 
 <p>Focus Mode presents <b>ONE task at a time</b> - your highest-priority task.</p>
@@ -146,11 +192,11 @@ For tasks that are no longer relevant.</p>
 <h4>Why Focus Mode?</h4>
 <p>By showing only one task, Focus Mode eliminates decision fatigue and
 helps you make progress on what truly matters.</p>
-        """)
+        """
 
-    def _create_task_management_tab(self) -> QWidget:
-        """Create Task Management tab."""
-        return self._create_text_tab("""
+    def _get_task_management_content(self) -> str:
+        """Get Task Management tab content."""
+        return """
 <h3>Task Management</h3>
 
 <h4>Creating Tasks</h4>
@@ -171,11 +217,11 @@ helps you make progress on what truly matters.</p>
 
 <h4>Task History</h4>
 <p>View complete audit log of all changes to a task with <b>Ctrl+H</b>.</p>
-        """)
+        """
 
-    def _create_priority_system_tab(self) -> QWidget:
-        """Create Priority System tab."""
-        return self._create_text_tab("""
+    def _get_priority_system_content(self) -> str:
+        """Get Priority System tab content."""
+        return """
 <h3>Priority System</h3>
 
 <h4>How Ranking Works</h4>
@@ -200,11 +246,11 @@ helps you make progress on what truly matters.</p>
 <p>When multiple tasks have equal Importance, the app asks you to compare them.
 Your choice updates Elo ratings using a chess-like algorithm. Over time, this
 refines the ranking to match your true preferences.</p>
-        """)
+        """
 
-    def _create_shortcuts_tab(self) -> QWidget:
-        """Create Keyboard Shortcuts tab."""
-        return self._create_text_tab("""
+    def _get_shortcuts_content(self) -> str:
+        """Get Keyboard Shortcuts tab content."""
+        return """
 <h3>Keyboard Shortcuts</h3>
 
 <h4>General</h4>
@@ -247,12 +293,13 @@ refines the ranking to match your true preferences.</p>
 <li><b>Esc:</b> Cancel/Close</li>
 <li><b>Tab:</b> Next Field</li>
 <li><b>Shift+Tab:</b> Previous Field</li>
+<li><b>Shift+F1:</b> WhatsThis Help Mode</li>
 </ul>
-        """)
+        """
 
-    def _create_faq_tab(self) -> QWidget:
-        """Create FAQ tab."""
-        return self._create_text_tab("""
+    def _get_faq_content(self) -> str:
+        """Get FAQ tab content."""
+        return """
 <h3>Frequently Asked Questions</h3>
 
 <h4>Why can't I see all my tasks at once?</h4>
@@ -279,36 +326,130 @@ with File > Import Data.</p>
 <h4>Is my data secure?</h4>
 <p>All data is stored locally on your computer in an SQLite database. Nothing is
 sent to external servers.</p>
-        """)
-
-    def _create_text_tab(self, html_content: str) -> QWidget:
         """
-        Create a tab with HTML text content.
 
-        Args:
-            html_content: HTML content to display
-
-        Returns:
-            QWidget containing the content
-        """
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-
-        browser = QTextBrowser()
-        browser.setHtml(html_content)
-        browser.setOpenExternalLinks(True)
-
-        layout.addWidget(browser)
-
-        return widget
-
-    def _on_search(self, text: str):
+    def _on_search_changed(self, text: str):
         """
         Handle search text changes.
 
         Args:
             text: Search query
         """
-        # TODO: Implement search functionality across all tabs
-        # For now, this is a placeholder
-        pass
+        # Show/hide clear button based on text
+        if text:
+            self.clear_button.show()
+        else:
+            self.clear_button.hide()
+            # Restore original content when search is cleared
+            self._restore_original_content()
+            return
+
+        # Perform search
+        query = text.strip()
+        if not query:
+            self._restore_original_content()
+            return
+
+        # Search across all tabs and highlight matches
+        total_matches = 0
+        first_match_tab = None
+        tab_match_counts = {}
+
+        for tab_name, browser in self._tab_browsers.items():
+            original_html = self._original_content[tab_name]
+            highlighted_html, match_count = self._highlight_search_matches(original_html, query)
+
+            # Update browser content
+            browser.setHtml(highlighted_html)
+
+            # Store match count for this tab
+            tab_match_counts[tab_name] = match_count
+            total_matches += match_count
+            if match_count > 0 and first_match_tab is None:
+                first_match_tab = tab_name
+
+        # Update tab titles with match counts
+        for i in range(self.tab_widget.count()):
+            current_title = self.tab_widget.tabText(i)
+            # Remove any existing count in parentheses
+            base_title = current_title.split(' (')[0]
+
+            if base_title in tab_match_counts:
+                match_count = tab_match_counts[base_title]
+                if match_count > 0:
+                    self.tab_widget.setTabText(i, f"{base_title} ({match_count})")
+                else:
+                    self.tab_widget.setTabText(i, base_title)
+
+        # Update placeholder text with match count
+        if total_matches > 0:
+            self.search_box.setPlaceholderText(f"{total_matches} result{'s' if total_matches != 1 else ''} found")
+            # Switch to first tab with matches
+            if first_match_tab:
+                for i in range(self.tab_widget.count()):
+                    tab_text = self.tab_widget.tabText(i)
+                    base_title = tab_text.split(' (')[0]
+                    if base_title == first_match_tab:
+                        self.tab_widget.setCurrentIndex(i)
+                        break
+        else:
+            self.search_box.setPlaceholderText("No results found")
+
+    def _highlight_search_matches(self, html_content: str, query: str) -> tuple:
+        """
+        Highlight search matches in HTML content.
+
+        Args:
+            html_content: Original HTML content
+            query: Search query (case-insensitive)
+
+        Returns:
+            Tuple of (highlighted_html, match_count)
+        """
+        # Escape special regex characters in query
+        escaped_query = re.escape(query)
+
+        # Pattern to match the query outside of HTML tags
+        # This prevents matching inside tag names or attributes
+        pattern = re.compile(f'({escaped_query})', re.IGNORECASE)
+
+        match_count = 0
+
+        def replace_match(match):
+            nonlocal match_count
+            match_count += 1
+            return f'<mark style="background-color: #FFEB3B; color: #000000; padding: 2px 0px;">{match.group(1)}</mark>'
+
+        # Simple approach: split on tags and only highlight text between tags
+        # This avoids highlighting inside HTML tags
+        parts = re.split(r'(<[^>]+>)', html_content)
+        highlighted_parts = []
+
+        for part in parts:
+            if part.startswith('<') and part.endswith('>'):
+                # This is an HTML tag, don't highlight
+                highlighted_parts.append(part)
+            else:
+                # This is text content, highlight matches
+                highlighted_parts.append(pattern.sub(replace_match, part))
+
+        highlighted_html = ''.join(highlighted_parts)
+        return highlighted_html, match_count
+
+    def _clear_search(self):
+        """Clear the search box."""
+        self.search_box.clear()
+
+    def _restore_original_content(self):
+        """Restore original content and tab titles."""
+        for tab_name, browser in self._tab_browsers.items():
+            original_html = self._original_content[tab_name]
+            browser.setHtml(original_html)
+
+        # Restore original tab titles (remove match counts)
+        for i in range(self.tab_widget.count()):
+            current_title = self.tab_widget.tabText(i)
+            base_title = current_title.split(' (')[0]
+            self.tab_widget.setTabText(i, base_title)
+
+        self.search_box.setPlaceholderText("Type to search help topics...")

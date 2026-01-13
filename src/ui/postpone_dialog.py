@@ -133,6 +133,21 @@ class PostponeDialog(QDialog, GeometryMixin):
 
         self.setMinimumWidth(500)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        if self.action_type == "defer":
+            self.setWhatsThis(
+                "This dialog captures the reason for deferring a task. Understanding why tasks are postponed "
+                "helps identify blockers and dependencies. Click the ? button for help on specific options."
+            )
+        else:
+            self.setWhatsThis(
+                "This dialog helps you delegate a task to someone else with a follow-up reminder. "
+                "Click the ? button for help on specific fields."
+            )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         self.setLayout(layout)
@@ -156,6 +171,10 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.notes_edit = QTextEdit()
         self.notes_edit.setMaximumHeight(80)
         self.notes_edit.setPlaceholderText("Add any additional context...")
+        self.notes_edit.setWhatsThis(
+            "Provide additional context about why you're postponing this task. This helps identify "
+            "patterns and blockers over time."
+        )
         layout.addWidget(self.notes_edit)
 
         # Buttons
@@ -197,9 +216,24 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.reason_group = QButtonGroup(self)
 
         self.reason_not_ready = QRadioButton("Not ready to work on it yet")
+        self.reason_not_ready.setWhatsThis(
+            "Select this if you're not ready to work on the task yet but plan to return to it later."
+        )
+
         self.reason_blocker = QRadioButton("Has blocking tasks / dependencies")
+        self.reason_blocker.setWhatsThis(
+            "Select this if another task, person, or resource is blocking progress on this task."
+        )
+
         self.reason_subtasks = QRadioButton("Needs to be broken into smaller tasks")
+        self.reason_subtasks.setWhatsThis(
+            "Select this if the task needs to be broken down into smaller, more manageable subtasks."
+        )
+
         self.reason_other = QRadioButton("Other reason")
+        self.reason_other.setWhatsThis(
+            "Select this for any other reason not covered by the above options."
+        )
 
         # Use integer IDs for button group
         self.reason_group.addButton(self.reason_not_ready, 0)
@@ -222,6 +256,10 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.start_date_edit.setCalendarPopup(True)
         self.start_date_edit.setDate(QDate.currentDate().addDays(1))
         self.start_date_edit.setMinimumDate(QDate.currentDate())
+        self.start_date_edit.setWhatsThis(
+            "Select the date when this task should become active again. The task will automatically "
+            "resurface on this date."
+        )
 
         date_layout.addRow("Start date:", self.start_date_edit)
         layout.addLayout(date_layout)
@@ -288,6 +326,9 @@ class PostponeDialog(QDialog, GeometryMixin):
         # Person to delegate to
         self.delegated_to_edit = QLineEdit()
         self.delegated_to_edit.setPlaceholderText("Enter name or email...")
+        self.delegated_to_edit.setWhatsThis(
+            "Enter the name or identifier of the person you're delegating this task to."
+        )
         form_layout.addRow("Delegate to:", self.delegated_to_edit)
 
         # Follow-up date
@@ -295,6 +336,10 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.follow_up_date_edit.setCalendarPopup(True)
         self.follow_up_date_edit.setDate(QDate.currentDate().addDays(7))
         self.follow_up_date_edit.setMinimumDate(QDate.currentDate())
+        self.follow_up_date_edit.setWhatsThis(
+            "Set when you'll follow up to check progress on this delegated task. You'll receive "
+            "a reminder on this date."
+        )
         form_layout.addRow("Follow-up date:", self.follow_up_date_edit)
 
         layout.addLayout(form_layout)

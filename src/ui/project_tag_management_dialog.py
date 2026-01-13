@@ -59,6 +59,16 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         self.setMinimumWidth(650)
         self.setMinimumHeight(500)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog allows you to manage project tags for organizing tasks. "
+            "Tags provide flat organization without nested hierarchies. Tasks can have multiple tags. "
+            "Create, edit, or delete tags, and assign colors for visual organization. Click the ? button for help."
+        )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         self.setLayout(layout)
@@ -88,6 +98,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
 
         self.tag_list = QListWidget()
         self.tag_list.currentItemChanged.connect(self._on_tag_selected)
+        self.tag_list.setWhatsThis(
+            "List of all project tags in the system. Select a tag to edit its details, or use the New button to create a new tag."
+        )
         list_layout.addWidget(self.tag_list)
 
         # List action buttons
@@ -107,6 +120,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
             }
         """)
         new_btn.clicked.connect(self._on_new_tag)
+        new_btn.setWhatsThis(
+            "Create a new project tag. This clears the form so you can enter details for a new tag."
+        )
         list_button_layout.addWidget(new_btn)
 
         delete_btn = QPushButton("Delete")
@@ -123,6 +139,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
             }
         """)
         delete_btn.clicked.connect(self._on_delete_tag)
+        delete_btn.setWhatsThis(
+            "Delete the selected project tag. This will remove the tag from all tasks that use it. You'll be asked to confirm before deletion."
+        )
         list_button_layout.addWidget(delete_btn)
 
         list_button_layout.addStretch()
@@ -142,11 +161,17 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("e.g., Website Redesign, Personal Development")
+        self.name_edit.setWhatsThis(
+            "Enter a unique name for this project tag. Tags help organize tasks by project or area of focus."
+        )
         form_fields.addRow("Name*:", self.name_edit)
 
         self.description_edit = QTextEdit()
         self.description_edit.setPlaceholderText("Optional description...")
         self.description_edit.setMaximumHeight(100)
+        self.description_edit.setWhatsThis(
+            "Optional description to provide additional context about this project tag. For example, you might describe the project scope or goals."
+        )
         form_fields.addRow("Description:", self.description_edit)
 
         # Color picker
@@ -159,6 +184,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
 
         color_btn = QPushButton("Choose Color...")
         color_btn.clicked.connect(self._on_choose_color)
+        color_btn.setWhatsThis(
+            "Select a color for this project tag. Colors provide visual organization when viewing tasks with multiple tags."
+        )
         color_layout.addWidget(color_btn)
 
         color_layout.addStretch()
@@ -190,6 +218,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
             }
         """)
         self.save_btn.clicked.connect(self._on_save_tag)
+        self.save_btn.setWhatsThis(
+            "Save the current project tag. If editing an existing tag, this updates it. If creating a new tag, this adds it to the system."
+        )
         form_button_layout.addWidget(self.save_btn)
 
         form_layout.addLayout(form_button_layout)

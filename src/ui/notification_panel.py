@@ -37,35 +37,11 @@ class NotificationItem(QFrame):
         self.setFrameShape(QFrame.StyledPanel)
         self.setFrameShadow(QFrame.Raised)
 
-        # Different styling for read vs unread notifications
+        # Use object names to let theme handle styling
         if self.notification.is_read:
-            # Read notification - lighter background
-            self.setStyleSheet("""
-                NotificationItem {
-                    background-color: #f8f9fa;
-                    border: 1px solid #dee2e6;
-                    border-radius: 4px;
-                    padding: 8px;
-                    margin: 4px;
-                }
-                NotificationItem:hover {
-                    background-color: #e9ecef;
-                }
-            """)
+            self.setObjectName("readNotificationItem")
         else:
-            # Unread notification - highlighted background
-            self.setStyleSheet("""
-                NotificationItem {
-                    background-color: #e7f3ff;
-                    border: 2px solid #0066cc;
-                    border-radius: 4px;
-                    padding: 8px;
-                    margin: 4px;
-                }
-                NotificationItem:hover {
-                    background-color: #d0e8ff;
-                }
-            """)
+            self.setObjectName("unreadNotificationItem")
 
         layout = QVBoxLayout()
         layout.setSpacing(6)
@@ -101,26 +77,14 @@ class NotificationItem(QFrame):
 
         # Time ago
         time_label = QLabel(self.notification.get_time_ago())
-        time_label.setStyleSheet("color: #6c757d; font-size: 11px;")
+        time_label.setStyleSheet("font-size: 11px;")
+        time_label.setObjectName("notificationTime")
         header_layout.addWidget(time_label)
 
         # Dismiss button
         dismiss_btn = QPushButton("×")
         dismiss_btn.setFixedSize(32, 32)  # Increased from 20x20 to 32x32 for better clickability
-        dismiss_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                font-size: 24px;
-                font-weight: bold;
-                color: #6c757d;
-            }
-            QPushButton:hover {
-                color: #dc3545;
-                background-color: #f8d7da;
-                border-radius: 16px;
-            }
-        """)
+        dismiss_btn.setObjectName("dismissButton")
         dismiss_btn.setCursor(QCursor(Qt.PointingHandCursor))
         dismiss_btn.clicked.connect(lambda: self.dismiss_clicked.emit(self.notification.id))
         header_layout.addWidget(dismiss_btn)
@@ -130,7 +94,8 @@ class NotificationItem(QFrame):
         # Message
         message_label = QLabel(self.notification.message)
         message_label.setWordWrap(True)
-        message_label.setStyleSheet("color: #495057; font-size: 12px;")
+        message_label.setStyleSheet("font-size: 12px;")
+        message_label.setObjectName("notificationMessage")
         layout.addWidget(message_label)
 
         # Action buttons row (always show)
@@ -140,17 +105,11 @@ class NotificationItem(QFrame):
         # Action button (if available)
         if self.notification.action_type:
             action_btn = QPushButton(self._get_action_label())
+            action_btn.setObjectName("primaryButton")
             action_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #007bff;
-                    color: white;
-                    border: none;
                     padding: 4px 12px;
-                    border-radius: 3px;
                     font-size: 11px;
-                }
-                QPushButton:hover {
-                    background-color: #0056b3;
                 }
             """)
             action_btn.setCursor(QCursor(Qt.PointingHandCursor))
@@ -158,43 +117,20 @@ class NotificationItem(QFrame):
             action_layout.addWidget(action_btn)
 
         # Mark as read/unread toggle button
+        mark_btn = QPushButton("Mark as Read" if not self.notification.is_read else "Mark as Unread")
+        mark_btn.setStyleSheet("""
+            QPushButton {
+                padding: 4px 12px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+        """)
+        mark_btn.setCursor(QCursor(Qt.PointingHandCursor))
         if not self.notification.is_read:
-            mark_btn = QPushButton("Mark as Read")
-            mark_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: transparent;
-                    color: #0066cc;
-                    border: 1px solid #0066cc;
-                    padding: 4px 12px;
-                    border-radius: 3px;
-                    font-size: 11px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #e7f3ff;
-                }
-            """)
-            mark_btn.setCursor(QCursor(Qt.PointingHandCursor))
             mark_btn.clicked.connect(lambda: self.mark_read_clicked.emit(self.notification.id))
-            action_layout.addWidget(mark_btn)
         else:
-            mark_btn = QPushButton("Mark as Unread")
-            mark_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: transparent;
-                    color: #6c757d;
-                    border: 1px solid #6c757d;
-                    padding: 4px 12px;
-                    border-radius: 3px;
-                    font-size: 11px;
-                }
-                QPushButton:hover {
-                    background-color: #e9ecef;
-                }
-            """)
-            mark_btn.setCursor(QCursor(Qt.PointingHandCursor))
             mark_btn.clicked.connect(lambda: self.mark_unread_clicked.emit(self.notification.id))
-            action_layout.addWidget(mark_btn)
+        action_layout.addWidget(mark_btn)
 
         layout.addLayout(action_layout)
 
@@ -378,16 +314,11 @@ class NotificationPanel(QWidget):
 
         # Notification button
         self.notification_btn = QPushButton("🔔 Notifications")
+        # Remove hardcoded styling - let theme handle it
         self.notification_btn.setStyleSheet("""
             QPushButton {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
                 padding: 8px 16px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #e9ecef;
             }
         """)
         self.notification_btn.setCursor(QCursor(Qt.PointingHandCursor))

@@ -56,6 +56,16 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         self.setMinimumWidth(600)
         self.setMinimumHeight(500)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog allows you to manage contexts - work environments or tools like @computer, @phone, @home. "
+            "Create, edit, or delete contexts to filter tasks by what you can do in your current situation. "
+            "Click the ? button for help."
+        )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         self.setLayout(layout)
@@ -85,6 +95,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
 
         self.context_list = QListWidget()
         self.context_list.currentItemChanged.connect(self._on_context_selected)
+        self.context_list.setWhatsThis(
+            "List of all contexts in the system. Select a context to edit its details, or use the New button to create a new context."
+        )
         list_layout.addWidget(self.context_list)
 
         # List action buttons
@@ -104,6 +117,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
             }
         """)
         new_btn.clicked.connect(self._on_new_context)
+        new_btn.setWhatsThis(
+            "Create a new context. This clears the form so you can enter details for a new work environment or tool."
+        )
         list_button_layout.addWidget(new_btn)
 
         delete_btn = QPushButton("Delete")
@@ -120,6 +136,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
             }
         """)
         delete_btn.clicked.connect(self._on_delete_context)
+        delete_btn.setWhatsThis(
+            "Delete the selected context. Tasks using this context will have their context removed. You'll be asked to confirm before deletion."
+        )
         list_button_layout.addWidget(delete_btn)
 
         list_button_layout.addStretch()
@@ -139,11 +158,17 @@ class ContextManagementDialog(QDialog, GeometryMixin):
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("e.g., @computer, @phone, @errands")
+        self.name_edit.setWhatsThis(
+            "Enter a unique name for this context. Use @ prefix by convention (e.g., @computer, @phone). Contexts help filter tasks by what you can do in your current situation."
+        )
         form_fields.addRow("Name*:", self.name_edit)
 
         self.description_edit = QTextEdit()
         self.description_edit.setPlaceholderText("Optional description...")
         self.description_edit.setMaximumHeight(100)
+        self.description_edit.setWhatsThis(
+            "Optional description to provide additional context about when or how to use this context. For example, you might specify which tools or locations are available."
+        )
         form_fields.addRow("Description:", self.description_edit)
 
         form_layout.addLayout(form_fields)
@@ -171,6 +196,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
             }
         """)
         self.save_btn.clicked.connect(self._on_save_context)
+        self.save_btn.setWhatsThis(
+            "Save the current context. If editing an existing context, this updates it. If creating a new context, this adds it to the system."
+        )
         form_button_layout.addWidget(self.save_btn)
 
         form_layout.addLayout(form_button_layout)

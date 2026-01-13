@@ -60,34 +60,20 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.setWindowTitle("Application Settings")
         self.setMinimumSize(600, 500)
 
-        # Apply stylesheet for QComboBox to show clear dropdown arrows
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog allows you to configure application settings across multiple categories. "
+            "Click the ? button and then any field for specific help about that setting."
+        )
+
+        # Remove hardcoded inline styles - let theme handle it
+        # Just ensure padding-right for dropdown arrow
         self.setStyleSheet("""
             QComboBox {
-                padding: 5px;
                 padding-right: 25px;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                background-color: white;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 20px;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 6px solid #495057;
-                width: 0;
-                height: 0;
-                margin-right: 5px;
-            }
-            QComboBox:hover {
-                border-color: #80bdff;
-            }
-            QComboBox:disabled {
-                background-color: #e9ecef;
-                color: #6c757d;
             }
         """)
 
@@ -129,10 +115,16 @@ class SettingsDialog(QDialog, GeometryMixin):
 
         save_btn = QPushButton("Save")
         save_btn.clicked.connect(self._save_settings)
+        save_btn.setWhatsThis(
+            "Save all settings changes and apply them immediately. Theme changes will take effect right away."
+        )
         button_layout.addWidget(save_btn)
 
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setWhatsThis(
+            "Discard all changes and close the settings dialog without saving."
+        )
         button_layout.addWidget(cancel_btn)
 
         layout.addLayout(button_layout)
@@ -152,6 +144,10 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.deferred_check_hours_spin.setRange(1, 24)
         self.deferred_check_hours_spin.setSuffix(" hours")
         self.deferred_check_hours_spin.setToolTip("How often to check for deferred tasks becoming active")
+        self.deferred_check_hours_spin.setWhatsThis(
+            "How often to check for deferred tasks becoming active. The system checks at this interval "
+            "to see if any deferred tasks have reached their start date and should be resurfaced."
+        )
         deferred_form.addRow("Check Interval:", self.deferred_check_hours_spin)
 
         deferred_group.setLayout(deferred_form)
@@ -164,6 +160,10 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.delegated_check_time_edit = QTimeEdit()
         self.delegated_check_time_edit.setDisplayFormat("HH:mm")
         self.delegated_check_time_edit.setToolTip("Time of day to check for delegated tasks needing follow-up")
+        self.delegated_check_time_edit.setWhatsThis(
+            "Time of day to check for delegated tasks that need follow-up. The system will check daily "
+            "at this time to see if any delegated tasks have reached their follow-up date."
+        )
         delegated_form.addRow("Check Time:", self.delegated_check_time_edit)
 
         delegated_group.setLayout(delegated_form)
@@ -177,11 +177,19 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.someday_review_days_spin.setRange(1, 90)
         self.someday_review_days_spin.setSuffix(" days")
         self.someday_review_days_spin.setToolTip("How often to prompt for Someday/Maybe review")
+        self.someday_review_days_spin.setWhatsThis(
+            "How often to prompt you to review Someday/Maybe tasks. These tasks are not currently actionable "
+            "but should be reviewed periodically to see if they've become relevant."
+        )
         someday_form.addRow("Review Interval:", self.someday_review_days_spin)
 
         self.someday_review_time_edit = QTimeEdit()
         self.someday_review_time_edit.setDisplayFormat("HH:mm")
         self.someday_review_time_edit.setToolTip("Preferred time for someday review trigger")
+        self.someday_review_time_edit.setWhatsThis(
+            "Preferred time of day for someday task review reminders. The system will notify you "
+            "at this time when it's time to review your Someday/Maybe list."
+        )
         someday_form.addRow("Review Time:", self.someday_review_time_edit)
 
         someday_group.setLayout(someday_form)
@@ -194,6 +202,10 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.postpone_analysis_time_edit = QTimeEdit()
         self.postpone_analysis_time_edit.setDisplayFormat("HH:mm")
         self.postpone_analysis_time_edit.setToolTip("Time of day to analyze postponement patterns")
+        self.postpone_analysis_time_edit.setWhatsThis(
+            "Time of day when the system analyzes postponement patterns to detect tasks you're repeatedly delaying. "
+            "This helps identify blockers and tasks that might need to be broken down."
+        )
         postpone_form.addRow("Analysis Time:", self.postpone_analysis_time_edit)
 
         postpone_group.setLayout(postpone_form)
@@ -215,10 +227,18 @@ class SettingsDialog(QDialog, GeometryMixin):
 
         self.enable_toast_check = QCheckBox("Enable Windows Toast Notifications")
         self.enable_toast_check.setToolTip("Show popup toast notifications (Windows only)")
+        self.enable_toast_check.setWhatsThis(
+            "Enable Windows toast notifications (popup notifications that appear in the system tray area). "
+            "These provide immediate visibility when tasks need attention, even when the app is minimized."
+        )
         channels_layout.addWidget(self.enable_toast_check)
 
         self.enable_inapp_check = QCheckBox("Enable In-App Notification Panel")
         self.enable_inapp_check.setToolTip("Show notifications in the in-app notification panel")
+        self.enable_inapp_check.setWhatsThis(
+            "Enable the in-app notification panel. This provides a persistent list of notifications "
+            "within the application that you can review at any time."
+        )
         channels_layout.addWidget(self.enable_inapp_check)
 
         channels_group.setLayout(channels_layout)
@@ -232,6 +252,10 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.notification_retention_spin.setRange(7, 365)
         self.notification_retention_spin.setSuffix(" days")
         self.notification_retention_spin.setToolTip("How long to keep old notifications before deletion")
+        self.notification_retention_spin.setWhatsThis(
+            "How long to keep old notifications before automatic deletion. Notifications older than "
+            "this period will be permanently removed. Range: 7-365 days."
+        )
         retention_form.addRow("Retention Period:", self.notification_retention_spin)
 
         retention_group.setLayout(retention_form)
@@ -259,18 +283,34 @@ class SettingsDialog(QDialog, GeometryMixin):
 
         self.notify_deferred_check = QCheckBox("Deferred tasks activated")
         self.notify_deferred_check.setToolTip("Notify when deferred tasks become active")
+        self.notify_deferred_check.setWhatsThis(
+            "When enabled, you'll receive a notification when a deferred task reaches its start date "
+            "and becomes active again. This helps ensure you don't forget about postponed tasks."
+        )
         triggers_layout.addWidget(self.notify_deferred_check)
 
         self.notify_delegated_check = QCheckBox("Delegated tasks need follow-up")
         self.notify_delegated_check.setToolTip("Notify for delegated tasks reaching follow-up date")
+        self.notify_delegated_check.setWhatsThis(
+            "When enabled, you'll be notified when delegated tasks reach their follow-up date, "
+            "reminding you to check on progress with the person you delegated to."
+        )
         triggers_layout.addWidget(self.notify_delegated_check)
 
         self.notify_someday_check = QCheckBox("Someday/Maybe review time")
         self.notify_someday_check.setToolTip("Notify when it's time to review Someday tasks")
+        self.notify_someday_check.setWhatsThis(
+            "When enabled, you'll receive periodic reminders to review your Someday/Maybe tasks "
+            "to see if any have become actionable or should be promoted to active tasks."
+        )
         triggers_layout.addWidget(self.notify_someday_check)
 
         self.notify_postpone_check = QCheckBox("Postponement patterns detected")
         self.notify_postpone_check.setToolTip("Notify when postponement patterns are detected")
+        self.notify_postpone_check.setWhatsThis(
+            "When enabled, you'll be notified if the system detects you're repeatedly postponing "
+            "the same task. This helps identify blockers or tasks that should be broken down."
+        )
         triggers_layout.addWidget(self.notify_postpone_check)
 
         triggers_group.setLayout(triggers_layout)
@@ -300,12 +340,21 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.postpone_threshold_spin.setRange(2, 10)
         self.postpone_threshold_spin.setSuffix(" postponements")
         self.postpone_threshold_spin.setToolTip("Number of postponements before intervention is triggered")
+        self.postpone_threshold_spin.setWhatsThis(
+            "How many times you can postpone the same task before the system suggests an intervention. "
+            "When this threshold is reached, you'll be prompted to identify blockers or break down the task. "
+            "Range: 2-10 postponements."
+        )
         intervention_form.addRow("Intervention Threshold:", self.postpone_threshold_spin)
 
         self.postpone_pattern_days_spin = QSpinBox()
         self.postpone_pattern_days_spin.setRange(3, 14)
         self.postpone_pattern_days_spin.setSuffix(" days")
         self.postpone_pattern_days_spin.setToolTip("Time window for detecting postponement patterns")
+        self.postpone_pattern_days_spin.setWhatsThis(
+            "The time window for detecting postponement patterns. Postponements within this many days "
+            "are counted together. Shorter windows detect patterns faster. Range: 3-14 days."
+        )
         intervention_form.addRow("Pattern Detection Window:", self.postpone_pattern_days_spin)
 
         intervention_group.setLayout(intervention_form)
@@ -328,12 +377,20 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Light", "Dark", "System Default"])
         self.theme_combo.setToolTip("Select application theme")
+        self.theme_combo.setWhatsThis(
+            "Select the visual theme for the application. Choose Light, Dark, or System Default "
+            "(which follows your operating system theme setting)."
+        )
         theme_form.addRow("Theme:", self.theme_combo)
 
         self.font_size_spin = QSpinBox()
         self.font_size_spin.setRange(8, 16)
         self.font_size_spin.setSuffix(" pt")
         self.font_size_spin.setToolTip("Base font size for the application")
+        self.font_size_spin.setWhatsThis(
+            "Set the base font size for the application interface. This affects the readability "
+            "of all text in the application. Range: 8-16 points."
+        )
         theme_form.addRow("Font Size:", self.font_size_spin)
 
         theme_group.setLayout(theme_form)
@@ -374,6 +431,11 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.k_factor_new_spin.setToolTip(
             "Sensitivity for first 10 comparisons (higher = larger rating changes)"
         )
+        self.k_factor_new_spin.setWhatsThis(
+            "The K-factor controls how much a task's Elo rating changes after each comparison. "
+            "For new tasks (fewer than 10 comparisons), a higher K-factor means faster learning "
+            "of the task's true priority. Default: 32. Range: 16-64."
+        )
         elo_form.addRow("K-factor (new tasks):", self.k_factor_new_spin)
 
         self.k_factor_spin = QSpinBox()
@@ -381,12 +443,21 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.k_factor_spin.setToolTip(
             "Sensitivity after 10 comparisons (lower = more stable ratings)"
         )
+        self.k_factor_spin.setWhatsThis(
+            "The K-factor for established tasks (10+ comparisons). A lower value makes ratings "
+            "more stable and less affected by individual comparisons. Default: 16. Range: 8-32."
+        )
         elo_form.addRow("K-factor (established):", self.k_factor_spin)
 
         self.new_task_threshold_spin = QSpinBox()
         self.new_task_threshold_spin.setRange(5, 20)
         self.new_task_threshold_spin.setToolTip(
             "Number of comparisons before switching to base K-factor"
+        )
+        self.new_task_threshold_spin.setWhatsThis(
+            "How many comparisons a task needs before it's considered 'established' and uses "
+            "the lower K-factor. More comparisons mean more data before stabilizing. "
+            "Default: 10. Range: 5-20."
         )
         elo_form.addRow("New task threshold:", self.new_task_threshold_spin)
 
@@ -396,6 +467,11 @@ class SettingsDialog(QDialog, GeometryMixin):
         self.score_epsilon_spin.setSingleStep(0.001)
         self.score_epsilon_spin.setToolTip(
             "Threshold for tie detection (smaller = stricter equality)"
+        )
+        self.score_epsilon_spin.setWhatsThis(
+            "The threshold for detecting tied importance scores. Tasks within this difference "
+            "are considered tied and require comparison. Smaller values mean stricter equality. "
+            "Default: 0.01. Range: 0.001-0.1."
         )
         elo_form.addRow("Score epsilon:", self.score_epsilon_spin)
 

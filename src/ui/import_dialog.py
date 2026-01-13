@@ -78,6 +78,16 @@ class ImportDialog(QDialog, GeometryMixin):
         self.setWindowTitle("Import Data")
         self.setMinimumSize(550, 550)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog allows you to import data from a JSON backup file. "
+            "Choose to merge with existing data or replace all data. Review the import preview before proceeding. "
+            "Click the ? button for help."
+        )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -111,6 +121,9 @@ class ImportDialog(QDialog, GeometryMixin):
 
         browse_btn = QPushButton("Browse...")
         browse_btn.clicked.connect(self._browse_file)
+        browse_btn.setWhatsThis(
+            "Select a JSON backup file to import. The file summary will show what data will be imported."
+        )
         path_layout.addWidget(browse_btn)
 
         file_layout.addLayout(path_layout)
@@ -137,6 +150,9 @@ class ImportDialog(QDialog, GeometryMixin):
         self.replace_radio = QRadioButton("Replace All Data")
         self.replace_radio.setChecked(True)
         self.replace_radio.toggled.connect(self._on_mode_changed)
+        self.replace_radio.setWhatsThis(
+            "WARNING: Delete all existing data and replace it with the imported data. This action cannot be undone. Use only when restoring from a complete backup."
+        )
         mode_layout.addWidget(self.replace_radio)
 
         replace_desc = QLabel(
@@ -149,6 +165,9 @@ class ImportDialog(QDialog, GeometryMixin):
         mode_layout.addSpacing(10)
 
         self.merge_radio = QRadioButton("Merge with Existing Data")
+        self.merge_radio.setWhatsThis(
+            "Add imported data to your existing data. ID conflicts will be resolved automatically. Use this to combine data from multiple sources."
+        )
         mode_layout.addWidget(self.merge_radio)
 
         merge_desc = QLabel(
@@ -193,6 +212,9 @@ class ImportDialog(QDialog, GeometryMixin):
         self.import_btn.setObjectName("primaryButton")
         self.import_btn.clicked.connect(self._start_import)
         self.import_btn.setEnabled(False)
+        self.import_btn.setWhatsThis(
+            "Start the import operation. Data will be imported according to the selected mode (replace or merge)."
+        )
         button_layout.addWidget(self.import_btn)
 
         self.cancel_btn = QPushButton("Cancel")

@@ -61,6 +61,16 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
         self.setWindowTitle("Review Delegated Tasks")
         self.setMinimumSize(1000, 600)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog displays delegated tasks that have reached their follow-up date. "
+            "Review the tasks and choose actions: Activate (bring back to your list), Complete, "
+            "Extend follow-up, or Re-delegate. Click the ? button for help."
+        )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -95,6 +105,9 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
         self.task_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.task_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.task_table.setAlternatingRowColors(True)
+        self.task_table.setWhatsThis(
+            "List of delegated tasks that have reached their follow-up date. Select tasks using the checkboxes, then choose an action below. Tasks are sorted by how overdue they are."
+        )
 
         # Configure column widths
         header = self.task_table.horizontalHeader()
@@ -122,16 +135,25 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
         self.activate_btn = QPushButton("Activate Selected")
         self.activate_btn.setToolTip("Move selected tasks back to Active state")
         self.activate_btn.clicked.connect(self._activate_selected)
+        self.activate_btn.setWhatsThis(
+            "Move selected delegated tasks back to Active state. Use this when you need to work on the task yourself or follow up directly."
+        )
         button_layout.addWidget(self.activate_btn)
 
         self.complete_btn = QPushButton("Mark Complete")
         self.complete_btn.setToolTip("Mark selected tasks as completed")
         self.complete_btn.clicked.connect(self._complete_selected)
+        self.complete_btn.setWhatsThis(
+            "Mark selected delegated tasks as completed. Use this when the delegated task has been finished successfully."
+        )
         button_layout.addWidget(self.complete_btn)
 
         self.extend_btn = QPushButton("Extend Follow-up")
         self.extend_btn.setToolTip("Reschedule follow-up date for selected tasks")
         self.extend_btn.clicked.connect(self._extend_followup)
+        self.extend_btn.setWhatsThis(
+            "Reschedule the follow-up date for selected tasks. Use this when more time is needed before checking on the delegated work."
+        )
         button_layout.addWidget(self.extend_btn)
 
         button_layout.addStretch()

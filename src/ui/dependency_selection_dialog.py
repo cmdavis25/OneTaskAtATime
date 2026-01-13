@@ -38,7 +38,7 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
 
     dependencies_changed = pyqtSignal()
 
-    def __init__(self, task: Task, db_connection: DatabaseConnection, parent=None):
+    def __init__(self, task: Task, db_connection: DatabaseConnection, parent=None, initial_dependencies: Optional[List[int]] = None):
         """
         Initialize the dependency selection dialog.
 
@@ -46,6 +46,7 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
             task: Task to manage dependencies for
             db_connection: Database connection
             parent: Parent widget
+            initial_dependencies: Optional list of task IDs to pre-populate as dependencies (for new tasks)
         """
         super().__init__(parent)
         self.task = task
@@ -56,6 +57,7 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
         self.all_tasks: List[Task] = []
         self.current_dependencies: Set[int] = set()  # Set of blocking task IDs
         self.created_blocking_task_ids: List[int] = []  # Track tasks created during this session
+        self.initial_dependencies = initial_dependencies or []  # For unsaved tasks
 
         # Initialize geometry persistence
         self._init_geometry_persistence(db_connection, default_width=600, default_height=400)
@@ -68,6 +70,16 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
         self.setWindowTitle(f"Manage Dependencies - {self.task.title}")
         self.setMinimumWidth(700)
         self.setMinimumHeight(600)
+
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog allows you to manage task dependencies - tasks that must be completed before this one. "
+            "Add or remove blocking tasks, with automatic circular dependency detection. "
+            "Click the ? button for help."
+        )
 
         layout = QVBoxLayout()
         layout.setSpacing(15)
@@ -100,10 +112,16 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Search tasks...")
         self.search_box.textChanged.connect(self._filter_available_tasks)
+        self.search_box.setWhatsThis(
+            "Type to filter available tasks by title. Helps quickly find tasks to add as dependencies."
+        )
         available_layout.addWidget(self.search_box)
 
         self.available_list = QListWidget()
         self.available_list.setSelectionMode(QListWidget.SingleSelection)
+        self.available_list.setWhatsThis(
+            "Tasks available to add as dependencies. Select tasks that must be completed before this one."
+        )
         available_layout.addWidget(self.available_list)
 
         # Button layout for Add and New Task
@@ -123,6 +141,9 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
             }
         """)
         new_task_btn.clicked.connect(self._on_new_task)
+        new_task_btn.setWhatsThis(
+            "Create a new task that will automatically be added as a dependency to this task."
+        )
         button_layout.addWidget(new_task_btn)
 
         add_btn = QPushButton("Add Dependency →")
@@ -139,6 +160,9 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
             }
         """)
         add_btn.clicked.connect(self._on_add_dependency)
+        add_btn.setWhatsThis(
+            "Add the selected task from the available list as a dependency."
+        )
         button_layout.addWidget(add_btn)
 
         available_layout.addLayout(button_layout)
@@ -154,6 +178,9 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
 
         self.dependencies_list = QListWidget()
         self.dependencies_list.setSelectionMode(QListWidget.SingleSelection)
+        self.dependencies_list.setWhatsThis(
+            "Current dependencies for this task. These tasks must be completed before this task can be worked on."
+        )
         dependencies_layout.addWidget(self.dependencies_list)
 
         remove_btn = QPushButton("← Remove Dependency")
@@ -170,6 +197,9 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
             }
         """)
         remove_btn.clicked.connect(self._on_remove_dependency)
+        remove_btn.setWhatsThis(
+            "Remove the selected dependency from this task."
+        )
         dependencies_layout.addWidget(remove_btn)
 
         content_layout.addLayout(dependencies_layout, 1)
@@ -220,6 +250,9 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
         if self.task.id:
             dependencies = self.dependency_dao.get_dependencies_for_task(self.task.id)
             self.current_dependencies = {dep.blocking_task_id for dep in dependencies}
+        else:
+            # For new tasks, use initial dependencies provided
+            self.current_dependencies = set(self.initial_dependencies)
 
         self._refresh_lists()
 
@@ -352,6 +385,13 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
 
         blocking_task_id = current_item.data(Qt.UserRole)
 
+        # For new (unsaved) tasks, just add to the in-memory set
+        if not self.task.id:
+            self.current_dependencies.add(blocking_task_id)
+            self._refresh_lists()
+            return
+
+        # For existing tasks, save to database
         # Create dependency object
         dependency = Dependency(
             blocked_task_id=self.task.id,
@@ -412,6 +452,13 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
 
         blocking_task_id = current_item.data(Qt.UserRole)
 
+        # For new (unsaved) tasks, just remove from the in-memory set
+        if not self.task.id:
+            self.current_dependencies.discard(blocking_task_id)
+            self._refresh_lists()
+            return
+
+        # For existing tasks, confirm and delete from database
         reply = MessageBox.question(
             self,
             self.db_connection.get_connection(),
@@ -458,3 +505,12 @@ class DependencySelectionDialog(QDialog, GeometryMixin):
             List of task IDs created as blocking tasks
         """
         return self.created_blocking_task_ids
+
+    def get_selected_dependencies(self) -> List[int]:
+        """
+        Get the list of currently selected dependency task IDs.
+
+        Returns:
+            List of blocking task IDs that are dependencies for this task
+        """
+        return list(self.current_dependencies)

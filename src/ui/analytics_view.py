@@ -79,8 +79,11 @@ class AnalyticsView(QDialog, GeometryMixin):
         # Scroll area for panels
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.NoFrame)  # Remove default frame
 
         scroll_widget = QWidget()
+        # Ensure scroll widget background matches theme
+        scroll_widget.setAutoFillBackground(True)
         scroll_layout = QVBoxLayout()
 
         # Panel 1: Postpone Reason Breakdown
@@ -118,6 +121,18 @@ class AnalyticsView(QDialog, GeometryMixin):
 
         layout.addLayout(button_layout)
 
+    def _configure_table_styling(self, table: QTableWidget):
+        """Configure table styling to match theme (transparent vertical header)."""
+        # Make vertical header background transparent
+        v_header = table.verticalHeader()
+        v_header.setStyleSheet("QHeaderView { background-color: transparent; }")
+
+        # Make corner button transparent
+        from PyQt5.QtWidgets import QAbstractButton
+        corner_button = table.findChild(QAbstractButton)
+        if corner_button:
+            corner_button.setStyleSheet("QAbstractButton { background-color: transparent; }")
+
     def _create_reason_breakdown_panel(self) -> QGroupBox:
         """Create panel showing postpone reason distribution."""
         panel = QGroupBox("Postpone Reason Breakdown")
@@ -128,6 +143,7 @@ class AnalyticsView(QDialog, GeometryMixin):
         self.reason_table.setHorizontalHeaderLabels(["Reason", "Count", "Percentage"])
         self.reason_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.reason_table.setMaximumHeight(200)
+        self._configure_table_styling(self.reason_table)
 
         layout.addWidget(self.reason_table)
         panel.setLayout(layout)
@@ -145,6 +161,7 @@ class AnalyticsView(QDialog, GeometryMixin):
         )
         self.most_postponed_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.most_postponed_table.setMaximumHeight(300)
+        self._configure_table_styling(self.most_postponed_table)
 
         layout.addWidget(self.most_postponed_table)
         panel.setLayout(layout)
@@ -162,6 +179,7 @@ class AnalyticsView(QDialog, GeometryMixin):
         )
         self.recent_activity_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.recent_activity_table.setMaximumHeight(250)
+        self._configure_table_styling(self.recent_activity_table)
 
         layout.addWidget(self.recent_activity_table)
         panel.setLayout(layout)
@@ -177,6 +195,7 @@ class AnalyticsView(QDialog, GeometryMixin):
         self.action_table.setHorizontalHeaderLabels(["Action", "Count", "Percentage"])
         self.action_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.action_table.setMaximumHeight(200)
+        self._configure_table_styling(self.action_table)
 
         layout.addWidget(self.action_table)
         panel.setLayout(layout)

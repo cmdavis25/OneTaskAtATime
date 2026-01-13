@@ -67,6 +67,16 @@ class ReflectionDialog(QDialog, GeometryMixin):
         self.setMinimumWidth(600)
         self.setMinimumHeight(500)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog appears when you've postponed a task multiple times, creating a pattern. "
+            "It requires you to reflect on why this keeps happening, or choose a disposition action "
+            "(Someday/Maybe or Trash). Click the ? button for help on specific elements."
+        )
+
         self._init_ui()
 
     def _init_ui(self):
@@ -148,6 +158,10 @@ class ReflectionDialog(QDialog, GeometryMixin):
         )
         self.reflection_input.setMinimumHeight(100)
         self.reflection_input.textChanged.connect(self._on_reflection_changed)
+        self.reflection_input.setWhatsThis(
+            "Reflect on why you've postponed this task multiple times. Identifying patterns helps you "
+            "address blockers or break down complex tasks."
+        )
         reflection_layout.addWidget(self.reflection_input)
 
         self.char_count_label = QLabel(f"0 / {self.MIN_REFLECTION_LENGTH} characters")
@@ -170,11 +184,17 @@ class ReflectionDialog(QDialog, GeometryMixin):
 
         self.someday_button = QPushButton("📅 Move to Someday/Maybe")
         self.someday_button.setToolTip("Not urgent - defer indefinitely for later review")
+        self.someday_button.setWhatsThis(
+            "Move this task to Someday/Maybe if it's not currently actionable or you're unsure about committing to it."
+        )
         self.someday_button.clicked.connect(lambda: self._handle_disposition(TaskState.SOMEDAY))
         disposition_button_layout.addWidget(self.someday_button)
 
         self.trash_button = QPushButton("🗑️ Move to Trash")
         self.trash_button.setToolTip("No longer relevant - archive this task")
+        self.trash_button.setWhatsThis(
+            "Move this task to Trash if it's no longer relevant or necessary."
+        )
         self.trash_button.clicked.connect(lambda: self._handle_disposition(TaskState.TRASH))
         disposition_button_layout.addWidget(self.trash_button)
 
@@ -189,6 +209,9 @@ class ReflectionDialog(QDialog, GeometryMixin):
 
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setToolTip("Abort the postpone operation")
+        self.cancel_button.setWhatsThis(
+            "Cancel reflection and return to the previous screen without taking action."
+        )
         self.cancel_button.clicked.connect(self.reject)
         continue_button_layout.addWidget(self.cancel_button)
 
@@ -198,6 +221,9 @@ class ReflectionDialog(QDialog, GeometryMixin):
         self.continue_button.clicked.connect(self._handle_continue)
         self.continue_button.setStyleSheet(
             "background-color: #28a745; color: white; font-weight: bold; padding: 8px;"
+        )
+        self.continue_button.setWhatsThis(
+            "Continue with this task and return to Focus Mode to work on it now after reflecting on the pattern."
         )
         continue_button_layout.addWidget(self.continue_button)
 

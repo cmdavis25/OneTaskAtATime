@@ -114,6 +114,15 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         self.setMinimumWidth(700)
         self.setMinimumHeight(600)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog allows you to create or edit tasks. Fill in the task details below. "
+            "Click the ? button and then any field for specific help about that field."
+        )
+
         # Apply stylesheet for QComboBox to show clear dropdown arrows
         self.setStyleSheet("""
             QComboBox {
@@ -172,12 +181,20 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         # Title (required)
         self.title_edit = QLineEdit()
         self.title_edit.setPlaceholderText("Enter task title...")
+        self.title_edit.setWhatsThis(
+            "Enter a brief, descriptive title for your task. This field is required. "
+            "The title should be concise but clear enough to understand what needs to be done."
+        )
         basic_layout.addRow("Title*:", self.title_edit)
 
         # Description (optional)
         self.description_edit = QTextEdit()
         self.description_edit.setPlaceholderText("Add detailed description (optional)...")
         self.description_edit.setMaximumHeight(100)
+        self.description_edit.setWhatsThis(
+            "Optionally provide additional details, context, or notes about this task. "
+            "This can include steps to complete, background information, or any other relevant details."
+        )
         basic_layout.addRow("Description:", self.description_edit)
 
         basic_group.setLayout(basic_layout)
@@ -194,6 +211,11 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         self.priority_combo.addItem("Medium", Priority.MEDIUM.value)
         self.priority_combo.addItem("High", Priority.HIGH.value)
         self.priority_combo.setCurrentIndex(1)  # Default to Medium
+        self.priority_combo.setWhatsThis(
+            "Select task priority: High, Medium, or Low. This sets the base priority before Elo adjustments. "
+            "High-priority tasks will always rank above Medium, and Medium above Low. "
+            "Within each tier, Elo ratings from task comparisons further refine the ranking."
+        )
         priority_layout.addRow("Priority:", self.priority_combo)
 
         # Due date (optional)
@@ -201,18 +223,29 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         self.has_due_date_check = QCheckBox("Set due date")
         self.has_due_date_check.stateChanged.connect(self._on_due_date_toggled)
+        self.has_due_date_check.setWhatsThis(
+            "Check this box to set a deadline for this task. Tasks with due dates get higher urgency scores "
+            "as the deadline approaches, which affects their ranking in Focus Mode."
+        )
         due_date_layout.addWidget(self.has_due_date_check)
 
         self.due_date_edit = QLineEdit()
         self.due_date_edit.setPlaceholderText("YYYY-MM-DD")
         self.due_date_edit.setMaximumWidth(120)
         self.due_date_edit.setEnabled(False)
+        self.due_date_edit.setWhatsThis(
+            "Optional deadline for this task. Used to calculate urgency score in the priority formula. "
+            "Enter date in YYYY-MM-DD format or use the calendar button."
+        )
         due_date_layout.addWidget(self.due_date_edit)
 
         self.due_date_calendar_btn = QPushButton("📅")
         self.due_date_calendar_btn.setMaximumWidth(40)
         self.due_date_calendar_btn.setEnabled(False)
         self.due_date_calendar_btn.clicked.connect(lambda: self._show_calendar(self.due_date_edit))
+        self.due_date_calendar_btn.setWhatsThis(
+            "Open calendar picker to select a due date visually instead of typing it."
+        )
         due_date_layout.addWidget(self.due_date_calendar_btn)
 
         due_date_layout.addStretch()
@@ -233,11 +266,18 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         self.context_combo.addItem("(No Context)", None)
         for context in self.contexts:
             self.context_combo.addItem(context.name, context.id)
+        self.context_combo.setWhatsThis(
+            "Select work environment or location tag for this task (e.g., @computer, @phone, @errands). "
+            "Each task can have only ONE context. Use contexts to filter tasks by where/how you can do them."
+        )
         context_layout.addWidget(self.context_combo)
 
         new_context_btn = QPushButton("+ New")
         new_context_btn.setMaximumWidth(60)
         new_context_btn.clicked.connect(self._on_new_context)
+        new_context_btn.setWhatsThis(
+            "Create a new context (work environment or location tag). Opens the Context Management dialog."
+        )
         context_layout.addWidget(new_context_btn)
 
         org_layout.addRow("Context:", context_layout)
@@ -250,6 +290,10 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         self.tags_scroll_area.setWidgetResizable(True)
         self.tags_scroll_area.setMaximumHeight(100)
         self.tags_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.tags_scroll_area.setWhatsThis(
+            "Add project tags for organization. Each task can have MULTIPLE tags. "
+            "Use tags to group related tasks by project, area of responsibility, or any other category you choose."
+        )
 
         tags_widget = QWidget()
         self.tags_checkboxes_layout = QVBoxLayout(tags_widget)
@@ -271,6 +315,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         new_tag_btn = QPushButton("+ New Project Tag")
         new_tag_btn.clicked.connect(self._on_new_project_tag)
+        new_tag_btn.setWhatsThis(
+            "Create a new project tag for organizing tasks. Opens the Project Tag Management dialog."
+        )
         tags_container.addWidget(new_tag_btn)
 
         org_layout.addRow("Project Tags:", tags_container)
@@ -292,6 +339,11 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         self.state_combo.addItem("Completed", TaskState.COMPLETED.value)
         self.state_combo.addItem("Trash", TaskState.TRASH.value)
         self.state_combo.currentTextChanged.connect(self._on_state_changed)
+        self.state_combo.setWhatsThis(
+            "Select task state: Active (ready to work on), Deferred (postponed with start date), "
+            "Delegated (assigned to someone else), Someday/Maybe (not currently actionable), "
+            "Completed (done), or Trash (no longer relevant)."
+        )
         # Default to Active for new tasks
         if self.is_new:
             self.state_combo.setCurrentIndex(0)  # Active
@@ -302,18 +354,29 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         self.has_start_date_check = QCheckBox("Set start date (defer until)")
         self.has_start_date_check.stateChanged.connect(self._on_start_date_toggled)
+        self.has_start_date_check.setWhatsThis(
+            "Check this to defer the task until a future date. The task becomes active on this date "
+            "and will be automatically resurfaced when the date arrives."
+        )
         start_date_layout.addWidget(self.has_start_date_check)
 
         self.start_date_edit = QLineEdit()
         self.start_date_edit.setPlaceholderText("YYYY-MM-DD")
         self.start_date_edit.setMaximumWidth(120)
         self.start_date_edit.setEnabled(False)
+        self.start_date_edit.setWhatsThis(
+            "Task becomes active on this date (deferred until then). The task will not appear in Focus Mode "
+            "until this date arrives. Use this for tasks you want to postpone to a specific future date."
+        )
         start_date_layout.addWidget(self.start_date_edit)
 
         self.start_date_calendar_btn = QPushButton("📅")
         self.start_date_calendar_btn.setMaximumWidth(40)
         self.start_date_calendar_btn.setEnabled(False)
         self.start_date_calendar_btn.clicked.connect(lambda: self._show_calendar(self.start_date_edit))
+        self.start_date_calendar_btn.setWhatsThis(
+            "Open calendar picker to select a start date visually instead of typing it."
+        )
         start_date_layout.addWidget(self.start_date_calendar_btn)
 
         start_date_layout.addStretch()
@@ -331,6 +394,10 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         # Delegated to
         self.delegated_to_edit = QLineEdit()
         self.delegated_to_edit.setPlaceholderText("Person or system name...")
+        self.delegated_to_edit.setWhatsThis(
+            "Enter the name of the person or system you're delegating this task to. "
+            "Used when you assign tasks to others and need to track who is responsible."
+        )
         delegation_layout.addRow("Delegated to:", self.delegated_to_edit)
 
         # Follow-up date
@@ -338,18 +405,29 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         self.has_followup_check = QCheckBox("Set follow-up date")
         self.has_followup_check.stateChanged.connect(self._on_followup_toggled)
+        self.has_followup_check.setWhatsThis(
+            "Check this to set a follow-up reminder for delegated tasks. "
+            "You'll be reminded to check on progress when this date arrives."
+        )
         followup_date_layout.addWidget(self.has_followup_check)
 
         self.followup_date_edit = QLineEdit()
         self.followup_date_edit.setPlaceholderText("YYYY-MM-DD")
         self.followup_date_edit.setMaximumWidth(120)
         self.followup_date_edit.setEnabled(False)
+        self.followup_date_edit.setWhatsThis(
+            "Date when you want to be reminded to follow up on this delegated task. "
+            "The app will resurface this task for review when the follow-up date arrives."
+        )
         followup_date_layout.addWidget(self.followup_date_edit)
 
         self.followup_date_calendar_btn = QPushButton("📅")
         self.followup_date_calendar_btn.setMaximumWidth(40)
         self.followup_date_calendar_btn.setEnabled(False)
         self.followup_date_calendar_btn.clicked.connect(lambda: self._show_calendar(self.followup_date_edit))
+        self.followup_date_calendar_btn.setWhatsThis(
+            "Open calendar picker to select a follow-up date visually instead of typing it."
+        )
         followup_date_layout.addWidget(self.followup_date_calendar_btn)
 
         followup_date_layout.addStretch()
@@ -367,6 +445,10 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         # Enable recurrence checkbox
         self.is_recurring_check = QCheckBox("Make this a recurring task")
         self.is_recurring_check.stateChanged.connect(self._on_recurring_toggled)
+        self.is_recurring_check.setWhatsThis(
+            "Enable this to make the task repeat on a schedule. You can set daily, weekly, monthly, "
+            "yearly patterns, or create custom recurrence rules. Each occurrence is tracked separately."
+        )
         recurrence_layout.addWidget(self.is_recurring_check)
 
         # Recurrence options container
@@ -392,6 +474,10 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         self.recurrence_interval_spin.setMinimum(1)
         self.recurrence_interval_spin.setMaximum(365)
         self.recurrence_interval_spin.setValue(1)
+        self.recurrence_interval_spin.setWhatsThis(
+            "Set how often the task repeats. For example, '2' with 'Weekly' means every 2 weeks. "
+            "The interval can be from 1 to 365 units."
+        )
         interval_container.addWidget(self.recurrence_interval_spin)
         self.recurrence_interval_label = QLabel("day(s)")
         interval_container.addWidget(self.recurrence_interval_label)
@@ -405,6 +491,10 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         advanced_layout = QHBoxLayout()
         self.recurrence_details_btn = QPushButton("Advanced Pattern...")
         self.recurrence_details_btn.clicked.connect(self._on_recurrence_details_clicked)
+        self.recurrence_details_btn.setWhatsThis(
+            "Configure advanced recurrence patterns like specific days of the week, monthly schedules, or complex custom rules. "
+            "Opens a detailed recurrence editor dialog."
+        )
         advanced_layout.addWidget(self.recurrence_details_btn)
         advanced_layout.addStretch()
         recurrence_options_layout.addRow("", advanced_layout)
@@ -415,12 +505,21 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
             "When enabled, all instances of this recurring task share the same Elo rating.\n"
             "When disabled, each occurrence starts with a fresh Elo rating of 1500."
         )
+        self.share_elo_check.setWhatsThis(
+            "When enabled, all occurrences of this recurring task share the same Elo rating, "
+            "meaning task comparisons apply to all instances. When disabled, each occurrence "
+            "starts with its own independent Elo rating of 1500."
+        )
         recurrence_options_layout.addRow("", self.share_elo_check)
 
         # End date (optional)
         end_date_layout = QHBoxLayout()
         self.has_recurrence_end_check = QCheckBox("Stop recurring after")
         self.has_recurrence_end_check.stateChanged.connect(self._on_recurrence_end_toggled)
+        self.has_recurrence_end_check.setWhatsThis(
+            "Enable this to set an end date for the recurring task. After this date, "
+            "no new occurrences will be created. Leave unchecked for tasks that repeat indefinitely."
+        )
         end_date_layout.addWidget(self.has_recurrence_end_check)
 
         self.recurrence_end_date_edit = QLineEdit()
@@ -474,10 +573,10 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         # Manage dependencies button
         manage_deps_btn = QPushButton("Manage Dependencies...")
         manage_deps_btn.clicked.connect(self._on_manage_dependencies)
-        # Only enable for existing tasks (can't set dependencies on unsaved tasks)
-        if self.is_new:
-            manage_deps_btn.setEnabled(False)
-            manage_deps_btn.setToolTip("Save the task first before adding dependencies")
+        manage_deps_btn.setWhatsThis(
+            "Specify which tasks must be completed before this task can begin. "
+            "Opens the dependency selection dialog where you can choose blocking tasks."
+        )
         dependencies_layout.addWidget(manage_deps_btn)
 
         dependencies_group.setLayout(dependencies_layout)
@@ -682,26 +781,24 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
     def _on_manage_dependencies(self):
         """Open the dependency selection dialog."""
-        if not self.task or not self.task.id:
-            MessageBox.warning(
-                self,
-                self.db_connection.get_connection() if self.db_connection else None,
-                "Cannot Manage Dependencies",
-                "Please save the task first before adding dependencies."
-            )
-            return
-
         from .dependency_selection_dialog import DependencySelectionDialog
 
+        # For new tasks, create a temporary task object for the dialog
+        task_for_dialog = self.task if self.task else Task(
+            title=self.title_edit.text().strip() or "New Task",
+            base_priority=self.priority_combo.currentData()
+        )
+
         dialog = DependencySelectionDialog(
-            task=self.task,
+            task=task_for_dialog,
             db_connection=self.db_connection,
-            parent=self
+            parent=self,
+            initial_dependencies=self.dependencies
         )
 
         if dialog.exec_():
-            # Reload dependencies after changes
-            self._load_dependencies()
+            # Get selected dependencies from dialog
+            self.dependencies = dialog.get_selected_dependencies()
             self._update_dependencies_display()
 
     def _on_new_context(self):

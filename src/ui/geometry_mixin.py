@@ -6,7 +6,8 @@ to the main window across application sessions.
 """
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QAction, QWhatsThis
+from PyQt5.QtGui import QKeySequence
 from typing import Optional
 
 
@@ -55,6 +56,9 @@ class GeometryMixin:
 
         # Generate unique settings key based on class name
         self._geometry_settings_key = f'dialog_geometry_{self.__class__.__name__}'
+
+        # Enable Shift+F1 WhatsThis shortcut for dialogs
+        self._setup_whatsthis_shortcut()
 
     def showEvent(self, event):
         """Override showEvent to restore geometry on first show."""
@@ -287,3 +291,20 @@ class GeometryMixin:
                 return widget
 
         return None
+
+    def _setup_whatsthis_shortcut(self):
+        """
+        Set up Shift+F1 keyboard shortcut to enter WhatsThis mode.
+
+        This is necessary because Qt.WindowContextHelpButtonHint doesn't
+        always properly register the Shift+F1 shortcut on all platforms
+        (especially Windows). By explicitly adding a QAction, we ensure
+        the shortcut works consistently across all platforms.
+        """
+        # Create WhatsThis action
+        whatsthis_action = QAction(self)
+        whatsthis_action.setShortcut(QKeySequence("Shift+F1"))
+        whatsthis_action.triggered.connect(QWhatsThis.enterWhatsThisMode)
+
+        # Add action to the dialog (makes shortcut active)
+        self.addAction(whatsthis_action)

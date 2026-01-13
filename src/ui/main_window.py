@@ -7,9 +7,9 @@ Provides the main application container with menu bar and navigation.
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QMenuBar, QMenu, QAction, QStatusBar, QMessageBox, QStackedWidget, QDialog,
-    QApplication, QPushButton, QSizePolicy
+    QApplication, QPushButton, QSizePolicy, QWhatsThis
 )
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QObject, QEvent
 from PyQt5.QtGui import QFont, QCursor
 from .focus_mode import FocusModeWidget
 from .task_form_dialog import TaskFormDialog
@@ -52,6 +52,146 @@ from ..commands import (
     DeferWithSubtasksCommand,
     DeferWithDependenciesCommand
 )
+
+
+class WhatsThisEventFilter(QObject):
+    """
+    Event filter to highlight widgets when hovering in WhatsThis mode.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._highlighted_widget = None
+        self._original_stylesheet = None
+        self._in_style_update = False  # Prevent recursion
+
+    def eventFilter(self, obj, event):
+        """Filter events to detect WhatsThis mode and highlight on hover."""
+        # Prevent recursion when we're updating styles
+        if self._in_style_update:
+            return False
+
+        try:
+            if QWhatsThis.inWhatsThisMode():
+                if event.type() == QEvent.Enter:
+                    # Widget entered - highlight it IF it's interactive
+                    if hasattr(obj, 'whatsThis') and obj.whatsThis():
+                        if self._should_highlight_widget(obj):
+                            self._highlight_widget(obj)
+                elif event.type() == QEvent.Leave:
+                    # Widget left - remove highlight
+                    self._unhighlight_widget(obj)
+            else:
+                # Not in WhatsThis mode - ensure no highlighting
+                if self._highlighted_widget == obj:
+                    self._unhighlight_widget(obj)
+        except Exception:
+            # Silently ignore any errors to prevent crashes
+            pass
+
+        # Continue normal event processing
+        return False
+
+    def _should_highlight_widget(self, widget):
+        """
+        Determine if widget should be highlighted (interactive widgets only).
+
+        Returns True for interactive widgets, False for containers/layouts.
+        """
+        from PyQt5.QtWidgets import (
+            QDialog, QMainWindow, QWidget, QGroupBox, QFrame, QScrollArea,
+            QLineEdit, QTextEdit, QComboBox, QCheckBox, QRadioButton,
+            QPushButton, QListWidget, QTableWidget, QDateEdit, QSpinBox,
+            QTimeEdit, QDoubleSpinBox, QSlider, QScrollBar, QTabWidget,
+            QStackedWidget, QSplitter, QLabel
+        )
+
+        # Don't highlight containers - check by exact type name
+        widget_type_name = type(widget).__name__
+        container_types = (
+            'QDialog', 'QMainWindow', 'QWidget', 'QGroupBox', 'QFrame',
+            'QScrollArea', 'QTabWidget', 'QStackedWidget', 'QSplitter',
+            'QVBoxLayout', 'QHBoxLayout', 'QFormLayout', 'QGridLayout'
+        )
+
+        if widget_type_name in container_types:
+            return False
+
+        # Only highlight interactive widget types
+        interactive_types = (
+            QLineEdit, QTextEdit, QComboBox, QCheckBox, QRadioButton,
+            QPushButton, QListWidget, QTableWidget, QDateEdit, QSpinBox,
+            QTimeEdit, QDoubleSpinBox, QSlider, QScrollBar
+        )
+
+        return isinstance(widget, interactive_types)
+
+    def _highlight_widget(self, widget):
+        """Add highlight border to widget."""
+        if self._highlighted_widget == widget:
+            return  # Already highlighted
+
+        # Prevent recursion
+        if self._in_style_update:
+            return
+
+        try:
+            self._in_style_update = True
+
+            # Remove previous highlight
+            if self._highlighted_widget is not None and self._highlighted_widget != widget:
+                self._restore_style(self._highlighted_widget)
+
+            # Save original stylesheet
+            self._original_stylesheet = widget.styleSheet()
+            self._highlighted_widget = widget
+
+            # Add highlight using property-based styling to avoid recursion
+            widget.setProperty("whatsthis_highlighted", True)
+
+            # Simple border-only highlight
+            current_style = self._original_stylesheet if self._original_stylesheet else ""
+            new_style = current_style + " border: 2px solid #007bff !important;"
+
+            widget.setStyleSheet(new_style)
+        except Exception:
+            pass
+        finally:
+            self._in_style_update = False
+
+    def _unhighlight_widget(self, widget):
+        """Remove highlight border from widget."""
+        if widget != self._highlighted_widget:
+            return
+
+        # Prevent recursion
+        if self._in_style_update:
+            return
+
+        try:
+            self._in_style_update = True
+            self._restore_style(widget)
+        except Exception:
+            pass
+        finally:
+            self._in_style_update = False
+
+    def _restore_style(self, widget):
+        """Restore original style to widget."""
+        try:
+            # Clear property
+            widget.setProperty("whatsthis_highlighted", False)
+
+            # Restore original stylesheet
+            if self._original_stylesheet is not None:
+                widget.setStyleSheet(self._original_stylesheet)
+            else:
+                widget.setStyleSheet("")
+
+            if widget == self._highlighted_widget:
+                self._highlighted_widget = None
+                self._original_stylesheet = None
+        except Exception:
+            pass
 
 
 class MainWindow(QMainWindow):
@@ -128,6 +268,11 @@ class MainWindow(QMainWindow):
         # Apply accessibility features
         self.accessibility_service.configure_keyboard_navigation(self)
         self.accessibility_service.apply_accessible_labels(self)
+
+        # Install WhatsThis hover highlighting event filter
+        self.whatsthis_filter = WhatsThisEventFilter(self)
+        if self.app:
+            self.app.installEventFilter(self.whatsthis_filter)
 
         # Show welcome wizard on first run (Phase 8)
         from PyQt5.QtCore import QTimer
@@ -384,6 +529,14 @@ class MainWindow(QMainWindow):
 
         help_menu.addSeparator()
 
+        whatsthis_action = QAction("What's &This?", self)
+        whatsthis_action.setShortcut("Shift+F1")
+        whatsthis_action.setStatusTip("Enter What's This help mode")
+        whatsthis_action.triggered.connect(QWhatsThis.enterWhatsThisMode)
+        help_menu.addAction(whatsthis_action)
+
+        help_menu.addSeparator()
+
         about_action = QAction("&About", self)
         about_action.setStatusTip("About OneTaskAtATime")
         about_action.triggered.connect(self._show_about)
@@ -455,6 +608,17 @@ class MainWindow(QMainWindow):
             task = dialog.get_updated_task()
             if task:
                 created_task = self.task_service.create_task(task)
+
+                # Save dependencies if any were selected
+                if dialog.dependencies:
+                    from ..models.dependency import Dependency
+                    for blocking_task_id in dialog.dependencies:
+                        dependency = Dependency(
+                            blocked_task_id=created_task.id,
+                            blocking_task_id=blocking_task_id
+                        )
+                        self.dependency_dao.create(dependency)
+
                 # Record task creation in history
                 self.task_history_service.record_task_created(created_task)
                 self._refresh_focus_task()

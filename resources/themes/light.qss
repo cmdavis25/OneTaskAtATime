@@ -65,10 +65,17 @@ QTableWidget {
 
 QTableWidget::item {
     padding: 4px;
+    background-color: #ffffff;
+    color: #212121;
+}
+
+QTableWidget::item:alternate {
+    background-color: #f9f9f9;
 }
 
 QTableWidget::item:selected {
     background-color: #bbdefb;
+    color: #212121;
 }
 
 QHeaderView::section {
@@ -77,6 +84,29 @@ QHeaderView::section {
     border: 1px solid #bdbdbd;
     font-weight: bold;
     color: #212121;
+}
+
+QTableWidget QHeaderView::section:vertical {
+    background-color: #e0e0e0;
+    padding: 4px;
+    border: 1px solid #bdbdbd;
+    color: #212121;
+}
+
+QTableWidget::verticalHeader {
+    background-color: #e0e0e0;
+}
+
+QTableView QHeaderView::section:vertical {
+    background-color: #e0e0e0;
+    padding: 4px;
+    border: 1px solid #bdbdbd;
+    color: #212121;
+}
+
+QTableWidget QTableCornerButton::section {
+    background-color: transparent;
+    border: 1px solid #bdbdbd;
 }
 
 /* Line Edits */
@@ -94,6 +124,10 @@ QLineEdit:focus {
 
 QLineEdit:disabled {
     background-color: #f5f5f5;
+    color: #9e9e9e;
+}
+
+QLineEdit::placeholder {
     color: #9e9e9e;
 }
 
@@ -222,6 +256,16 @@ QMenu::item:selected {
 QStatusBar {
     background-color: #e0e0e0;
     color: #212121;
+}
+
+/* Scroll Areas */
+QScrollArea {
+    background-color: #ffffff;
+    border: none;
+}
+
+QScrollArea > QWidget > QWidget {
+    background-color: #ffffff;
 }
 
 /* Scroll Bars */
@@ -391,4 +435,67 @@ QLabel#modeIndicator {
     background-color: #fff3e0;
     border: 1px solid #ff9800;
     border-radius: 3px;
+}
+
+/* Focus Mode Task Card */
+QFrame#focusTaskCard {
+    background-color: #f9f9f9;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+QLabel#subtitleLabel {
+    color: #666666;  /* Muted gray for subtitle in light mode */
+}
+
+QLabel#taskMetadata {
+    color: #555555;  /* Muted gray for metadata in light mode */
+}
+
+/* Notification Items */
+QFrame#readNotificationItem {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 4px;
+}
+
+QFrame#readNotificationItem:hover {
+    background-color: #e9ecef;
+}
+
+QFrame#unreadNotificationItem {
+    background-color: #e7f3ff;
+    border: 2px solid #0066cc;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 4px;
+}
+
+QFrame#unreadNotificationItem:hover {
+    background-color: #d0e8ff;
+}
+
+QLabel#notificationTime {
+    color: #6c757d;
+}
+
+QLabel#notificationMessage {
+    color: #495057;
+}
+
+QPushButton#dismissButton {
+    background-color: transparent;
+    border: none;
+    font-size: 24px;
+    font-weight: bold;
+    color: #6c757d;
+}
+
+QPushButton#dismissButton:hover {
+    color: #dc3545;
+    background-color: #f8d7da;
+    border-radius: 16px;
 }

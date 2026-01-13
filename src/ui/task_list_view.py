@@ -116,35 +116,75 @@ class TaskListView(QWidget):
         self._setup_shortcuts()  # Phase 8: Keyboard shortcuts
         self.refresh_tasks()
 
+    def _get_state_colors(self, state: TaskState) -> tuple:
+        """Get theme-aware background and text colors for a task state.
+
+        Args:
+            state: Task state
+
+        Returns:
+            Tuple of (background_color, text_color) or (None, None)
+        """
+        # Detect current theme
+        is_dark_theme = self._is_dark_theme()
+
+        if state == TaskState.COMPLETED:
+            if is_dark_theme:
+                return ("#1e3a1e", "#6BCF7F")  # Dark green bg, light green text
+            else:
+                return ("#d4edda", "#0F5132")  # Light green bg, dark green text
+        elif state == TaskState.TRASH:
+            if is_dark_theme:
+                return ("#3a1e1e", "#FF6B6B")  # Dark red bg, light red text
+            else:
+                return ("#f8d7da", "#721c24")  # Light red bg, dark red text
+        elif state == TaskState.ACTIVE:
+            if is_dark_theme:
+                return ("#1e2a3a", "#6CB4FF")  # Dark blue bg, light blue text
+            else:
+                return ("#d1ecf1", "#0c5460")  # Light blue bg, dark blue text
+
+        return (None, None)
+
+    def _is_dark_theme(self) -> bool:
+        """Check if the current theme is dark mode.
+
+        Returns:
+            True if dark theme is active, False otherwise
+        """
+        try:
+            from ..database.settings_dao import SettingsDAO
+            from ..services.theme_service import ThemeService
+
+            settings_dao = SettingsDAO(self.db_connection.get_connection())
+            theme = settings_dao.get('theme', ThemeService.THEME_LIGHT)
+
+            # Handle system theme detection
+            if theme == ThemeService.THEME_SYSTEM:
+                try:
+                    import winreg
+                    registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+                    key = winreg.OpenKey(
+                        registry,
+                        r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+                    )
+                    value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+                    winreg.CloseKey(key)
+                    return value == 0  # 0 = dark, 1 = light
+                except Exception:
+                    return False  # Default to light on error
+
+            return theme == ThemeService.THEME_DARK
+        except Exception:
+            return False  # Default to light theme on error
+
     def _style_combobox(self, combobox: QComboBox):
         """Apply consistent styling to a QComboBox to show clear dropdown arrow."""
+        # Remove hardcoded inline styles - let theme handle it
+        # Just ensure padding-right for the arrow
         combobox.setStyleSheet("""
             QComboBox {
-                padding: 5px;
                 padding-right: 25px;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                background-color: white;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 20px;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 6px solid #495057;
-                width: 0;
-                height: 0;
-                margin-right: 5px;
-            }
-            QComboBox:hover {
-                border-color: #80bdff;
-            }
-            QComboBox:disabled {
-                background-color: #e9ecef;
-                color: #6c757d;
             }
         """)
 
@@ -212,6 +252,14 @@ class TaskListView(QWidget):
         layout.setSpacing(10)
         self.setLayout(layout)
 
+        # Set WhatsThis help for the entire Task List view
+        self.setWhatsThis(
+            "Task List View displays all your tasks in a sortable, filterable table. "
+            "You can search for tasks, filter by state/context/tags, and perform bulk operations. "
+            "Double-click a task or press Enter to edit it. Right-click for quick actions. "
+            "Press Shift+F1 and click on any element for specific help."
+        )
+
         # Filter and search bar
         filter_layout = QHBoxLayout()
 
@@ -223,6 +271,10 @@ class TaskListView(QWidget):
         self.search_box.setPlaceholderText("Search tasks...")
         self.search_box.setMaximumWidth(300)
         self.search_box.setFocusPolicy(Qt.StrongFocus)
+        self.search_box.setWhatsThis(
+            "Type here to search tasks by title or description. The task list will filter "
+            "in real-time as you type. Use Ctrl+F to focus this search box from anywhere."
+        )
 
         # Fix: Override mousePressEvent to explicitly set focus
         # This works around an issue where QLineEdit doesn't properly gain focus
@@ -294,6 +346,9 @@ class TaskListView(QWidget):
             else:
                 checkbox.setChecked(True)  # All states shown by default
             checkbox.stateChanged.connect(self._on_filter_changed)
+            checkbox.setWhatsThis(
+                f"Show or hide tasks in {label} state. Uncheck to filter out tasks in this state from the list."
+            )
             self.state_checkboxes[state] = checkbox
             state_checkboxes_layout.addWidget(checkbox)
 
@@ -313,16 +368,23 @@ class TaskListView(QWidget):
         context_filter_layout.setSpacing(5)
 
         self.context_filter_label = QLabel("All Contexts")
-        self.context_filter_label.setStyleSheet("padding: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        self.context_filter_label.setStyleSheet("padding: 4px; border-radius: 4px;")
         self.context_filter_label.setMinimumWidth(150)
         context_filter_layout.addWidget(self.context_filter_label)
 
         context_filter_btn = QPushButton("Manage Filters...")
         context_filter_btn.clicked.connect(self._on_manage_context_filters)
+        context_filter_btn.setWhatsThis(
+            "Select which contexts to show in the task list. You can choose multiple contexts or filter "
+            "for tasks with no context assigned."
+        )
         context_filter_layout.addWidget(context_filter_btn)
 
         clear_context_btn = QPushButton("Clear Context Filters")
         clear_context_btn.clicked.connect(self._on_clear_context_filters)
+        clear_context_btn.setWhatsThis(
+            "Remove all context filters to show tasks from all contexts."
+        )
         context_filter_layout.addWidget(clear_context_btn)
 
         context_filter_layout.addStretch()
@@ -341,16 +403,23 @@ class TaskListView(QWidget):
         tags_filter_layout.setSpacing(5)
 
         self.tags_filter_label = QLabel("All Project Tags")
-        self.tags_filter_label.setStyleSheet("padding: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        self.tags_filter_label.setStyleSheet("padding: 4px; border-radius: 4px;")
         self.tags_filter_label.setMinimumWidth(150)
         tags_filter_layout.addWidget(self.tags_filter_label)
 
         tags_filter_btn = QPushButton("Manage Filters...")
         tags_filter_btn.clicked.connect(self._on_manage_tag_filters)
+        tags_filter_btn.setWhatsThis(
+            "Select which project tags to show in the task list. You can choose multiple tags. "
+            "Tasks with ANY of the selected tags will be shown (OR logic)."
+        )
         tags_filter_layout.addWidget(tags_filter_btn)
 
         clear_tags_btn = QPushButton("Clear Project Tag Filters")
         clear_tags_btn.clicked.connect(self._on_clear_tag_filters)
+        clear_tags_btn.setWhatsThis(
+            "Remove all project tag filters to show tasks with any or no tags."
+        )
         tags_filter_layout.addWidget(clear_tags_btn)
 
         tags_filter_layout.addStretch()
@@ -370,6 +439,10 @@ class TaskListView(QWidget):
 
         self.hide_dependencies_checkbox = QCheckBox("Hide tasks with dependencies")
         self.hide_dependencies_checkbox.setToolTip("When checked, tasks that are blocked by other tasks will be hidden")
+        self.hide_dependencies_checkbox.setWhatsThis(
+            "When checked, tasks that have uncompleted dependencies (blocking tasks) will be hidden from the list. "
+            "This helps you focus only on tasks that are currently actionable."
+        )
 
         # Load saved dependency filter state
         saved_hide_dependencies = False
@@ -456,6 +529,17 @@ class TaskListView(QWidget):
         header = self.task_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Interactive)  # Allow manual resizing for all columns
 
+        # Configure vertical header (row numbers) to follow theme
+        v_header = self.task_table.verticalHeader()
+        # Use transparent background for the entire vertical header area
+        v_header.setStyleSheet("QHeaderView { background-color: transparent; }")
+
+        # Style the corner button (intersection of vertical and horizontal headers) with transparent background
+        from PyQt5.QtWidgets import QAbstractButton
+        corner_button = self.task_table.findChild(QAbstractButton)
+        if corner_button:
+            corner_button.setStyleSheet("QAbstractButton { background-color: transparent; }")
+
         # Set initial column widths
         header.resizeSection(0, 50)   # ID
         header.resizeSection(1, 50)   # Recurring
@@ -496,7 +580,7 @@ class TaskListView(QWidget):
 
         new_task_button_style = """
             QPushButton {
-                background-color: #28a745;
+                background-color: #5b2c6f;
                 color: white;
                 font-size: 11pt;
                 font-weight: bold;
@@ -506,10 +590,10 @@ class TaskListView(QWidget):
                 min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #218838;
+                background-color: #4a2359;
             }
             QPushButton:pressed {
-                background-color: #1e7e34;
+                background-color: #3d1d4a;
             }
             QPushButton:disabled {
                 background-color: #ccc;
@@ -1016,16 +1100,34 @@ class TaskListView(QWidget):
                     # Add tooltip showing full title
                     item.setToolTip(task.title)
 
+                # Apply theme-aware backgrounds to all cells
+                is_dark = self._is_dark_theme()
+
                 # Special formatting for State column
                 if col_name == "State":
-                    if task.state == TaskState.COMPLETED:
-                        item.setBackground(QBrush(QColor("#d4edda")))
-                    elif task.state == TaskState.TRASH:
-                        item.setBackground(QBrush(QColor("#f8d7da")))
-                    elif task.state == TaskState.ACTIVE:
-                        item.setBackground(QBrush(QColor("#d1ecf1")))
+                    bg_color, text_color = self._get_state_colors(task.state)
+                    if bg_color:
+                        item.setBackground(QBrush(QColor(bg_color)))
+                    if text_color:
+                        item.setForeground(QBrush(QColor(text_color)))
+                else:
+                    # For non-State columns, apply theme-aware background
+                    if is_dark:
+                        # Dark theme colors - alternating rows
+                        if row % 2 == 0:
+                            item.setBackground(QBrush(QColor("#313335")))
+                        else:
+                            item.setBackground(QBrush(QColor("#3c3f41")))
+                        item.setForeground(QBrush(QColor("#e0e0e0")))
+                    else:
+                        # Light theme colors - alternating rows
+                        if row % 2 == 0:
+                            item.setBackground(QBrush(QColor("#ffffff")))
+                        else:
+                            item.setBackground(QBrush(QColor("#f9f9f9")))
+                        item.setForeground(QBrush(QColor("#212121")))
 
-                # Special formatting for Dependencies column
+                # Special formatting for Dependencies column (override foreground only)
                 if col_name == "Dependencies":
                     if text.startswith("⛔"):
                         # Red foreground for blocked tasks

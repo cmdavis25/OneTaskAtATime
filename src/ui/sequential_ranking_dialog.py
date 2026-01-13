@@ -49,6 +49,9 @@ class TaskRankingItem(QFrame):
         self.setFrameShape(QFrame.StyledPanel)
         self.setFrameShadow(QFrame.Raised)
 
+        # Set fixed width to prevent resizing during repositioning
+        self.setFixedWidth(650)
+
         # Set object name for styling via QSS
         if is_existing:
             self.setObjectName("existingTaskItem")
@@ -208,6 +211,17 @@ class SequentialRankingDialog(QDialog, GeometryMixin):
 
         self.setWindowTitle(f"Rank New {self.priority_name} Priority Tasks")
         self.setMinimumSize(700, 600)
+
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog helps you rank new tasks within their priority band. "
+            "Use keyboard navigation: Select a task (Up/Down + Enter), then move it to the right position (Up/Down + Enter). "
+            "Ranking prevents new tasks from being buried in the middle. Click the ? button for help."
+        )
+
         self._init_ui()
 
     def _init_ui(self):
@@ -314,6 +328,10 @@ class SequentialRankingDialog(QDialog, GeometryMixin):
         self.ranking_list.setSelectionMode(QListWidget.SingleSelection)
         self.ranking_list.setMinimumHeight(250)
         self.ranking_list.setObjectName("rankingList")
+        self.ranking_list.setWhatsThis(
+            "Drag and drop tasks to reorder them by priority. Tasks at the top will be prioritized "
+            "over those below. Use arrow keys to navigate and Shift+Up/Down to move tasks."
+        )
 
         # Install event filter to intercept key presses
         self.ranking_list.installEventFilter(self)
@@ -375,6 +393,9 @@ class SequentialRankingDialog(QDialog, GeometryMixin):
         # Skip button
         self.skip_button = QPushButton("Skip for Now")
         self.skip_button.clicked.connect(self.reject)
+        self.skip_button.setWhatsThis(
+            "Skip ranking for now and return to the main window. You can rank tasks later."
+        )
         button_layout.addWidget(self.skip_button)
 
         button_layout.addStretch()
@@ -384,6 +405,9 @@ class SequentialRankingDialog(QDialog, GeometryMixin):
         self.save_button.setObjectName("primaryButton")
         self.save_button.setDefault(True)
         self.save_button.clicked.connect(self._on_save_ranking)
+        self.save_button.setWhatsThis(
+            "Save the current ranking order and update task priorities accordingly."
+        )
         button_layout.addWidget(self.save_button)
 
         layout.addLayout(button_layout)

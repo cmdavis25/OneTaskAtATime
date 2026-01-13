@@ -50,6 +50,16 @@ class ActivatedTasksDialog(QDialog, GeometryMixin):
         self.setWindowTitle("Tasks Ready to Work")
         self.setMinimumSize(700, 400)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog shows tasks that were automatically activated from deferred state. "
+            "These tasks have reached their start date and are now ready to work on. "
+            "Click the ? button for help."
+        )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -82,6 +92,9 @@ class ActivatedTasksDialog(QDialog, GeometryMixin):
         self.task_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.task_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.task_table.setAlternatingRowColors(True)
+        self.task_table.setWhatsThis(
+            "List of tasks that were automatically activated from deferred state. These tasks have reached their start date and are now ready to work on. They're sorted by importance."
+        )
 
         # Configure column widths
         header = self.task_table.horizontalHeader()
@@ -104,6 +117,9 @@ class ActivatedTasksDialog(QDialog, GeometryMixin):
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         close_btn.setDefault(True)
+        close_btn.setWhatsThis(
+            "Close this dialog and return to Focus Mode to work on the highest-priority activated task."
+        )
         button_layout.addWidget(close_btn)
 
         layout.addLayout(button_layout)

@@ -62,6 +62,16 @@ class TaskHistoryDialog(QDialog, GeometryMixin):
         self.setMinimumSize(700, 500)
         self.setModal(False)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog shows a complete audit log of all changes to this task. "
+            "View when the task was created, modified, completed, or changed in any way. "
+            "Click the ? button for help on specific features."
+        )
+
         self._setup_ui()
         self._load_history()
 
@@ -90,6 +100,9 @@ class TaskHistoryDialog(QDialog, GeometryMixin):
         self.filter_combo.addItem("Priority Changes", TaskEventType.PRIORITY_CHANGED)
         self.filter_combo.addItem("Comparisons", "comparisons")
         self.filter_combo.currentIndexChanged.connect(self._apply_filter)
+        self.filter_combo.setWhatsThis(
+            "Filter the history timeline by event type. Select a specific event type to see only those events, or choose 'All Events' to see the complete history."
+        )
         filter_layout.addWidget(self.filter_combo)
 
         filter_layout.addStretch()
@@ -97,6 +110,9 @@ class TaskHistoryDialog(QDialog, GeometryMixin):
         # Export button
         self.export_button = QPushButton("Export...")
         self.export_button.clicked.connect(self._export_history)
+        self.export_button.setWhatsThis(
+            "Export the complete task history to a file. Choose from CSV, JSON, or text format for archiving or analysis."
+        )
         filter_layout.addWidget(self.export_button)
 
         layout.addLayout(filter_layout)
@@ -111,6 +127,9 @@ class TaskHistoryDialog(QDialog, GeometryMixin):
         self.timeline_tree.setRootIsDecorated(False)
         self.timeline_tree.header().setStretchLastSection(True)
         self.timeline_tree.itemDoubleClicked.connect(self._show_event_details)
+        self.timeline_tree.setWhatsThis(
+            "Complete audit log of all changes to this task. Double-click an event to see detailed information including old/new values and context data."
+        )
         layout.addWidget(self.timeline_tree)
 
         # Details button

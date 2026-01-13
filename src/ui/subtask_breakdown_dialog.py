@@ -57,6 +57,16 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
         self.setMinimumWidth(700)
         self.setMinimumHeight(600)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog helps you break down a complex task into smaller, actionable subtasks. "
+            "Create multiple tasks, select one as the Next Action, and the original task will be marked complete. "
+            "Click the ? button for help on specific actions."
+        )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         self.setLayout(layout)
@@ -80,6 +90,9 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
         self.task_list = QListWidget()
         self.task_list.setMinimumHeight(300)
         self.task_list.itemDoubleClicked.connect(self._on_edit_task)
+        self.task_list.setWhatsThis(
+            "List of subtasks you're creating. Each subtask becomes an independent task with its own priority."
+        )
         list_button_layout.addWidget(self.task_list, stretch=1)
 
         # Right side: Action buttons
@@ -87,17 +100,26 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
 
         self.add_button = QPushButton("Add Task")
         self.add_button.setToolTip("Create a new task using the full task creation dialog")
+        self.add_button.setWhatsThis(
+            "Add a new subtask to the list. You'll be able to set its title and other details."
+        )
         self.add_button.clicked.connect(self._on_add_task)
         action_button_layout.addWidget(self.add_button)
 
         self.edit_button = QPushButton("Edit Task")
         self.edit_button.setToolTip("Edit the selected task")
+        self.edit_button.setWhatsThis(
+            "Edit the selected subtask's details including title, priority, and due date."
+        )
         self.edit_button.clicked.connect(self._on_edit_task)
         self.edit_button.setEnabled(False)
         action_button_layout.addWidget(self.edit_button)
 
         self.delete_button = QPushButton("Delete Task")
         self.delete_button.setToolTip("Remove the selected task from the list")
+        self.delete_button.setWhatsThis(
+            "Remove the selected subtask from the list."
+        )
         self.delete_button.clicked.connect(self._on_delete_task)
         self.delete_button.setEnabled(False)
         action_button_layout.addWidget(self.delete_button)
@@ -115,6 +137,10 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
         self.delete_original_checkbox.setToolTip(
             "If checked, the original task will be moved to trash after creating these tasks.\n"
             "If unchecked, the original task will be kept and these new tasks will be added as blocking dependencies."
+        )
+        self.delete_original_checkbox.setWhatsThis(
+            "Check this to delete the original parent task after creating subtasks. Recommended if "
+            "subtasks fully replace the parent. If unchecked, subtasks become dependencies of the parent."
         )
         layout.addWidget(self.delete_original_checkbox)
 

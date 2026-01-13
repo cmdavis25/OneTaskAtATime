@@ -41,6 +41,7 @@ class FocusModeWidget(QWidget):
     task_someday = pyqtSignal(int)    # task_id
     task_trashed = pyqtSignal(int)    # task_id
     task_refreshed = pyqtSignal()
+    task_created = pyqtSignal(int)    # task_id - Emitted when new task is created
     filters_changed = pyqtSignal()    # Emitted when filters change
 
     def __init__(self, db_connection: DatabaseConnection, parent=None):
@@ -93,8 +94,55 @@ class FocusModeWidget(QWidget):
         layout.setSpacing(20)
         self.setLayout(layout)
 
+        # Set WhatsThis help for the entire Focus Mode widget
+        self.setWhatsThis(
+            "Focus Mode displays ONE task at a time - your highest-priority task. "
+            "This eliminates decision fatigue and helps you concentrate on what truly matters. "
+            "Use the action buttons to complete, defer, delegate, or otherwise handle the current task. "
+            "Press Shift+F1 and click on any element for specific help."
+        )
+
         # Filter section
         self._create_filter_section(layout)
+
+        # New Task button - centered after filters
+        new_task_layout = QHBoxLayout()
+        new_task_layout.addStretch()
+
+        new_task_button_style = """
+            QPushButton {
+                background-color: #5b2c6f;
+                color: white;
+                font-size: 11pt;
+                font-weight: bold;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                min-width: 100px;
+            }
+            QPushButton:hover {
+                background-color: #4a2359;
+            }
+            QPushButton:pressed {
+                background-color: #3d1d4a;
+            }
+            QPushButton:disabled {
+                background-color: #ccc;
+                color: #666;
+            }
+        """
+
+        self.new_task_btn = QPushButton("+ New Task (Ctrl+N)")
+        self.new_task_btn.setStyleSheet(new_task_button_style)
+        self.new_task_btn.clicked.connect(self._on_new_task)
+        self.new_task_btn.setWhatsThis(
+            "Create a new task. This opens the task form where you can enter all task details including "
+            "title, description, priority, due date, and other attributes."
+        )
+        new_task_layout.addWidget(self.new_task_btn)
+
+        new_task_layout.addStretch()
+        layout.addLayout(new_task_layout)
 
         # Subtitle between filters and task card
         subtitle_label = QLabel("Your highest priority task right now")
@@ -102,7 +150,7 @@ class FocusModeWidget(QWidget):
         subtitle_font.setPointSize(11)
         subtitle_label.setFont(subtitle_font)
         subtitle_label.setAlignment(Qt.AlignCenter)
-        subtitle_label.setStyleSheet("color: #666;")
+        subtitle_label.setObjectName("subtitleLabel")
         layout.addWidget(subtitle_label)
 
         # Task card (fixed position at top)
@@ -134,16 +182,23 @@ class FocusModeWidget(QWidget):
         context_filter_layout.addWidget(context_label)
 
         self.context_filter_label = QLabel("All Contexts")
-        self.context_filter_label.setStyleSheet("padding: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        self.context_filter_label.setStyleSheet("padding: 4px; border-radius: 4px;")
         self.context_filter_label.setMinimumWidth(150)
         context_filter_layout.addWidget(self.context_filter_label)
 
         context_select_btn = QPushButton("Select...")
         context_select_btn.clicked.connect(self._on_select_context_filter)
+        context_select_btn.setWhatsThis(
+            "Choose a specific context to filter tasks. Only tasks matching the selected context "
+            "(e.g., @computer, @phone) will be shown in Focus Mode."
+        )
         context_filter_layout.addWidget(context_select_btn)
 
         clear_context_btn = QPushButton("Clear")
         clear_context_btn.clicked.connect(self._on_clear_context_filter)
+        clear_context_btn.setWhatsThis(
+            "Remove the context filter to show tasks from all contexts."
+        )
         context_filter_layout.addWidget(clear_context_btn)
 
         context_filter_layout.addStretch()
@@ -159,16 +214,23 @@ class FocusModeWidget(QWidget):
         tags_filter_layout.addWidget(tags_label)
 
         self.tags_filter_label = QLabel("All Project Tags")
-        self.tags_filter_label.setStyleSheet("padding: 4px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;")
+        self.tags_filter_label.setStyleSheet("padding: 4px; border-radius: 4px;")
         self.tags_filter_label.setMinimumWidth(150)
         tags_filter_layout.addWidget(self.tags_filter_label)
 
         tags_select_btn = QPushButton("Select...")
         tags_select_btn.clicked.connect(self._on_select_tag_filters)
+        tags_select_btn.setWhatsThis(
+            "Choose one or more project tags to filter tasks. Only tasks with at least one of the "
+            "selected tags will be shown in Focus Mode (OR logic)."
+        )
         tags_filter_layout.addWidget(tags_select_btn)
 
         clear_tags_btn = QPushButton("Clear")
         clear_tags_btn.clicked.connect(self._on_clear_tag_filters)
+        clear_tags_btn.setWhatsThis(
+            "Remove all project tag filters to show tasks with any tags."
+        )
         tags_filter_layout.addWidget(clear_tags_btn)
 
         tags_filter_layout.addStretch()
@@ -186,14 +248,8 @@ class FocusModeWidget(QWidget):
         self.card_frame = QFrame()
         self.card_frame.setFrameShape(QFrame.StyledPanel)
         self.card_frame.setFrameShadow(QFrame.Raised)
-        self.card_frame.setStyleSheet("""
-            QFrame {
-                background-color: #f9f9f9;
-                border: 2px solid #ddd;
-                border-radius: 8px;
-                padding: 20px;
-            }
-        """)
+        # Remove hardcoded styling - let theme handle it
+        self.card_frame.setObjectName("focusTaskCard")
 
         card_layout = QVBoxLayout()
         self.card_frame.setLayout(card_layout)
@@ -212,22 +268,15 @@ class FocusModeWidget(QWidget):
         metadata_font = QFont()
         metadata_font.setPointSize(10)
         self.task_metadata_label.setFont(metadata_font)
-        self.task_metadata_label.setStyleSheet("color: #555; margin-top: 5px;")
+        self.task_metadata_label.setObjectName("taskMetadata")
+        self.task_metadata_label.setStyleSheet("margin-top: 5px;")
         card_layout.addWidget(self.task_metadata_label)
 
         # Task description
         self.task_description = QTextEdit()
         self.task_description.setReadOnly(True)
         self.task_description.setMaximumHeight(150)
-        self.task_description.setStyleSheet("""
-            QTextEdit {
-                background-color: white;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                padding: 8px;
-                color: #333;
-            }
-        """)
+        # Remove hardcoded styling - let theme handle it
         card_layout.addWidget(self.task_description)
 
         layout.addWidget(self.card_frame)
@@ -262,6 +311,10 @@ class FocusModeWidget(QWidget):
             }
         """)
         self.complete_button.clicked.connect(self._on_complete_clicked)
+        self.complete_button.setWhatsThis(
+            "Mark the current task as completed. The task will move to the Completed state, "
+            "and the next highest-priority task will automatically be displayed."
+        )
         primary_layout.addWidget(self.complete_button)
 
         primary_layout.addStretch()
@@ -296,21 +349,37 @@ class FocusModeWidget(QWidget):
         self.defer_button = QPushButton("Defer")
         self.defer_button.setStyleSheet(button_style)
         self.defer_button.clicked.connect(self._on_defer_clicked)
+        self.defer_button.setWhatsThis(
+            "Postpone this task with a future start date. The task becomes deferred and will "
+            "resurface when the start date arrives. You'll be prompted for the reason and date."
+        )
         secondary_layout.addWidget(self.defer_button)
 
         self.delegate_button = QPushButton("Delegate")
         self.delegate_button.setStyleSheet(button_style)
         self.delegate_button.clicked.connect(self._on_delegate_clicked)
+        self.delegate_button.setWhatsThis(
+            "Assign this task to someone else. You'll set a follow-up date and be reminded "
+            "to check on progress. The task moves to the Delegated state."
+        )
         secondary_layout.addWidget(self.delegate_button)
 
         self.someday_button = QPushButton("Someday")
         self.someday_button.setStyleSheet(button_style)
         self.someday_button.clicked.connect(self._on_someday_clicked)
+        self.someday_button.setWhatsThis(
+            "Move this task to Someday/Maybe for things you're not ready to commit to. "
+            "These tasks are periodically resurfaced for review."
+        )
         secondary_layout.addWidget(self.someday_button)
 
         self.trash_button = QPushButton("Trash")
         self.trash_button.setStyleSheet(button_style.replace("#6c757d", "#ff8c00"))  # Yellow-orange
         self.trash_button.clicked.connect(self._on_trash_clicked)
+        self.trash_button.setWhatsThis(
+            "Move this task to Trash for tasks that are no longer relevant or necessary. "
+            "Trashed tasks can be permanently deleted later."
+        )
         secondary_layout.addWidget(self.trash_button)
 
         layout.addLayout(secondary_layout)
@@ -335,6 +404,10 @@ class FocusModeWidget(QWidget):
             }
         """)
         self.refresh_button.clicked.connect(self._on_refresh_clicked)
+        self.refresh_button.setWhatsThis(
+            "Reload the task list to update with the latest highest-priority task. "
+            "Use this after creating new tasks or when you think priorities may have changed."
+        )
         refresh_layout.addWidget(self.refresh_button)
 
         refresh_layout.addStretch()
@@ -457,6 +530,28 @@ class FocusModeWidget(QWidget):
     def _on_refresh_clicked(self):
         """Handle Refresh button click."""
         self.task_refreshed.emit()
+
+    def _on_new_task(self):
+        """Handle new task button click."""
+        from .task_form_dialog import TaskFormDialog
+        from ..services.task_service import TaskService
+        from ..services.task_history_service import TaskHistoryService
+        from ..database.task_history_dao import TaskHistoryDAO
+
+        dialog = TaskFormDialog(parent=self)
+        if dialog.exec_():
+            task = dialog.get_updated_task()
+            if task:
+                task_service = TaskService(self.db_connection)
+                created_task = task_service.create_task(task)
+
+                # Record task creation in history
+                task_history_dao = TaskHistoryDAO(self.db_connection.get_connection())
+                task_history_service = TaskHistoryService(task_history_dao)
+                task_history_service.record_task_created(created_task)
+
+                # Emit signal that a task was created
+                self.task_created.emit(created_task.id)
 
     def get_current_task(self) -> Optional[Task]:
         """

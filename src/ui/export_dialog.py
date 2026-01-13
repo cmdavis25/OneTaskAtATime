@@ -85,6 +85,16 @@ class ExportDialog(QDialog, GeometryMixin):
         self.setWindowTitle("Export Data")
         self.setMinimumSize(500, 400)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog allows you to export your data for backup purposes. "
+            "Choose JSON format for cross-platform backups or database format for complete system backups. "
+            "Click the ? button for help."
+        )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -113,6 +123,9 @@ class ExportDialog(QDialog, GeometryMixin):
         self.json_radio = QRadioButton("JSON Export (recommended)")
         self.json_radio.setChecked(True)
         self.json_radio.toggled.connect(self._on_export_type_changed)
+        self.json_radio.setWhatsThis(
+            "Export all data in human-readable JSON format. This is the recommended option for cross-platform backups and data migration."
+        )
         export_type_layout.addWidget(self.json_radio)
 
         json_desc = QLabel("Export all data in human-readable JSON format")
@@ -121,6 +134,9 @@ class ExportDialog(QDialog, GeometryMixin):
 
         self.database_radio = QRadioButton("SQLite Database Backup")
         self.database_radio.toggled.connect(self._on_export_type_changed)
+        self.database_radio.setWhatsThis(
+            "Create a direct copy of the SQLite database file. This is a complete system backup including all data and settings."
+        )
         export_type_layout.addWidget(self.database_radio)
 
         db_desc = QLabel("Create a direct copy of the database file")
@@ -139,6 +155,9 @@ class ExportDialog(QDialog, GeometryMixin):
         self.include_settings_check.setToolTip(
             "Include application settings in the export"
         )
+        self.include_settings_check.setWhatsThis(
+            "Include application settings in the JSON export. This includes preferences like window positions and display options."
+        )
         options_layout.addWidget(self.include_settings_check)
 
         self.options_group.setLayout(options_layout)
@@ -156,6 +175,9 @@ class ExportDialog(QDialog, GeometryMixin):
 
         browse_btn = QPushButton("Browse...")
         browse_btn.clicked.connect(self._browse_file)
+        browse_btn.setWhatsThis(
+            "Choose a custom location and filename for the export file. By default, a timestamped filename is provided."
+        )
         path_layout.addWidget(browse_btn)
 
         file_layout.addLayout(path_layout)
@@ -183,6 +205,9 @@ class ExportDialog(QDialog, GeometryMixin):
         self.export_btn.setObjectName("primaryButton")
         self.export_btn.clicked.connect(self._start_export)
         self.export_btn.setEnabled(False)
+        self.export_btn.setWhatsThis(
+            "Start the export operation. Your data will be saved to the specified file location."
+        )
         button_layout.addWidget(self.export_btn)
 
         self.cancel_btn = QPushButton("Cancel")

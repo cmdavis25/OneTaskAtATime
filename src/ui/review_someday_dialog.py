@@ -59,6 +59,16 @@ class ReviewSomedayDialog(QDialog, GeometryMixin):
         self.setWindowTitle("Review Someday/Maybe Tasks")
         self.setMinimumSize(1000, 600)
 
+        # Enable WhatsThis help button
+        self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)
+
+        # Set WhatsThis text for the dialog
+        self.setWhatsThis(
+            "This dialog lets you review tasks in the Someday/Maybe state. "
+            "These tasks aren't currently actionable but should be reviewed periodically. "
+            "Activate tasks you're ready to work on, or trash tasks no longer relevant. Click the ? button for help."
+        )
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -93,6 +103,9 @@ class ReviewSomedayDialog(QDialog, GeometryMixin):
         self.task_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.task_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.task_table.setAlternatingRowColors(True)
+        self.task_table.setWhatsThis(
+            "List of all Someday/Maybe tasks. These tasks aren't currently actionable but should be reviewed periodically. Select tasks using checkboxes, then choose an action below."
+        )
 
         # Configure column widths
         header = self.task_table.horizontalHeader()
@@ -120,11 +133,17 @@ class ReviewSomedayDialog(QDialog, GeometryMixin):
         self.activate_btn = QPushButton("Activate Selected")
         self.activate_btn.setToolTip("Move selected tasks to Active state")
         self.activate_btn.clicked.connect(self._activate_selected)
+        self.activate_btn.setWhatsThis(
+            "Move selected Someday/Maybe tasks to Active state. Use this when you're ready to work on these tasks."
+        )
         button_layout.addWidget(self.activate_btn)
 
         self.trash_btn = QPushButton("Move to Trash")
         self.trash_btn.setToolTip("Move selected tasks to Trash")
         self.trash_btn.clicked.connect(self._trash_selected)
+        self.trash_btn.setWhatsThis(
+            "Move selected tasks to Trash. Use this for tasks that are no longer relevant or needed."
+        )
         button_layout.addWidget(self.trash_btn)
 
         button_layout.addStretch()
@@ -132,6 +151,9 @@ class ReviewSomedayDialog(QDialog, GeometryMixin):
         keep_btn = QPushButton("Keep in Someday")
         keep_btn.setToolTip("Keep tasks in Someday/Maybe for future review")
         keep_btn.clicked.connect(self._keep_in_someday)
+        keep_btn.setWhatsThis(
+            "Keep all tasks in Someday/Maybe state for future review. This resets the review timer so you'll be reminded again later."
+        )
         button_layout.addWidget(keep_btn)
 
         layout.addLayout(button_layout)
