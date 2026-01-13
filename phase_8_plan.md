@@ -38,7 +38,7 @@ Phase 8 transforms OneTaskAtATime from a feature-complete application into a pro
 - **Help System**: HelpDialog, TooltipManager, keyboard shortcut cheatsheet
 - **Onboarding System**: WelcomeWizard, FirstRunDetector, interactive tutorial
 - **Enhanced Error Handler**: ErrorService with context-aware recovery suggestions
-- **6 Focus Mode Shortcuts**: Ctrl+Shift+C, Ctrl+D, Ctrl+Shift+D, Ctrl+M, Ctrl+Shift+T, Ctrl+Delete
+- **5 Focus Mode Shortcuts**: Alt+C (Complete), Alt+D (Defer), Alt+G (Delegate), Alt+S (Someday), Alt+X (Trash)
 
 ---
 
@@ -417,7 +417,7 @@ self.task_title_label.setAccessibleName("Current task title")
 self.task_description.setAccessibleName("Task description")
 self.complete_button.setAccessibleName("Mark task as complete")
 self.complete_button.setAccessibleDescription(
-    "Marks the current task as completed and moves to next task. Keyboard shortcut: Ctrl+Shift+C"
+    "Marks the current task as completed and moves to next task. Keyboard shortcut: Alt+C"
 )
 
 # Set accessible role
@@ -620,38 +620,42 @@ Contents:
 def _setup_shortcuts(self):
     """Configure keyboard shortcuts for Focus Mode actions"""
 
-    # Complete: Ctrl+Shift+C
-    complete_shortcut = QShortcut(QKeySequence("Ctrl+Shift+C"), self)
+    # Complete: Alt+C
+    complete_shortcut = QShortcut(QKeySequence("Alt+C"), self)
     complete_shortcut.activated.connect(self._on_complete_clicked)
 
-    # Defer: Ctrl+D
-    defer_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
+    # Defer: Alt+D
+    defer_shortcut = QShortcut(QKeySequence("Alt+D"), self)
     defer_shortcut.activated.connect(self._on_defer_clicked)
 
-    # Delegate: Ctrl+Shift+D
-    delegate_shortcut = QShortcut(QKeySequence("Ctrl+Shift+D"), self)
+    # Delegate: Alt+G (G for "deLeGate")
+    delegate_shortcut = QShortcut(QKeySequence("Alt+G"), self)
     delegate_shortcut.activated.connect(self._on_delegate_clicked)
 
-    # Someday: Ctrl+M (M for "Maybe")
-    someday_shortcut = QShortcut(QKeySequence("Ctrl+M"), self)
+    # Someday: Alt+S
+    someday_shortcut = QShortcut(QKeySequence("Alt+S"), self)
     someday_shortcut.activated.connect(self._on_someday_clicked)
 
-    # Trash: Ctrl+Delete
-    trash_shortcut = QShortcut(QKeySequence("Ctrl+Delete"), self)
+    # Trash: Alt+X
+    trash_shortcut = QShortcut(QKeySequence("Alt+X"), self)
     trash_shortcut.activated.connect(self._on_trash_clicked)
-
-    # Edit Task: Ctrl+E (when in Focus Mode)
-    edit_shortcut = QShortcut(QKeySequence("Ctrl+Shift+E"), self)
-    edit_shortcut.activated.connect(self._on_edit_task)
 ```
 
-**Update Button Tooltips** - Add shortcut hints:
+**Update Button Text and Tooltips** - Display shortcuts in button text:
 ```python
-self.complete_button.setToolTip("Mark as complete (Ctrl+Shift+C)")
-self.defer_button.setToolTip("Defer task (Ctrl+D)")
-self.delegate_button.setToolTip("Delegate task (Ctrl+Shift+D)")
-self.someday_button.setToolTip("Move to Someday/Maybe (Ctrl+M)")
-self.trash_button.setToolTip("Move to trash (Ctrl+Delete)")
+# Update button text to include keyboard shortcuts
+self.complete_button.setText("✓ Complete (Alt+C)")
+self.defer_button.setText("Defer (Alt+D)")
+self.delegate_button.setText("Delegate (Alt+G)")
+self.someday_button.setText("Someday (Alt+S)")
+self.trash_button.setText("Trash (Alt+X)")
+
+# Update tooltips with more detailed descriptions
+self.complete_button.setToolTip("Mark task as complete")
+self.defer_button.setToolTip("Defer task to later date")
+self.delegate_button.setToolTip("Delegate task to someone else")
+self.someday_button.setToolTip("Move to Someday/Maybe")
+self.trash_button.setToolTip("Move to trash")
 ```
 
 #### 4.2 Global Application Shortcuts
@@ -707,12 +711,11 @@ help_menu.addAction(shortcuts_action)
 │                                              │
 │ Focus Mode                                  │
 │ ────────────────────────────────────────   │
-│ Complete Task      Ctrl+Shift+C             │
-│ Defer Task         Ctrl+D                   │
-│ Delegate Task      Ctrl+Shift+D             │
-│ Someday/Maybe      Ctrl+M                   │
-│ Move to Trash      Ctrl+Delete              │
-│ Edit Task          Ctrl+Shift+E             │
+│ Complete Task      Alt+C                    │
+│ Defer Task         Alt+D                    │
+│ Delegate Task      Alt+G                    │
+│ Someday/Maybe      Alt+S                    │
+│ Move to Trash      Alt+X                    │
 │                                              │
 │ Navigation                                  │
 │ ────────────────────────────────────────   │
@@ -1012,11 +1015,11 @@ class FirstRunDetector:
 │ [Screenshot or mockup of Focus Mode]    │
 │                                          │
 │ Actions you can take:                   │
-│ • Complete (Ctrl+Shift+C)               │
-│ • Defer (Ctrl+D) - Postpone to later    │
-│ • Delegate (Ctrl+Shift+D)               │
-│ • Someday/Maybe (Ctrl+M)                │
-│ • Trash (Ctrl+Delete)                   │
+│ • Complete (Alt+C)                      │
+│ • Defer (Alt+D) - Postpone to later     │
+│ • Delegate (Alt+G)                      │
+│ • Someday/Maybe (Alt+S)                 │
+│ • Trash (Alt+X)                         │
 │                                          │
 │          [< Back]  [Next >]              │
 └─────────────────────────────────────────┘
@@ -1112,8 +1115,8 @@ class TutorialTooltipManager(QObject):
 
 **Focus Mode Tutorial Steps**:
 1. Highlight task card: "This is your current highest-priority task"
-2. Highlight Complete button: "Click here or press Ctrl+Shift+C to complete"
-3. Highlight Defer button: "Not ready? Defer it for later"
+2. Highlight Complete button: "Click here or press Alt+C to complete"
+3. Highlight Defer button: "Not ready? Defer it with Alt+D"
 4. Highlight filter section: "Filter by context or project tags"
 
 #### 6.4 Help System
@@ -1144,14 +1147,14 @@ Focus Mode presents ONE task at a time - your highest-priority task.
 
 ## Actions
 
-**Complete (Ctrl+Shift+C)**
+**Complete (Alt+C)**
 Marks the task as done and moves to the next task.
 
-**Defer (Ctrl+D)**
+**Defer (Alt+D)**
 Postpone the task with a start date. The app tracks postponement
 patterns and suggests interventions if needed.
 
-**Delegate (Ctrl+Shift+D)**
+**Delegate (Alt+G)**
 Assign to someone else with a follow-up date. You'll be reminded
 when follow-up is due.
 ```
@@ -1235,9 +1238,8 @@ def test_complete_task_shortcut(qtbot):
     focus_mode = FocusModeWidget(...)
     qtbot.addWidget(focus_mode)
 
-    # Simulate Ctrl+Shift+C
-    qtbot.keyClick(focus_mode, Qt.Key_C,
-                   Qt.ControlModifier | Qt.ShiftModifier)
+    # Simulate Alt+C
+    qtbot.keyClick(focus_mode, Qt.Key_C, Qt.AltModifier)
 
     # Verify task_completed signal emitted
 ```
@@ -1316,34 +1318,94 @@ Comprehensive guide covering:
 
 ## Implementation Sequence
 
-### Week 1: History & Error Handling
-**Days 1-3**: Task history system (model, DAO, service, UI)
-**Days 4-5**: Enhanced error handling (ErrorService, EnhancedErrorDialog, integration)
+### ✅ Week 1: History & Error Handling (COMPLETE)
+**Days 1-3**: Task history system (model, DAO, service, UI) - ✅ Implemented
+**Days 4-5**: Enhanced error handling (ErrorService, EnhancedErrorDialog, integration) - ✅ Implemented
 
-### Week 2: Accessibility Foundation
-**Days 6-7**: Accessibility service, keyboard navigation manager
-**Days 8-9**: Apply accessible labels to all widgets
-**Day 10**: Color contrast fixes, focus indicators
+### ✅ Week 2: Accessibility Foundation (COMPLETE)
+**Days 6-7**: Accessibility service, keyboard navigation manager - ✅ Implemented
+**Days 8-9**: Apply accessible labels to all widgets - ✅ Implemented
+**Day 10**: Color contrast fixes, focus indicators - ✅ Implemented
 
-### Week 3: Accessibility Completion & Shortcuts
-**Days 11-12**: Screen reader support, ARIA announcements
-**Day 13**: Keyboard shortcuts (Focus Mode + global)
-**Day 14**: Accessibility testing and fixes
+### ✅ Week 3: Accessibility Completion & Shortcuts (COMPLETE)
+**Days 11-12**: Screen reader support, ARIA announcements - ✅ Implemented
+**Day 13**: Keyboard shortcuts (Focus Mode + global) - ✅ Implemented
+**Day 14**: Accessibility testing and fixes - ✅ Implemented
 
-### Week 4: Undo/Redo & Help
-**Days 15-16**: Command pattern, UndoManager, integration
-**Days 17-18**: Help system (HelpDialog, ShortcutsDialog, WhatsThis)
+### ✅ Week 4: Undo/Redo & Help (COMPLETE)
+**Days 15-16**: Command pattern, UndoManager, integration - ✅ Implemented
+**Days 17-18**: Help system (HelpDialog, ShortcutsDialog, WhatsThis) - ✅ Implemented
 
-### Week 5: Onboarding & Polish
-**Days 19-20**: Welcome wizard, tutorial tooltips
-**Days 21-22**: First-run detection, interactive tutorials
-**Day 23**: Testing all features
+### ✅ Week 5: Onboarding & Polish (COMPLETE)
+**Days 19-20**: Welcome wizard, tutorial tooltips - ✅ Implemented
+**Days 21-22**: First-run detection, interactive tutorials - ✅ Implemented
+**Day 23**: Testing all features - ✅ Implemented
 
-### Week 6: Testing & Documentation
-**Days 24-25**: Unit tests, UI tests, integration tests
-**Days 26-27**: Manual testing, bug fixes
-**Days 28-29**: Documentation (status report, user guide, README updates)
-**Day 30**: Final QA and polish
+### ✅ Week 6: Testing & Documentation (COMPLETE)
+**Days 24-25**: Unit tests, UI tests, integration tests - ✅ Implemented
+**Days 26-27**: Manual testing, bug fixes - ✅ Implemented
+**Days 28-29**: Documentation (status report, user guide, README updates) - ✅ Implemented
+**Day 30**: Final QA and polish - ✅ Implemented
+
+---
+
+## Post-Phase 8 Enhancements (January 2026)
+
+After the initial Phase 8 completion, significant additional improvements were made:
+
+### ✅ Enhanced Dialog and Geometry System
+**Commits**: b967a1e, 8460df8
+- Fixed window geometry persistence for all dialogs and message boxes
+- Created custom MessageBox class with GeometryMixin
+- Replaced 100+ QMessageBox instances across 22 files
+- Fixed conditional geometry initialization in 10+ dialogs
+- Implemented robust hideEvent-based geometry capture
+
+### ✅ Workflow and Command System Improvements
+**Commits**: 60cea34, eec1997, 485853a, 141dacf, 264281d
+- Fixed undo/redo for defer with blocker/subtasks/dependencies workflows
+- Created compound commands for atomic workflow operations
+- Enhanced blocker task creation with full task form dialog
+- Fixed dependency removal when completing blocking tasks
+- Merged blocker and dependency workflows into unified system
+- Added descriptive text to Redo menu item
+
+### ✅ UI/UX Enhancements
+**Commits**: 41267b2, 27bd479, fba1ef7
+- Replaced Ctrl-click with checkbox interface for Project Tags
+- Improved sequential ranking dialog with compact layout and keyboard navigation
+- Added task history tracking and UI enhancements across dialogs
+- Fixed search box focus handling with keyboard navigation
+- Added combobox styling with visible dropdown arrows
+
+### ✅ Subtask and Dependency Management
+**Commits**: 5be8329
+- Redesigned Break Down Task dialog to use complete task data entry
+- Integrated EnhancedTaskFormDialog for full task property support
+- Enhanced dependency management for subtask workflows
+- Fixed DependencyDAO.create() calls to use Dependency objects
+
+### ✅ Focus Mode and Layout Improvements
+**Commits**: 8e112d2
+- Fixed Focus Mode layout to anchor task card at top
+- Added variable bottom spacing for stable visual experience
+- Improved handling of varying content lengths
+
+### ✅ WhatsThis Contextual Help System
+**Commits**: 3193205
+- Implemented complete WhatsThis contextual help system
+- Added WhatsThisEventFilter to highlight interactive widgets
+- Added WhatsThis help text to all major UI components
+- Enhanced help dialog with searchable content and clear button
+- Added "New Task" button to Focus Mode with Ctrl+N shortcut
+
+### ✅ Theme System Improvements
+**Commits**: 3193205
+- Improved table widget styling with alternating rows
+- Added vertical header and corner button styling
+- Migrated from inline styles to theme-based styling using object names
+- Enhanced notification panel with theme-aware read/unread states
+- Updated both dark.qss and light.qss (+107 lines each)
 
 ---
 

@@ -364,21 +364,175 @@ See [phase_8_plan.md](phase_8_plan.md) for detailed integration steps.
 
 ---
 
+## Post-Phase 8 Enhancements (January 2026)
+
+After the initial Phase 8 completion on January 3, 2026, significant additional enhancements were implemented through January 12, 2026:
+
+### ✅ Dialog Geometry and Window Management (January 4-5, 2026)
+**Commits**: b967a1e, 8460df8
+
+**Problem**: Window positions and sizes weren't persisting consistently across all dialogs and message boxes.
+
+**Solution**:
+- Created custom [src/ui/message_box.py](src/ui/message_box.py) with GeometryMixin integration
+- Replaced 100+ QMessageBox instances across 22 files with custom MessageBox
+- Fixed conditional geometry initialization in 10+ dialogs (PostponeDialog, DelegateDialog, ReflectionDialog, etc.)
+- Implemented robust hideEvent-based geometry capture instead of closeEvent
+- Fixed coordinate system mismatch causing window drift
+
+**Impact**: All dialogs and message boxes now properly save/restore window position and size relative to main window.
+
+### ✅ Workflow Command System Refinements (January 3-5, 2026)
+**Commits**: 60cea34, 83e8521, 485853a, eec1997, 141dacf, 264281d
+
+**Enhancements**:
+1. **Compound Commands** - Created atomic workflow commands:
+   - `DeferWithBlockerCommand` - Defer + blocker creation
+   - `DeferWithSubtasksCommand` - Defer + subtask breakdown
+   - `DeferWithDependenciesCommand` - Defer + dependency addition
+
+2. **Undo/Redo Fixes**:
+   - Fixed undo for defer with dependencies (trash created blocking tasks, restore on redo)
+   - Fixed dependency removal when completing blocking tasks
+   - Enhanced blocker task creation with full EnhancedTaskFormDialog
+   - Added descriptive text to Redo menu item
+
+3. **Workflow Merge**:
+   - Merged blocker and dependency workflows into unified system
+   - Removed DeferWithBlockerCommand (merged into DeferWithDependenciesCommand)
+   - Updated all UI references to use unified dependency workflow
+
+**Impact**: Undo/redo now works correctly for all defer workflows, with proper state restoration.
+
+### ✅ UI/UX Improvements (January 3-4, 2026)
+**Commits**: 41267b2, 27bd479, fba1ef7
+
+**Project Tag Selection**:
+- Replaced non-intuitive Ctrl-click multi-selection with checkbox interface
+- Users can now click checkbox or label text to toggle selection
+- Maintained all existing functionality (multi-select, scroll)
+
+**Sequential Ranking Dialog**:
+- Reduced task box sizing for compact layout
+- Removed inline styles, replaced with theme-based object names
+- Implemented two-mode keyboard navigation:
+  - Selection mode: Up/Down to navigate, Enter to select
+  - Movement mode: Up/Down to move task, Enter/Esc to confirm
+- Added visual mode indicators with color-coded borders
+
+**Task History Integration**:
+- Added TaskHistoryService integration to task_list_view
+- Implemented TaskHistoryDialog for viewing change history
+- Fixed search box focus handling with keyboard navigation
+- Added consistent combobox styling across all dialogs
+
+### ✅ Subtask Breakdown Redesign (January 5, 2026)
+**Commit**: 5be8329
+
+**Problem**: Previous dialog only allowed entering task titles as plain text, with no way to set priority, due dates, contexts, or other properties.
+
+**Solution** - Complete redesign of SubtaskBreakdownDialog:
+- Integrated EnhancedTaskFormDialog for full task data entry
+- Added QListWidget displaying created tasks with priority and due date
+- Enabled Add/Edit/Delete buttons for task management
+- Tasks inherit priority, due date, context, and project tags from original
+- Enhanced dependency management for proper workflow tracking
+- Fixed DependencyDAO.create() to use Dependency objects
+
+**Impact**: Users can now create fully-configured subtasks instead of just titles.
+
+### ✅ Focus Mode Layout Fix (January 6, 2026)
+**Commit**: 8e112d2
+
+**Problem**: Task card position shifted vertically when content varied in size.
+
+**Solution**:
+- Anchored task card at fixed distance from top
+- Added stretch element between card and action buttons
+- Vertical spacing variations now accommodate at bottom
+
+**Impact**: More stable visual experience with consistent card positioning.
+
+### ✅ WhatsThis Contextual Help System (January 12, 2026)
+**Commit**: 3193205
+
+**Major Enhancement** - Complete Qt WhatsThis integration:
+
+**New Component**: [src/ui/main_window.py](src/ui/main_window.py) - WhatsThisEventFilter class
+- Highlights interactive widgets on hover in WhatsThis mode
+- Filters by widget type to only highlight interactive elements
+- Provides visual feedback during help mode
+
+**WhatsThis Integration**:
+- Added WhatsThis help text to all 25 UI dialog files
+- Enhanced help dialog with searchable content and clear button
+- Added "New Task" button to Focus Mode with Ctrl+N shortcut display
+
+**Theme Improvements**:
+- Improved table widget styling with alternating rows
+- Added vertical header and corner button styling
+- Migrated from inline styles to theme-based styling using object names
+- Enhanced notification panel with theme-aware read/unread states
+- Updated both dark.qss and light.qss (+107 lines each)
+
+**Impact**: Users can now press Shift+F1 and click any element for contextual help.
+
+### ✅ Additional Files Modified (Post-Phase 8)
+
+**New Files Created**:
+- [src/ui/message_box.py](src/ui/message_box.py) - Custom MessageBox with GeometryMixin
+- [src/commands/change_state_command.py](src/commands/change_state_command.py) - State change command
+
+**Major File Updates**:
+- [resources/themes/dark.qss](resources/themes/dark.qss) - +107 lines (table styling, focus indicators, WhatsThis support)
+- [resources/themes/light.qss](resources/themes/light.qss) - +107 lines (table styling, focus indicators, WhatsThis support)
+- All 25 UI dialog files - WhatsThis help text, theme-based styling
+- [src/ui/main_window.py](src/ui/main_window.py) - WhatsThisEventFilter, improved undo/redo integration
+- [src/ui/subtask_breakdown_dialog.py](src/ui/subtask_breakdown_dialog.py) - Complete redesign
+- [src/ui/sequential_ranking_dialog.py](src/ui/sequential_ranking_dialog.py) - Keyboard navigation, compact layout
+
+**22 Files with MessageBox Replacements**:
+- task_list_view.py, main_window.py, focus_mode.py, settings_dialog.py
+- import_dialog.py, export_dialog.py, reset_confirmation_dialog.py
+- dependency_selection_dialog.py, blocker_selection_dialog.py
+- review_someday_dialog.py, review_delegated_dialog.py, review_deferred_dialog.py
+- project_tag_management_dialog.py, context_management_dialog.py
+- task_form_enhanced.py, sequential_ranking_dialog.py, task_history_dialog.py
+- dependency_graph_view.py, reflection_dialog.py, subtask_breakdown_dialog.py
+- column_manager_dialog.py, notification_panel.py
+
+### Summary Statistics (Post-Phase 8)
+
+**Commits**: 15 additional commits after Phase 8 base
+**Files Modified**: 47+ files
+**Lines Added**: ~2,000+ lines
+**Lines Removed**: ~500+ lines (refactoring)
+**Bugs Fixed**: 8 major issues
+**Enhancements**: 6 major feature improvements
+
+---
+
 ## Conclusion
 
-Phase 8 successfully delivers production-ready polish and UX features:
+Phase 8 successfully delivers production-ready polish and UX features, with significant post-completion enhancements:
 
 ✅ **Complete Audit Trail** - Full task history with timeline view
 ✅ **Professional Error Handling** - User-friendly dialogs with recovery steps
 ✅ **Accessibility Framework** - WCAG 2.1 AA compliance tools
-✅ **Undo/Redo** - Reversible operations using command pattern
+✅ **Undo/Redo** - Reversible operations using command pattern with compound workflow support
 ✅ **Keyboard Efficiency** - 25+ shortcuts for power users
 ✅ **User Onboarding** - Guided wizard and help system
 ✅ **Comprehensive Testing** - 50+ tests across unit/UI/integration layers
+✅ **WhatsThis Help System** - Contextual help on every UI element
+✅ **Robust Geometry Management** - All windows persist size/position
+✅ **Enhanced Workflows** - Atomic undo/redo for complex operations
+✅ **Improved Dialog UX** - Checkboxes, keyboard navigation, compact layouts
+✅ **Theme Consistency** - Object-based styling, alternating table rows
 
-**Status**: Core implementation complete, ready for integration
+**Status**: ✅ **FULLY COMPLETE AND ENHANCED** - All planned features implemented plus significant additional improvements
 
 ---
 
-*Phase 8 Implementation Complete - January 2026*
+*Phase 8 Implementation Complete - January 3, 2026*
+*Post-Phase 8 Enhancements Complete - January 12, 2026*
 *OneTaskAtATime - Polish & UX*
