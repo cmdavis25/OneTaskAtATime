@@ -44,15 +44,17 @@ class FocusModeWidget(QWidget):
     task_created = pyqtSignal(int)    # task_id - Emitted when new task is created
     filters_changed = pyqtSignal()    # Emitted when filters change
 
-    def __init__(self, db_connection: DatabaseConnection, parent=None):
+    def __init__(self, db_connection: DatabaseConnection, parent=None, test_mode: bool = False):
         """Initialize the Focus Mode widget.
 
         Args:
             db_connection: Database connection for loading contexts and tags
             parent: Parent widget
+            test_mode: If True, skip confirmation dialogs for automated testing
         """
         super().__init__(parent)
         self.db_connection = db_connection
+        self.test_mode = test_mode
         self._current_task: Optional[Task] = None
         self.active_context_filter: Optional[int] = None  # Single context ID or None
         self.active_tag_filters: Set[int] = set()  # Set of tag IDs
@@ -500,32 +502,40 @@ class FocusModeWidget(QWidget):
     def _on_someday_clicked(self):
         """Handle Someday button click."""
         if self._current_task and self._current_task.id is not None:
-            reply = MessageBox.question(
-                self,
-                self.db_connection.get_connection(),
-                "Move to Someday/Maybe?",
-                f"Move '{self._current_task.title}' to Someday/Maybe?\n\n"
-                "This task will be removed from active focus and resurfaced periodically.",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            if reply == QMessageBox.Yes:
+            # Skip confirmation dialog in test mode
+            if self.test_mode:
                 self.task_someday.emit(self._current_task.id)
+            else:
+                reply = MessageBox.question(
+                    self,
+                    self.db_connection.get_connection(),
+                    "Move to Someday/Maybe?",
+                    f"Move '{self._current_task.title}' to Someday/Maybe?\n\n"
+                    "This task will be removed from active focus and resurfaced periodically.",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                if reply == QMessageBox.Yes:
+                    self.task_someday.emit(self._current_task.id)
 
     def _on_trash_clicked(self):
         """Handle Trash button click."""
         if self._current_task and self._current_task.id is not None:
-            reply = MessageBox.question(
-                self,
-                self.db_connection.get_connection(),
-                "Move to Trash?",
-                f"Move '{self._current_task.title}' to trash?\n\n"
-                "This task will be marked as unnecessary.",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            if reply == QMessageBox.Yes:
+            # Skip confirmation dialog in test mode
+            if self.test_mode:
                 self.task_trashed.emit(self._current_task.id)
+            else:
+                reply = MessageBox.question(
+                    self,
+                    self.db_connection.get_connection(),
+                    "Move to Trash?",
+                    f"Move '{self._current_task.title}' to trash?\n\n"
+                    "This task will be marked as unnecessary.",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                if reply == QMessageBox.Yes:
+                    self.task_trashed.emit(self._current_task.id)
 
     def _on_refresh_clicked(self):
         """Handle Refresh button click."""

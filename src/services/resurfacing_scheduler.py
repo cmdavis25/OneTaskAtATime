@@ -102,6 +102,12 @@ class ResurfacingScheduler(QObject):
         self._job_check_deferred_tasks()
         self._job_check_delegated_tasks()
 
+    def stop(self):
+        """
+        Stop the scheduler (alias for shutdown).
+        """
+        self.shutdown()
+
     def shutdown(self, wait: bool = True, timeout: int = 5):
         """
         Shutdown the scheduler gracefully.
@@ -141,6 +147,32 @@ class ResurfacingScheduler(QObject):
         self._configure_jobs()
 
         logger.info("Scheduler settings reloaded")
+
+    # ========== PUBLIC MANUAL TRIGGER METHODS ==========
+
+    def check_deferred_tasks(self):
+        """
+        Manually trigger checking for deferred tasks that are ready to activate.
+
+        Returns:
+            List of activated tasks
+        """
+        return self._job_check_deferred_tasks()
+
+    def check_delegated_tasks(self):
+        """
+        Manually trigger checking for delegated tasks needing follow-up.
+
+        Returns:
+            List of tasks needing follow-up
+        """
+        return self._job_check_delegated_tasks()
+
+    def check_someday_tasks(self):
+        """
+        Manually trigger someday/maybe review.
+        """
+        return self._job_trigger_someday_review()
 
     def _configure_jobs(self):
         """

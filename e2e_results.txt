@@ -1,0 +1,38 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-9.0.2, pluggy-1.6.0 -- C:\Python314\python.exe
+cachedir: .pytest_cache
+PyQt5 5.15.11 -- Qt runtime 5.15.2 -- Qt compiled 5.15.2
+rootdir: c:\Users\cdavi\GitHub_Repos\OneTaskAtATime
+configfile: pytest.ini
+plugins: cov-7.0.0, qt-4.5.0
+collecting ... collected 47 items
+
+tests/e2e/test_concurrency.py::TestConcurrency::test_resurfacing_during_user_action PASSED [  2%]
+tests/e2e/test_concurrency.py::TestConcurrency::test_notification_during_dialog SKIPPED [  4%]
+tests/e2e/test_concurrency.py::TestConcurrency::test_multiple_comparison_dialogs PASSED [  6%]
+tests/e2e/test_concurrency.py::TestConcurrency::test_scheduler_and_ui_thread_interaction PASSED [  8%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_task_lifecycle_active_to_completed SKIPPED [ 10%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_task_lifecycle_defer_workflow SKIPPED [ 12%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_task_lifecycle_delegate_workflow PASSED [ 14%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_task_lifecycle_someday_workflow PASSED [ 17%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_comparison_ranking_workflow FAILED [ 19%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_dependency_blocking_workflow FAILED [ 21%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_defer_with_blocker_workflow SKIPPED [ 23%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_undo_redo_complete_workflow FAILED [ 25%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_context_filtering_workflow FAILED [ 27%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_keyboard_shortcuts_workflow SKIPPED [ 29%]
+tests/e2e/test_core_workflows.py::TestCoreWorkflows::test_export_import_workflow FAILED [ 31%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_circular_dependency_detection PASSED [ 34%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_self_dependency_prevention PASSED [ 36%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_empty_title_task_creation PASSED [ 38%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_task_with_no_priority PASSED [ 40%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_task_with_past_due_date PASSED [ 42%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_defer_without_start_date PASSED [ 44%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_delegate_without_follow_up PASSED [ 46%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_comparison_with_single_task PASSED [ 48%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_complete_already_completed_task PASSED [ 51%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_undo_when_stack_empty PASSED [ 53%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_import_malformed_json PASSED [ 55%]
+tests/e2e/test_edge_cases.py::TestEdgeCases::test_database_locked_error PASSED [ 57%]
+tests/e2e/test_resurfacing_system.py::TestResurfacingSystem::test_deferred_task_auto_activation PASSED [ 59%]
+tests/e2e/test_resurfacing_system.py::TestResurfacingSystem::test_delegated_task_follow_up_notification 

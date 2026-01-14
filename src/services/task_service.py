@@ -12,9 +12,12 @@ from ..models.postpone_record import PostponeRecord
 from ..models.recurrence_pattern import RecurrencePattern
 from ..database.task_dao import TaskDAO
 from ..database.postpone_history_dao import PostponeHistoryDAO
+from ..database.context_dao import ContextDAO
+from ..database.task_history_dao import TaskHistoryDAO
 from ..database.connection import DatabaseConnection
 from ..algorithms.ranking import get_next_focus_task, get_actionable_tasks, get_tied_tasks
 from .recurrence_service import RecurrenceService
+from .task_history_service import TaskHistoryService
 
 
 class TaskService:
@@ -34,6 +37,9 @@ class TaskService:
         self.db = db_connection
         self.task_dao = TaskDAO(db_connection.get_connection())
         self.postpone_dao = PostponeHistoryDAO(db_connection.get_connection())
+        self.context_dao = ContextDAO(db_connection.get_connection())
+        history_dao = TaskHistoryDAO(db_connection.get_connection())
+        self.history_service = TaskHistoryService(history_dao)
 
     def get_all_tasks(self) -> List[Task]:
         """
@@ -101,6 +107,24 @@ class TaskService:
         all_tasks = self.task_dao.get_all()
         return get_tied_tasks(all_tasks, context_filter=context_filter, tag_filters=tag_filters)
 
+    def get_ranked_tasks(
+        self,
+        context_filter: Optional[int] = None,
+        tag_filters: Optional[Set[int]] = None
+    ) -> List[Task]:
+        """
+        Get all actionable tasks ranked by importance.
+
+        Args:
+            context_filter: Optional context ID to filter by (single selection)
+            tag_filters: Optional set of tag IDs to filter by (OR condition)
+
+        Returns:
+            List of tasks ranked by importance (highest first)
+        """
+        all_tasks = self.task_dao.get_all()
+        return get_actionable_tasks(all_tasks, context_filter=context_filter, tag_filters=tag_filters)
+
     def create_task(self, task: Task) -> Task:
         """
         Create a new task.
@@ -111,7 +135,10 @@ class TaskService:
         Returns:
             Created task with id assigned
         """
-        return self.task_dao.create(task)
+        created_task = self.task_dao.create(task)
+        # Record creation in history
+        self.history_service.record_task_created(created_task)
+        return created_task
 
     def update_task(self, task: Task) -> Task:
         """
@@ -174,8 +201,13 @@ class TaskService:
         if task is None:
             return None
 
+        old_state = task.state
         task.mark_completed()
         completed_task = self.task_dao.update(task)
+
+        # Record state change in history
+        if old_state != TaskState.COMPLETED:
+            self.history_service.record_state_change(completed_task, old_state, TaskState.COMPLETED)
 
         # Handle recurring logic
         if task.is_recurring:
@@ -202,8 +234,13 @@ class TaskService:
         if task is None:
             return None
 
+        old_state = task.state
         task.defer_until(start_date)
         updated_task = self.task_dao.update(task)
+
+        # Record state change in history
+        if old_state != TaskState.DEFERRED:
+            self.history_service.record_state_change(updated_task, old_state, TaskState.DEFERRED)
 
         # Record postpone reason after successful state change
         postpone_record = PostponeRecord(
@@ -234,8 +271,13 @@ class TaskService:
         if task is None:
             return None
 
+        old_state = task.state
         task.delegate_to(delegated_to, follow_up_date)
         updated_task = self.task_dao.update(task)
+
+        # Record state change in history
+        if old_state != TaskState.DELEGATED:
+            self.history_service.record_state_change(updated_task, old_state, TaskState.DELEGATED)
 
         # Record postpone reason after successful state change
         postpone_record = PostponeRecord(
@@ -262,8 +304,15 @@ class TaskService:
         if task is None:
             return None
 
+        old_state = task.state
         task.move_to_someday()
-        return self.task_dao.update(task)
+        updated_task = self.task_dao.update(task)
+
+        # Record state change in history
+        if old_state != TaskState.SOMEDAY:
+            self.history_service.record_state_change(updated_task, old_state, TaskState.SOMEDAY)
+
+        return updated_task
 
     def move_to_trash(self, task_id: int) -> Optional[Task]:
         """
@@ -279,8 +328,15 @@ class TaskService:
         if task is None:
             return None
 
+        old_state = task.state
         task.move_to_trash()
-        return self.task_dao.update(task)
+        updated_task = self.task_dao.update(task)
+
+        # Record state change in history
+        if old_state != TaskState.TRASH:
+            self.history_service.record_state_change(updated_task, old_state, TaskState.TRASH)
+
+        return updated_task
 
     def activate_task(self, task_id: int) -> Optional[Task]:
         """
@@ -296,13 +352,59 @@ class TaskService:
         if task is None:
             return None
 
+        old_state = task.state
         task.state = TaskState.ACTIVE
         # Clear state-specific fields
         task.start_date = None
         task.delegated_to = None
         task.follow_up_date = None
         task.completed_at = None
-        return self.task_dao.update(task)
+        updated_task = self.task_dao.update(task)
+
+        # Record state change in history
+        if old_state != TaskState.ACTIVE:
+            self.history_service.record_state_change(updated_task, old_state, TaskState.ACTIVE)
+
+        return updated_task
+
+    def restore_task(self, task_id: int) -> Optional[Task]:
+        """
+        Restore a task from trash to active state.
+
+        Args:
+            task_id: ID of task to restore
+
+        Returns:
+            Updated task, or None if not found
+        """
+        return self.activate_task(task_id)
+
+    def uncomplete_task(self, task_id: int) -> Optional[Task]:
+        """
+        Mark a completed task as active again.
+
+        Args:
+            task_id: ID of task to uncomplete
+
+        Returns:
+            Updated task, or None if not found
+        """
+        task = self.task_dao.get_by_id(task_id)
+        if task is None:
+            return None
+
+        if task.state == TaskState.COMPLETED:
+            old_state = task.state
+            task.state = TaskState.ACTIVE
+            task.completed_at = None
+            updated_task = self.task_dao.update(task)
+
+            # Record state change in history
+            self.history_service.record_state_change(updated_task, old_state, TaskState.ACTIVE)
+
+            return updated_task
+
+        return task
 
     def get_tasks_by_state(self, state: TaskState) -> List[Task]:
         """

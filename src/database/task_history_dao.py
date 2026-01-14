@@ -101,7 +101,7 @@ class TaskHistoryDAO:
             limit: Maximum number of events to retrieve (default 100)
 
         Returns:
-            List of TaskHistoryEvent objects, ordered by timestamp DESC
+            List of TaskHistoryEvent objects, ordered by timestamp ASC (chronological)
         """
         cursor = self.db_connection.cursor()
 
@@ -111,7 +111,7 @@ class TaskHistoryDAO:
                    new_value, changed_by, context_data
             FROM task_history
             WHERE task_id = ?
-            ORDER BY event_timestamp DESC
+            ORDER BY event_timestamp ASC
             LIMIT ?
             """,
             (task_id, limit)

@@ -22,6 +22,32 @@ class DependencyDAO:
         """
         self.db = db_connection
 
+    def add_dependency(self, blocked_task_id: int, blocking_task_id: int) -> Dependency:
+        """
+        Convenience method to add a dependency between two tasks.
+
+        Args:
+            blocked_task_id: ID of task that is blocked
+            blocking_task_id: ID of task that blocks it
+
+        Returns:
+            Created Dependency object
+
+        Raises:
+            ValueError: If creates circular dependency, is duplicate, or is self-dependency
+        """
+        # Check for self-dependency
+        if blocked_task_id == blocking_task_id:
+            raise ValueError(
+                f"Task cannot depend on itself (self-dependency not allowed for task {blocked_task_id})"
+            )
+
+        dependency = Dependency(
+            blocked_task_id=blocked_task_id,
+            blocking_task_id=blocking_task_id
+        )
+        return self.create(dependency)
+
     def create(self, dependency: Dependency) -> Dependency:
         """
         Insert a new dependency into the database.
@@ -117,6 +143,18 @@ class DependencyDAO:
         )
 
         return [self._row_to_dependency(row) for row in cursor.fetchall()]
+
+    def get_dependencies(self, task_id: int) -> List[Dependency]:
+        """
+        Alias for get_dependencies_for_task() for backward compatibility.
+
+        Args:
+            task_id: ID of blocked task
+
+        Returns:
+            List of Dependency objects where this task is blocked
+        """
+        return self.get_dependencies_for_task(task_id)
 
     def get_blocking_tasks(self, task_id: int) -> List[Dependency]:
         """

@@ -201,14 +201,16 @@ class MainWindow(QMainWindow):
     Phase 4: Full task management interface with multiple views.
     """
 
-    def __init__(self, app=None):
+    def __init__(self, app=None, test_mode=False):
         """Initialize the main window.
 
         Args:
             app: QApplication instance for theme management
+            test_mode: If True, skips Welcome Wizard and auto-ranking dialogs for testing
         """
         super().__init__()
         self.app = app
+        self.test_mode = test_mode
         self.setWindowTitle("OneTaskAtATime")
 
         # Initialize database and services
@@ -258,8 +260,9 @@ class MainWindow(QMainWindow):
         # Connect scheduler signals
         self._connect_scheduler_signals()
 
-        # Start background scheduler
-        self.resurfacing_scheduler.start()
+        # Start background scheduler (skip in test mode to avoid dialog interference)
+        if not self.test_mode:
+            self.resurfacing_scheduler.start()
 
         # Connect undo/redo signals to update menu state
         self.undo_manager.can_undo_changed.connect(self._update_undo_action)
@@ -276,7 +279,7 @@ class MainWindow(QMainWindow):
 
         # Show welcome wizard on first run (Phase 8)
         from PyQt5.QtCore import QTimer
-        if self.first_run_detector.is_first_run():
+        if not self.test_mode and self.first_run_detector.is_first_run():
             QTimer.singleShot(500, self._show_welcome_wizard)
 
         # Load initial task
@@ -352,7 +355,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stacked_widget)
 
         # Focus Mode widget
-        self.focus_mode = FocusModeWidget(self.db_connection)
+        self.focus_mode = FocusModeWidget(self.db_connection, test_mode=self.test_mode)
         self.stacked_widget.addWidget(self.focus_mode)
 
         # Task List View
@@ -384,11 +387,11 @@ class MainWindow(QMainWindow):
         # File Menu
         file_menu = menubar.addMenu("&File")
 
-        new_task_action = QAction("&New Task", self)
-        new_task_action.setShortcut("Ctrl+N")
-        new_task_action.setStatusTip("Create a new task")
-        new_task_action.triggered.connect(self._on_new_task)
-        file_menu.addAction(new_task_action)
+        self.new_task_action = QAction("&New Task", self)
+        self.new_task_action.setShortcut("Ctrl+N")
+        self.new_task_action.setStatusTip("Create a new task")
+        self.new_task_action.triggered.connect(self._on_new_task)
+        file_menu.addAction(self.new_task_action)
 
         file_menu.addSeparator()
 
@@ -581,18 +584,23 @@ class MainWindow(QMainWindow):
             tag_filters=tag_filters
         )
 
-        if len(tied_tasks) >= 2:
+        # Skip comparison dialog in test mode, just pick first task
+        if len(tied_tasks) >= 2 and not self.test_mode:
             # Show comparison dialog
             self._handle_tied_tasks(tied_tasks)
         else:
-            # No tie, get the top task
-            task = self.task_service.get_focus_task(
-                context_filter=context_filter,
-                tag_filters=tag_filters
-            )
+            # In test mode with tied tasks, pick the first one
+            if self.test_mode and len(tied_tasks) >= 2:
+                task = tied_tasks[0]
+            else:
+                # No tie, get the top task
+                task = self.task_service.get_focus_task(
+                    context_filter=context_filter,
+                    tag_filters=tag_filters
+                )
 
             # If no task is available, prompt user to review deferred/postponed tasks
-            if task is None:
+            if task is None and not self.test_mode:
                 if self._prompt_review_deferred_tasks():
                     # User activated some tasks, refresh to show them
                     self._refresh_focus_task()
@@ -625,18 +633,29 @@ class MainWindow(QMainWindow):
                 self.statusBar().showMessage("Task created successfully", 3000)
 
     def _on_task_completed(self, task_id: int):
-        """Handle task completion."""
-        task = self.task_service.get_task_by_id(task_id)
-        if task:
-            self.task_service.complete_task(task_id)
-            # Record completion in history
-            completed_task = self.task_service.get_task_by_id(task_id)
-            if completed_task:
-                self.task_history_service.record_state_change(
-                    completed_task, task.state, TaskState.COMPLETED
-                )
+        """Handle task completion using command pattern for undo/redo support."""
+        from ..commands.complete_task_command import CompleteTaskCommand
+        from ..database.task_dao import TaskDAO
+        from ..database.dependency_dao import DependencyDAO
+
+        task_dao = TaskDAO(self.db_connection.get_connection())
+        dependency_dao = DependencyDAO(self.db_connection.get_connection())
+
+        # Create and execute command
+        command = CompleteTaskCommand(
+            task_id=task_id,
+            task_dao=task_dao,
+            dependency_dao=dependency_dao,
+            history_service=self.task_history_service
+        )
+
+        if command.execute():
+            # Register with undo manager
+            self.undo_manager.add_command(command)
             self.statusBar().showMessage("Task completed! 🎉", 3000)
             self._refresh_focus_task()
+        else:
+            self.statusBar().showMessage("Failed to complete task", 3000)
 
     def _on_task_deferred(self, task_id: int):
         """Handle task deferral with reflection check and associated workflows."""
@@ -811,6 +830,10 @@ class MainWindow(QMainWindow):
         Returns:
             True if user activated tasks, False otherwise
         """
+        # Skip review dialog in test mode
+        if self.test_mode:
+            return False
+
         # Check if there are any deferred or postponed tasks
         deferred_tasks = self.task_service.get_tasks_by_state(TaskState.DEFERRED)
 
@@ -836,6 +859,10 @@ class MainWindow(QMainWindow):
         Returns:
             True if new tasks were found and user completed ranking, False otherwise
         """
+        # Skip ranking dialog in test mode
+        if self.test_mode:
+            return False
+
         from ..algorithms.initial_ranking import (
             check_for_new_tasks,
             get_ranking_candidates,
