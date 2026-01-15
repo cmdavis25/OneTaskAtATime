@@ -74,6 +74,15 @@ class ResurfacingService:
 
         for task in ready_tasks:
             try:
+                # Check if task has incomplete blockers (dependencies)
+                # blocking_task_ids is populated with IDs of non-completed blocking tasks
+                if task.blocking_task_ids:
+                    logger.info(
+                        f"Skipping deferred task '{task.title}' (ID: {task.id}) - "
+                        f"has {len(task.blocking_task_ids)} incomplete blocker(s)"
+                    )
+                    continue
+
                 # Update task state
                 task.state = TaskState.ACTIVE
                 task.start_date = None

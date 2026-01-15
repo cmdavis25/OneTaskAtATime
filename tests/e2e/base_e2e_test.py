@@ -142,6 +142,7 @@ class BaseE2ETest:
 
         # Cleanup
         app.close()
+        QTest.qWait(500)  # Wait for cleanup to complete
 
         # Reset DatabaseConnection singleton for next test
         DatabaseConnection._instance = None

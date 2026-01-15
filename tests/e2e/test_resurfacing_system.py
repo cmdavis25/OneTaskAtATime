@@ -73,7 +73,7 @@ class TestResurfacingSystem(BaseE2ETest):
             # May have notification about task activation
             # (Exact behavior depends on implementation)
 
-    def test_delegated_task_follow_up_notification(self, app_instance, qtbot):
+    def test_delegated_task_follow_up_notification(self, app_instance, qtbot, monkeypatch):
         """
         Test delegated task generates notification on follow_up_date.
 
@@ -284,10 +284,11 @@ class TestResurfacingSystem(BaseE2ETest):
             QTest.qWait(100)
 
         # Step 5: Check for intervention
-        # The postpone_workflow_service tracks postpone count
+        # The postpone_workflow_service tracks postpone history
         if hasattr(app_instance, 'postpone_workflow_service'):
-            postpone_count = app_instance.postpone_workflow_service.get_postpone_count(task_id)
-            assert postpone_count >= 3, "Should track multiple postponements"
+            postpone_history = app_instance.postpone_workflow_service.get_postpone_history(task_id)
+            postpone_count = len(postpone_history)
+            assert postpone_count >= 3, f"Should track multiple postponements, got {postpone_count}"
 
             # Service may trigger intervention dialog
             # (Exact behavior depends on implementation)

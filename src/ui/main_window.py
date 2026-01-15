@@ -641,17 +641,14 @@ class MainWindow(QMainWindow):
         task_dao = TaskDAO(self.db_connection.get_connection())
         dependency_dao = DependencyDAO(self.db_connection.get_connection())
 
-        # Create and execute command
+        # Create and execute command via undo manager (for undo/redo support)
         command = CompleteTaskCommand(
-            task_id=task_id,
             task_dao=task_dao,
-            dependency_dao=dependency_dao,
-            history_service=self.task_history_service
+            task_id=task_id,
+            dependency_dao=dependency_dao
         )
 
-        if command.execute():
-            # Register with undo manager
-            self.undo_manager.add_command(command)
+        if self.undo_manager.execute_command(command):
             self.statusBar().showMessage("Task completed! 🎉", 3000)
             self._refresh_focus_task()
         else:
@@ -1177,12 +1174,20 @@ class MainWindow(QMainWindow):
 
     def _on_delegated_followup_needed(self, tasks):
         """Show delegated follow-up dialog (Phase 6)."""
+        if self.test_mode:
+            # Skip dialog in test mode to prevent blocking
+            self._refresh_focus_task()
+            return
         dialog = ReviewDelegatedDialog(self.db_connection.get_connection(), tasks, self)
         dialog.exec_()
         self._refresh_focus_task()
 
     def _on_someday_review_triggered(self):
         """Show someday review dialog (Phase 6)."""
+        if self.test_mode:
+            # Skip dialog in test mode to prevent blocking
+            self._refresh_focus_task()
+            return
         dialog = ReviewSomedayDialog(self.db_connection.get_connection(), self)
         dialog.exec_()
         self._refresh_focus_task()

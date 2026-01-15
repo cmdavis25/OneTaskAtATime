@@ -116,13 +116,13 @@ class ResurfacingScheduler(QObject):
             wait: Whether to wait for jobs to complete
             timeout: Maximum seconds to wait for shutdown
         """
-        if not self._is_running:
-            return
-
         logger.info("Shutting down resurfacing scheduler...")
 
         try:
-            self.scheduler.shutdown(wait=wait)
+            # Always try to shutdown the scheduler even if not formally started
+            # APScheduler may have created internal resources during construction
+            if self.scheduler.running:
+                self.scheduler.shutdown(wait=wait)
             self._is_running = False
             logger.info("Scheduler shutdown complete")
         except Exception as e:
