@@ -181,13 +181,13 @@ class PostponeDialog(QDialog, GeometryMixin):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        cancel_button = QPushButton("Cancel")
-        cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_button)
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(self.cancel_button)
 
-        confirm_button = QPushButton("Confirm")
-        confirm_button.setDefault(True)
-        confirm_button.setStyleSheet("""
+        self.confirm_button = QPushButton("Confirm")
+        self.confirm_button.setDefault(True)
+        self.confirm_button.setStyleSheet("""
             QPushButton {
                 background-color: #007bff;
                 color: white;
@@ -200,8 +200,11 @@ class PostponeDialog(QDialog, GeometryMixin):
                 background-color: #0056b3;
             }
         """)
-        confirm_button.clicked.connect(self.accept)
-        button_layout.addWidget(confirm_button)
+        self.confirm_button.clicked.connect(self.accept)
+        button_layout.addWidget(self.confirm_button)
+
+        # Create alias for test compatibility
+        self.ok_button = self.confirm_button
 
         layout.addLayout(button_layout)
 
@@ -240,6 +243,12 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.reason_group.addButton(self.reason_blocker, 1)
         self.reason_group.addButton(self.reason_subtasks, 2)
         self.reason_group.addButton(self.reason_other, 3)
+
+        # Create aliases for test compatibility
+        self.not_ready_radio = self.reason_not_ready
+        self.blocker_radio = self.reason_blocker
+        self.subtasks_radio = self.reason_subtasks
+        self.dependency_radio = self.reason_blocker  # Blocker and dependency share same radio button
 
         # Set default
         self.reason_not_ready.setChecked(True)
@@ -341,6 +350,10 @@ class PostponeDialog(QDialog, GeometryMixin):
             "a reminder on this date."
         )
         form_layout.addRow("Follow-up date:", self.follow_up_date_edit)
+
+        # Create aliases for test compatibility
+        self.delegate_person_edit = self.delegated_to_edit
+        self.followup_date_edit = self.follow_up_date_edit
 
         layout.addLayout(form_layout)
 

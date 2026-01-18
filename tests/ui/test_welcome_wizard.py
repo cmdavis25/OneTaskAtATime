@@ -10,7 +10,6 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QDate
 
 from src.ui.welcome_wizard import WelcomeWizard
-from src.database.schema import DatabaseSchema
 
 
 @pytest.fixture(scope="module")
@@ -21,14 +20,6 @@ def qapp():
         app = QApplication([])
     yield app
 
-
-@pytest.fixture
-def db_connection():
-    """Create in-memory database for testing."""
-    conn = sqlite3.connect(":memory:")
-    DatabaseSchema.initialize_database(conn)
-    yield conn
-    conn.close()
 
 
 @pytest.fixture

@@ -164,9 +164,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         main_layout.addWidget(header_label)
 
         # Scrollable form area
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QScrollArea.NoFrame)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QScrollArea.NoFrame)
 
         form_widget = QWidget()
         form_layout = QVBoxLayout()
@@ -228,6 +228,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
             "as the deadline approaches, which affects their ranking in Focus Mode."
         )
         due_date_layout.addWidget(self.has_due_date_check)
+
+        # Create alias for test compatibility
+        self.due_date_checkbox = self.has_due_date_check
 
         self.due_date_edit = QLineEdit()
         self.due_date_edit.setPlaceholderText("YYYY-MM-DD")
@@ -313,6 +316,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         self.tags_scroll_area.setWidget(tags_widget)
         tags_container.addWidget(self.tags_scroll_area)
 
+        # Create alias for test compatibility (tag_list matches test expectations)
+        self.tag_list = tags_widget
+
         new_tag_btn = QPushButton("+ New Project Tag")
         new_tag_btn.clicked.connect(self._on_new_project_tag)
         new_tag_btn.setWhatsThis(
@@ -359,6 +365,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
             "and will be automatically resurfaced when the date arrives."
         )
         start_date_layout.addWidget(self.has_start_date_check)
+
+        # Create alias for test compatibility
+        self.start_date_checkbox = self.has_start_date_check
 
         self.start_date_edit = QLineEdit()
         self.start_date_edit.setPlaceholderText("YYYY-MM-DD")
@@ -451,6 +460,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         )
         recurrence_layout.addWidget(self.is_recurring_check)
 
+        # Create alias for test compatibility
+        self.recurrence_checkbox = self.is_recurring_check
+
         # Recurrence options container
         self.recurrence_options_widget = QWidget()
         recurrence_options_layout = QFormLayout()
@@ -498,6 +510,9 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         advanced_layout.addWidget(self.recurrence_details_btn)
         advanced_layout.addStretch()
         recurrence_options_layout.addRow("", advanced_layout)
+
+        # Create alias for test compatibility
+        self.recurrence_pattern_button = self.recurrence_details_btn
 
         # Elo sharing checkbox
         self.share_elo_check = QCheckBox("Share priority rating across all occurrences")
@@ -571,19 +586,22 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         dependencies_layout.addWidget(self.dependencies_label)
 
         # Manage dependencies button
-        manage_deps_btn = QPushButton("Manage Dependencies...")
-        manage_deps_btn.clicked.connect(self._on_manage_dependencies)
-        manage_deps_btn.setWhatsThis(
+        self.manage_deps_btn = QPushButton("Manage Dependencies...")
+        self.manage_deps_btn.clicked.connect(self._on_manage_dependencies)
+        self.manage_deps_btn.setWhatsThis(
             "Specify which tasks must be completed before this task can begin. "
             "Opens the dependency selection dialog where you can choose blocking tasks."
         )
-        dependencies_layout.addWidget(manage_deps_btn)
+        dependencies_layout.addWidget(self.manage_deps_btn)
+
+        # Create alias for test compatibility
+        self.dependencies_button = self.manage_deps_btn
 
         dependencies_group.setLayout(dependencies_layout)
         form_layout.addWidget(dependencies_group)
 
-        scroll_area.setWidget(form_widget)
-        main_layout.addWidget(scroll_area)
+        self.scroll_area.setWidget(form_widget)
+        main_layout.addWidget(self.scroll_area)
 
         # Info text
         info_label = QLabel("* Required field")
@@ -594,13 +612,13 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        cancel_button = QPushButton("Cancel")
-        cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_button)
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(self.cancel_button)
 
-        save_button = QPushButton("Save" if self.is_new else "Update")
-        save_button.setDefault(True)
-        save_button.setStyleSheet("""
+        self.save_button = QPushButton("Save" if self.is_new else "Update")
+        self.save_button.setDefault(True)
+        self.save_button.setStyleSheet("""
             QPushButton {
                 background-color: #28a745;
                 color: white;
@@ -613,8 +631,8 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
                 background-color: #218838;
             }
         """)
-        save_button.clicked.connect(self._on_save_clicked)
-        button_layout.addWidget(save_button)
+        self.save_button.clicked.connect(self._on_save_clicked)
+        button_layout.addWidget(self.save_button)
 
         main_layout.addLayout(button_layout)
 
@@ -1101,6 +1119,25 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         # Accept the dialog
         self.accept()
+
+    def _validate_form(self) -> bool:
+        """
+        Validate the form (test compatibility alias).
+
+        Returns:
+            True if form is valid, False otherwise
+        """
+        title = self.title_edit.text().strip()
+        return bool(title)
+
+    def get_task(self) -> Optional[Task]:
+        """
+        Get the task from form (test compatibility alias).
+
+        Returns:
+            Task object with form data, or None if invalid
+        """
+        return self.get_updated_task()
 
     def get_updated_task(self) -> Optional[Task]:
         """

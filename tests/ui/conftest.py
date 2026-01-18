@@ -104,3 +104,23 @@ class MockDatabaseConnection:
 
     def rollback(self):
         self._conn.rollback()
+
+
+@pytest.fixture
+def db_connection():
+    """
+    Create in-memory database wrapped in MockDatabaseConnection.
+
+    This fixture provides a DatabaseConnection-compatible wrapper
+    for UI tests that expect db_connection.get_connection().
+    """
+    from src.database.schema import DatabaseSchema
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    DatabaseSchema.initialize_database(conn)
+
+    mock_conn = MockDatabaseConnection(conn)
+    yield mock_conn
+    conn.close()

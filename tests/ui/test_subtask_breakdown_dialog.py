@@ -16,51 +16,20 @@ import sqlite3
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialog, QMessageBox
+from PyQt5.QtWidgets import QDialog, QMessageBox, QWidget
 
 from src.models.task import Task
 from src.models.enums import TaskState
-from src.database.schema import DatabaseSchema
 from src.ui.subtask_breakdown_dialog import SubtaskBreakdownDialog
 
 
-class MockDatabaseConnection:
-    """Mock DatabaseConnection for testing."""
-
-    def __init__(self, conn: sqlite3.Connection):
-        self._conn = conn
-
-    def get_connection(self):
-        return self._conn
-
-    def close(self):
-        self._conn.close()
-
-    def commit(self):
-        self._conn.commit()
-
-    def rollback(self):
-        self._conn.rollback()
-
-
 @pytest.fixture
-def db_connection():
-    """Create in-memory database for testing."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    DatabaseSchema.initialize_database(conn)
-    mock_conn = MockDatabaseConnection(conn)
-    yield mock_conn
-    conn.close()
-
-
-@pytest.fixture
-def parent_with_db(db_connection):
-    """Create a mock parent with db_connection attribute."""
-    parent = MagicMock()
+def parent_with_db(qapp, db_connection):
+    """Create a real QWidget parent with db_connection attribute."""
+    parent = QWidget()
     parent.db_connection = db_connection
-    return parent
+    yield parent
+    parent.deleteLater()
 
 
 @pytest.fixture

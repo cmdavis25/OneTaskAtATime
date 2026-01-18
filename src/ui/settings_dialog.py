@@ -54,6 +54,7 @@ class SettingsDialog(QDialog, GeometryMixin):
 
         self._init_ui()
         self._load_settings()
+        self._create_test_aliases()
 
     def _init_ui(self):
         """Initialize the user interface."""
@@ -113,19 +114,19 @@ class SettingsDialog(QDialog, GeometryMixin):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        save_btn = QPushButton("Save")
-        save_btn.clicked.connect(self._save_settings)
-        save_btn.setWhatsThis(
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self._save_settings)
+        self.save_button.setWhatsThis(
             "Save all settings changes and apply them immediately. Theme changes will take effect right away."
         )
-        button_layout.addWidget(save_btn)
+        button_layout.addWidget(self.save_button)
 
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setWhatsThis(
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.clicked.connect(self.reject)
+        self.cancel_button.setWhatsThis(
             "Discard all changes and close the settings dialog without saving."
         )
-        button_layout.addWidget(cancel_btn)
+        button_layout.addWidget(self.cancel_button)
 
         layout.addLayout(button_layout)
 
@@ -831,3 +832,21 @@ class SettingsDialog(QDialog, GeometryMixin):
 
             # Close the settings dialog
             self.accept()
+
+    def _create_test_aliases(self):
+        """Create alias attributes for test compatibility."""
+        # Resurfacing tab aliases
+        self.deferred_check_interval = self.deferred_check_hours_spin
+        self.delegated_check_interval = self.delegated_check_time_edit
+        self.someday_check_interval = self.someday_review_days_spin
+
+        # Notifications tab aliases
+        self.notifications_enabled = self.enable_toast_check
+        self.toast_notifications_enabled = self.enable_toast_check
+
+        # Intervention tab aliases
+        self.postpone_count_threshold = self.postpone_threshold_spin
+        self.postpone_window_days = self.postpone_pattern_days_spin
+
+        # Theme tab aliases
+        self.theme_selector = self.theme_combo

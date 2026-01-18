@@ -13,7 +13,6 @@ import sqlite3
 
 from PyQt5.QtWidgets import QApplication
 
-from src.database.schema import DatabaseSchema
 from src.database.context_dao import ContextDAO
 from src.database.project_tag_dao import ProjectTagDAO
 from src.models.context import Context
@@ -22,24 +21,6 @@ from src.ui.context_management_dialog import ContextManagementDialog
 from src.ui.project_tag_management_dialog import ProjectTagManagementDialog
 
 
-@pytest.fixture(scope="session")
-def qapp():
-    """Create QApplication for test session."""
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
-
-
-@pytest.fixture
-def db_connection():
-    """Create in-memory database for testing."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    DatabaseSchema.initialize_database(conn)
-    yield conn
-    conn.close()
 
 
 @pytest.fixture

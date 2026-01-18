@@ -102,8 +102,8 @@ class ComparisonDialog(QDialog, GeometryMixin):
         cards_layout.setSpacing(20)
 
         # Task 1 card
-        task1_card = self._create_task_card(self.task1, 1)
-        cards_layout.addWidget(task1_card)
+        self.task1_card = self._create_task_card(self.task1, 1)
+        cards_layout.addWidget(self.task1_card)
 
         # VS label
         vs_label = QLabel("VS")
@@ -116,8 +116,8 @@ class ComparisonDialog(QDialog, GeometryMixin):
         cards_layout.addWidget(vs_label)
 
         # Task 2 card
-        task2_card = self._create_task_card(self.task2, 2)
-        cards_layout.addWidget(task2_card)
+        self.task2_card = self._create_task_card(self.task2, 2)
+        cards_layout.addWidget(self.task2_card)
 
         layout.addLayout(cards_layout)
 
@@ -166,6 +166,12 @@ class ComparisonDialog(QDialog, GeometryMixin):
         title_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         title_label.setMinimumHeight(60)
         title_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+
+        # Store as instance attribute
+        if task_number == 1:
+            self.task1_title_label = title_label
+        else:
+            self.task2_title_label = title_label
 
         # Build tooltip with full task metadata
         tooltip_parts = [f"<b>{task.title}</b>"]
@@ -227,7 +233,35 @@ class ComparisonDialog(QDialog, GeometryMixin):
             desc_label.setFont(QFont("", 9))
             desc_scroll.setWidget(desc_label)
 
+            # Store as instance attribute
+            if task_number == 1:
+                self.task1_description = desc_label
+            else:
+                self.task2_description = desc_label
+
             card_layout.addWidget(desc_scroll)
+        else:
+            # Create empty description labels for consistency
+            if task_number == 1:
+                self.task1_description = None
+            else:
+                self.task2_description = None
+
+        # Metadata label (for priority, due date, etc)
+        metadata_parts = []
+        metadata_parts.append(f"Priority: {task.get_priority_enum().name}")
+        if task.due_date:
+            metadata_parts.append(f"Due: {task.due_date.strftime('%Y-%m-%d')}")
+
+        metadata_label = QLabel(" | ".join(metadata_parts))
+        metadata_label.setStyleSheet("color: #666; font-size: 9pt; margin-top: 4px;")
+        card_layout.addWidget(metadata_label)
+
+        # Store as instance attribute
+        if task_number == 1:
+            self.task1_metadata = metadata_label
+        else:
+            self.task2_metadata = metadata_label
 
         card_layout.addStretch()
 
@@ -259,15 +293,21 @@ class ComparisonDialog(QDialog, GeometryMixin):
         )
         card_layout.addWidget(select_button)
 
+        # Store as instance attribute
+        if task_number == 1:
+            self.task1_button = select_button
+        else:
+            self.task2_button = select_button
+
         return card
 
     def _create_action_buttons(self, layout: QVBoxLayout):
         """Create bottom action buttons."""
         button_layout = QHBoxLayout()
 
-        cancel_button = QPushButton("Cancel")
-        cancel_button.setMinimumSize(100, 35)
-        cancel_button.setStyleSheet("""
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setMinimumSize(100, 35)
+        self.cancel_button.setStyleSheet("""
             QPushButton {
                 background-color: #6c757d;
                 color: white;
@@ -280,13 +320,13 @@ class ComparisonDialog(QDialog, GeometryMixin):
                 background-color: #5a6268;
             }
         """)
-        cancel_button.clicked.connect(self.reject)
-        cancel_button.setWhatsThis(
+        self.cancel_button.clicked.connect(self.reject)
+        self.cancel_button.setWhatsThis(
             "Cancel comparison and keep current task rankings unchanged."
         )
 
         button_layout.addStretch()
-        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(self.cancel_button)
 
         layout.addLayout(button_layout)
 
@@ -299,6 +339,15 @@ class ComparisonDialog(QDialog, GeometryMixin):
         """
         self.selected_task = task
         self.accept()
+
+    def get_selected_task(self) -> Optional[Task]:
+        """
+        Get the task that was selected as higher priority.
+
+        Returns:
+            The selected task, or None if dialog was cancelled
+        """
+        return self.selected_task
 
     def get_winner(self) -> Optional[Task]:
         """

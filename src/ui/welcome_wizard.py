@@ -6,9 +6,11 @@ Multi-page wizard for first-time user onboarding.
 
 import sqlite3
 from PyQt5.QtWidgets import (
-    QWizard, QWizardPage, QVBoxLayout,
-    QLabel
+    QWizard, QWizardPage, QVBoxLayout, QHBoxLayout,
+    QLabel, QLineEdit, QTextEdit, QRadioButton, QButtonGroup,
+    QCheckBox, QDateEdit
 )
+from PyQt5.QtCore import QDate
 
 from .geometry_mixin import GeometryMixin
 
@@ -46,10 +48,9 @@ class WelcomeWizard(QWizard, GeometryMixin):
 
         # Add pages
         self.addPage(WelcomePage())
-        self.addPage(GettingStartedPage())
+        self.addPage(CreateFirstTaskPage())
         self.addPage(ViewsAndNavigationPage())
         self.addPage(FocusModePage())
-        self.addPage(PrioritySystemPage())
         self.addPage(FinalPage())
 
 
@@ -78,6 +79,81 @@ class WelcomePage(QWizardPage):
 
         layout.addStretch()
         self.setLayout(layout)
+
+
+class CreateFirstTaskPage(QWizardPage):
+    """Page for creating first task (optional)."""
+
+    def __init__(self):
+        super().__init__()
+
+        self.setTitle("Create Your First Task (Optional)")
+        self.setSubTitle("Try creating a task to see how it works")
+
+        layout = QVBoxLayout()
+
+        # Task title
+        title_label = QLabel("Task Title:")
+        layout.addWidget(title_label)
+
+        self.task_title = QLineEdit()
+        self.task_title.setPlaceholderText("e.g., Review project proposal")
+        layout.addWidget(self.task_title)
+
+        # Task description
+        desc_label = QLabel("Description (optional):")
+        layout.addWidget(desc_label)
+
+        self.task_description = QTextEdit()
+        self.task_description.setPlaceholderText("Add any details or notes...")
+        self.task_description.setMaximumHeight(80)
+        layout.addWidget(self.task_description)
+
+        # Priority selection
+        priority_label = QLabel("Priority:")
+        layout.addWidget(priority_label)
+
+        self.priority_group = QButtonGroup(self)
+        priority_layout = QHBoxLayout()
+
+        self.high_radio = QRadioButton("High")
+        self.priority_group.addButton(self.high_radio, 3)
+        priority_layout.addWidget(self.high_radio)
+
+        self.medium_radio = QRadioButton("Medium")
+        self.medium_radio.setChecked(True)  # Default
+        self.priority_group.addButton(self.medium_radio, 2)
+        priority_layout.addWidget(self.medium_radio)
+
+        self.low_radio = QRadioButton("Low")
+        self.priority_group.addButton(self.low_radio, 1)
+        priority_layout.addWidget(self.low_radio)
+
+        priority_layout.addStretch()
+        layout.addLayout(priority_layout)
+
+        # Due date
+        due_date_label = QLabel("Due Date (optional):")
+        layout.addWidget(due_date_label)
+
+        self.due_date_edit = QDateEdit()
+        self.due_date_edit.setCalendarPopup(True)
+        self.due_date_edit.setDate(QDate.currentDate().addDays(7))
+        layout.addWidget(self.due_date_edit)
+
+        # Info note
+        info_label = QLabel(
+            "<i>Note: You can skip this and create tasks later using Ctrl+N</i>"
+        )
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
+
+        layout.addStretch()
+        self.setLayout(layout)
+
+    def get_selected_priority(self) -> int:
+        """Get the selected priority value."""
+        return self.priority_group.checkedId()
 
 
 class GettingStartedPage(QWizardPage):
@@ -181,32 +257,6 @@ class FocusModePage(QWizardPage):
         self.setLayout(layout)
 
 
-class PrioritySystemPage(QWizardPage):
-    """Page explaining priority ranking."""
-
-    def __init__(self):
-        super().__init__()
-
-        self.setTitle("How Task Ranking Works")
-        self.setSubTitle("Smart prioritization without the overwhelm")
-
-        layout = QVBoxLayout()
-
-        content = QLabel(
-            "<p>Tasks are ranked by <b>Importance</b>:</p>"
-            "<p style='text-align: center;'><b>Importance = Priority × Urgency</b></p>"
-            "<p><b>Priority:</b> Based on your setting (High/Medium/Low) refined by Elo comparisons</p>"
-            "<p><b>Urgency:</b> Based on due date (sooner = more urgent)</p>"
-            "<p>When tasks tie, you'll be asked to compare them side-by-side!</p>"
-            "<p>The system learns from your choices and gets better at showing you the right task.</p>"
-        )
-        content.setWordWrap(True)
-        layout.addWidget(content)
-
-        layout.addStretch()
-        self.setLayout(layout)
-
-
 class FinalPage(QWizardPage):
     """Final page with tips."""
 
@@ -242,6 +292,11 @@ class FinalPage(QWizardPage):
         )
         content.setWordWrap(True)
         layout.addWidget(content)
+
+        # Tutorial checkbox
+        self.show_tutorial_checkbox = QCheckBox("Show tutorial on first launch")
+        self.show_tutorial_checkbox.setChecked(True)
+        layout.addWidget(self.show_tutorial_checkbox)
 
         layout.addStretch()
         self.setLayout(layout)

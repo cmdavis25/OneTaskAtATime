@@ -18,48 +18,7 @@ from PyQt5.QtCore import QDate
 
 from src.models.task import Task
 from src.models.enums import TaskState, PostponeReasonType
-from src.database.schema import DatabaseSchema
 from src.ui.postpone_dialog import PostponeDialog
-
-
-@pytest.fixture(scope="session")
-def qapp():
-    """Create QApplication for test session."""
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
-
-
-class MockDatabaseConnection:
-    """Mock DatabaseConnection for testing."""
-
-    def __init__(self, conn: sqlite3.Connection):
-        self._conn = conn
-
-    def get_connection(self):
-        return self._conn
-
-    def close(self):
-        self._conn.close()
-
-    def commit(self):
-        self._conn.commit()
-
-    def rollback(self):
-        self._conn.rollback()
-
-
-@pytest.fixture
-def db_connection():
-    """Create in-memory database for testing."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    DatabaseSchema.initialize_database(conn)
-    mock_conn = MockDatabaseConnection(conn)
-    yield mock_conn
-    conn.close()
 
 
 @pytest.fixture

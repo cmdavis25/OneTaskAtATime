@@ -56,6 +56,14 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
         else:
             self._populate_table()
 
+    def refresh(self):
+        """Refresh the task list (alias for load_tasks)."""
+        self._load_tasks()
+
+    def load_tasks(self):
+        """Load tasks (alias for _load_tasks)."""
+        self._load_tasks()
+
     def _init_ui(self):
         """Initialize the user interface."""
         self.setWindowTitle("Review Delegated Tasks")
@@ -95,8 +103,31 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
         message_label.setStyleSheet("color: #555; margin-bottom: 10px;")
         layout.addWidget(message_label)
 
-        # Task table
+        # Task table (also create task_list alias for tests)
         self.task_table = QTableWidget()
+
+        # Create a wrapper class that provides both QTableWidget and QListWidget-like interface
+        class TaskListWrapper:
+            def __init__(self, table):
+                self._table = table
+
+            def count(self):
+                """QListWidget-compatible method."""
+                return self._table.rowCount()
+
+            def rowCount(self):
+                """QTableWidget method."""
+                return self._table.rowCount()
+
+            def setCurrentRow(self, row):
+                """QListWidget-compatible method."""
+                self._table.setCurrentCell(row, 0)
+
+            def __getattr__(self, name):
+                """Forward all other attributes to the table."""
+                return getattr(self._table, name)
+
+        self.task_list = TaskListWrapper(self.task_table)  # Alias with wrapper for test compatibility
         self.task_table.setColumnCount(7)
         self.task_table.setHorizontalHeaderLabels([
             "Select", "Title", "Delegated To", "Follow-up Date",
@@ -140,6 +171,9 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
         )
         button_layout.addWidget(self.activate_btn)
 
+        # Create alias for test compatibility
+        self.activate_button = self.activate_btn
+
         self.complete_btn = QPushButton("Mark Complete")
         self.complete_btn.setToolTip("Mark selected tasks as completed")
         self.complete_btn.clicked.connect(self._complete_selected)
@@ -158,9 +192,12 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
 
         button_layout.addStretch()
 
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        button_layout.addWidget(close_btn)
+        self.close_btn = QPushButton("Close")
+        self.close_btn.clicked.connect(self.accept)
+        button_layout.addWidget(self.close_btn)
+
+        # Create alias for test compatibility
+        self.close_button = self.close_btn
 
         layout.addLayout(button_layout)
 

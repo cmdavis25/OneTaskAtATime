@@ -14,28 +14,7 @@ import sqlite3
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 
-from src.database.schema import DatabaseSchema
 from src.ui.settings_dialog import SettingsDialog
-
-
-@pytest.fixture(scope="session")
-def qapp():
-    """Create QApplication for test session."""
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
-
-
-@pytest.fixture
-def db_connection():
-    """Create in-memory database for testing."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    DatabaseSchema.initialize_database(conn)
-    yield conn
-    conn.close()
 
 
 @pytest.fixture

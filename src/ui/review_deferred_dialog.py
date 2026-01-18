@@ -52,6 +52,14 @@ class ReviewDeferredDialog(QDialog, GeometryMixin):
         self._init_ui()
         self._load_tasks()
 
+    def refresh(self):
+        """Refresh the task list (alias for load_tasks)."""
+        self._load_tasks()
+
+    def load_tasks(self):
+        """Load tasks (alias for _load_tasks)."""
+        self._load_tasks()
+
     def _init_ui(self):
         """Initialize the user interface."""
         self.setWindowTitle("Review Deferred/Postponed Tasks")
@@ -81,8 +89,31 @@ class ReviewDeferredDialog(QDialog, GeometryMixin):
         message_label.setStyleSheet("color: #555; margin-bottom: 10px;")
         layout.addWidget(message_label)
 
-        # Task table
+        # Task table (also create task_list alias for tests)
         self.task_table = QTableWidget()
+
+        # Create a wrapper class that provides both QTableWidget and QListWidget-like interface
+        class TaskListWrapper:
+            def __init__(self, table):
+                self._table = table
+
+            def count(self):
+                """QListWidget-compatible method."""
+                return self._table.rowCount()
+
+            def rowCount(self):
+                """QTableWidget method."""
+                return self._table.rowCount()
+
+            def setCurrentRow(self, row):
+                """QListWidget-compatible method."""
+                self._table.setCurrentCell(row, 0)
+
+            def __getattr__(self, name):
+                """Forward all other attributes to the table."""
+                return getattr(self._table, name)
+
+        self.task_list = TaskListWrapper(self.task_table)  # Alias with wrapper for test compatibility
         self.task_table.setColumnCount(6)
         self.task_table.setHorizontalHeaderLabels([
             "Select", "Title", "State", "Priority", "Due Date", "Start Date"
@@ -111,8 +142,8 @@ class ReviewDeferredDialog(QDialog, GeometryMixin):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        activate_button = QPushButton("Activate Selected Tasks")
-        activate_button.setStyleSheet("""
+        self.activate_button = QPushButton("Activate Selected Tasks")
+        self.activate_button.setStyleSheet("""
             QPushButton {
                 background-color: #28a745;
                 color: white;
@@ -129,11 +160,11 @@ class ReviewDeferredDialog(QDialog, GeometryMixin):
                 background-color: #1e7e34;
             }
         """)
-        activate_button.clicked.connect(self._on_activate_clicked)
-        button_layout.addWidget(activate_button)
+        self.activate_button.clicked.connect(self._on_activate_clicked)
+        button_layout.addWidget(self.activate_button)
 
-        cancel_button = QPushButton("Close")
-        cancel_button.setStyleSheet("""
+        self.close_button = QPushButton("Close")
+        self.close_button.setStyleSheet("""
             QPushButton {
                 background-color: #6c757d;
                 color: white;
@@ -146,8 +177,8 @@ class ReviewDeferredDialog(QDialog, GeometryMixin):
                 background-color: #5a6268;
             }
         """)
-        cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_button)
+        self.close_button.clicked.connect(self.reject)
+        button_layout.addWidget(self.close_button)
 
         button_layout.addStretch()
         layout.addLayout(button_layout)

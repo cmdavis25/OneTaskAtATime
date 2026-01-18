@@ -444,8 +444,8 @@ class FocusModeWidget(QWidget):
         priority_text = task.get_priority_enum().name.capitalize()
         metadata_parts.append(f"Priority: {priority_text}")
 
-        # Effective priority (if adjusted)
-        if task.priority_adjustment > 0:
+        # Effective priority (if Elo rating differs from default)
+        if task.elo_rating != 1500.0:
             eff_pri = task.get_effective_priority()
             metadata_parts.append(f"(Effective: {eff_pri:.2f})")
 
