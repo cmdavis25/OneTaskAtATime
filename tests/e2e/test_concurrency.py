@@ -11,10 +11,11 @@ import threading
 import time
 from datetime import datetime, date, timedelta
 from PyQt5.QtTest import QTest
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, Qt
 
 from src.models.task import Task
 from src.models.enums import TaskState, Priority
+from src.models.notification import NotificationType
 from tests.e2e.base_e2e_test import BaseE2ETest
 
 
@@ -148,14 +149,14 @@ class TestConcurrency(BaseE2ETest):
                 # Create multiple notifications concurrently
                 if hasattr(app_instance.notification_manager, 'create_notification'):
                     app_instance.notification_manager.create_notification(
+                        type=NotificationType.INFO,
                         title="Concurrent Notification 1",
-                        message="First notification",
-                        task_id=task_id
+                        message="First notification"
                     )
                     app_instance.notification_manager.create_notification(
+                        type=NotificationType.INFO,
                         title="Concurrent Notification 2",
-                        message="Second notification",
-                        task_id=task_id
+                        message="Second notification"
                     )
                 print("\n  Multiple notifications created concurrently")
             except Exception as e:

@@ -1,46 +1,65 @@
 """Unit tests for ExportService."""
 import json
 import os
+import sqlite3
 import tempfile
 import pytest
 from datetime import datetime
 from src.services.export_service import ExportService
-from src.database.connection import DatabaseConnection
 from src.models.task import Task
-from src.models.enums import TaskState, BasePriority
+from src.models.enums import TaskState, Priority
 from src.database.task_dao import TaskDAO
 from src.database.context_dao import ContextDAO
 from src.database.project_tag_dao import ProjectTagDAO
+from src.models.context import Context
+from src.models.project_tag import ProjectTag
+
+
+class MockDatabaseConnection:
+    """Mock DatabaseConnection for testing."""
+
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def get_connection(self):
+        return self._conn
+
+    def close(self):
+        pass  # Don't close - let test_db fixture handle it
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
 
 
 @pytest.fixture
-def db_connection():
-    """Create a test database connection."""
-    conn = DatabaseConnection(":memory:")
-    yield conn
-    conn.close()
+def db_connection(test_db):
+    """Create a test database connection wrapper."""
+    return MockDatabaseConnection(test_db)
 
 
 @pytest.fixture
-def export_service(db_connection):
+def export_service(test_db):
     """Create ExportService instance."""
-    return ExportService(db_connection.get_connection())
+    return ExportService(test_db)
 
 
 @pytest.fixture
-def sample_data(db_connection):
+def sample_data(test_db):
     """Populate database with sample data."""
-    conn = db_connection.get_connection()
+    conn = test_db
 
     # Create contexts
     context_dao = ContextDAO(conn)
-    ctx1 = context_dao.create("Work", "Work context")
-    ctx2 = context_dao.create("Home", "Home context")
+    ctx1 = context_dao.create(Context(name="Work", description="Work context"))
+    ctx2 = context_dao.create(Context(name="Home", description="Home context"))
 
     # Create project tags
     tag_dao = ProjectTagDAO(conn)
-    tag1 = tag_dao.create("Project A", "First project")
-    tag2 = tag_dao.create("Project B", "Second project")
+    tag1 = tag_dao.create(ProjectTag(name="Project A", description="First project"))
+    tag2 = tag_dao.create(ProjectTag(name="Project B", description="Second project"))
 
     # Create tasks
     task_dao = TaskDAO(conn)
@@ -48,7 +67,7 @@ def sample_data(db_connection):
         title="Test Task 1",
         description="Description 1",
         state=TaskState.ACTIVE,
-        base_priority=BasePriority.HIGH,
+        base_priority=Priority.HIGH.value,
         context_id=ctx1.id
     )
     task1 = task_dao.create(task1)
@@ -57,9 +76,9 @@ def sample_data(db_connection):
         title="Test Task 2",
         description="Description 2",
         state=TaskState.DEFERRED,
-        base_priority=BasePriority.MEDIUM,
+        base_priority=Priority.MEDIUM.value,
         context_id=ctx2.id,
-        start_date=datetime.now().date().isoformat()
+        start_date=datetime.now().date()
     )
     task2 = task_dao.create(task2)
 

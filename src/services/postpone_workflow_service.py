@@ -101,7 +101,7 @@ class PostponeWorkflowService:
                 return {
                     'success': False,
                     'count': 0,
-                    'message': f'Task {task_id} not found'
+                    'message': f'Error: Task {task_id} not found'
                 }
 
             # Dependencies are already saved by DependencySelectionDialog
@@ -176,7 +176,7 @@ class PostponeWorkflowService:
                 return {
                     'success': False,
                     'task_ids': [],
-                    'message': f'Task {original_task_id} not found'
+                    'message': f'Error: Task {original_task_id} not found'
                 }
 
             # Create subtasks inheriting key fields
@@ -192,9 +192,9 @@ class PostponeWorkflowService:
                     due_date=original.due_date,
                     context_id=original.context_id,
                     state=TaskState.ACTIVE,
-                    # Reset priority adjustment and comparison losses
+                    # Reset priority adjustment and comparison count
                     priority_adjustment=0.0,
-                    comparison_losses=0
+                    comparison_count=0
                 )
 
                 # Create subtask

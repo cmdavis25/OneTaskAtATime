@@ -114,7 +114,7 @@ class ThemeService:
         """
         cursor = self.db_connection.cursor()
         cursor.execute(
-            """INSERT OR REPLACE INTO settings (key, value, type, description)
+            """INSERT OR REPLACE INTO settings (key, value, value_type, description)
                VALUES (?, ?, 'string', 'UI theme (light/dark/system)')""",
             ("theme", theme_name)
         )

@@ -1,36 +1,55 @@
 """Unit tests for ImportService."""
 import json
+import sqlite3
 import tempfile
 import pytest
 from datetime import datetime
 from src.services.import_service import ImportService
 from src.services.export_service import ExportService
-from src.database.connection import DatabaseConnection
 from src.models.task import Task
-from src.models.enums import TaskState, BasePriority
+from src.models.enums import TaskState, Priority
 from src.database.task_dao import TaskDAO
 from src.database.context_dao import ContextDAO
 from src.database.project_tag_dao import ProjectTagDAO
+from src.models.context import Context
+from src.models.project_tag import ProjectTag
+
+
+class MockDatabaseConnection:
+    """Mock DatabaseConnection for testing."""
+
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def get_connection(self):
+        return self._conn
+
+    def close(self):
+        pass  # Don't close - let test_db fixture handle it
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
 
 
 @pytest.fixture
-def db_connection():
-    """Create a test database connection."""
-    conn = DatabaseConnection(":memory:")
-    yield conn
-    conn.close()
+def db_connection(test_db):
+    """Create a test database connection wrapper."""
+    return MockDatabaseConnection(test_db)
 
 
 @pytest.fixture
-def import_service(db_connection):
+def import_service(test_db):
     """Create ImportService instance."""
-    return ImportService(db_connection.get_connection())
+    return ImportService(test_db)
 
 
 @pytest.fixture
-def export_service(db_connection):
+def export_service(test_db):
     """Create ExportService instance."""
-    return ExportService(db_connection.get_connection())
+    return ExportService(test_db)
 
 
 @pytest.fixture
@@ -124,14 +143,14 @@ def test_import_json_merge_mode_with_conflicts(db_connection, import_service, sa
 
     # Pre-populate database with conflicting IDs
     context_dao = ContextDAO(conn)
-    context_dao.create("Existing Context", "Conflicts with import")
+    context_dao.create(Context(name="Existing Context", description="Conflicts with import"))
 
     task_dao = TaskDAO(conn)
     task = Task(
         title="Existing Task",
         description="Conflicts with import",
         state=TaskState.ACTIVE,
-        base_priority=BasePriority.HIGH
+        base_priority=Priority.HIGH.value
     )
     task_dao.create(task)
 
@@ -312,14 +331,14 @@ def test_import_export_roundtrip(db_connection, export_service, import_service):
 
     # Create sample data
     context_dao = ContextDAO(conn)
-    ctx = context_dao.create("Test Context", "Description")
+    ctx = context_dao.create(Context(name="Test Context", description="Description"))
 
     task_dao = TaskDAO(conn)
     task = Task(
         title="Roundtrip Task",
         description="Test roundtrip",
         state=TaskState.ACTIVE,
-        base_priority=BasePriority.MEDIUM,
+        base_priority=Priority.MEDIUM.value,
         context_id=ctx.id
     )
     original_task = task_dao.create(task)
@@ -415,7 +434,7 @@ def test_import_clears_data_in_replace_mode(db_connection, import_service, sampl
 
     # Add some existing data
     context_dao = ContextDAO(conn)
-    context_dao.create("Old Context", "Should be deleted")
+    context_dao.create(Context(name="Old Context", description="Should be deleted"))
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(sample_export_data, f)

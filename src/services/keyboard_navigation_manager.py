@@ -6,7 +6,7 @@ Manages keyboard navigation, tab order, and focus handling.
 
 from typing import List, Optional
 from PyQt5.QtWidgets import QWidget, QDialog, QListWidget, QTableWidget
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtCore import Qt, QEvent, QObject
 
 
 class KeyboardNavigationManager:
@@ -108,8 +108,14 @@ class KeyboardNavigationManager:
                 if not isinstance(child, QWidget):
                     continue
 
-                # Check if widget is visible and enabled
-                if not child.isVisible() or not child.isEnabled():
+                # Check if widget is enabled
+                if not child.isEnabled():
+                    continue
+
+                # Check if widget is explicitly hidden (but not just not-shown-yet)
+                # A widget that hasn't been shown yet will have isVisible() == False
+                # but testAttribute(Qt.WA_WState_Hidden) will distinguish explicit hiding
+                if child.testAttribute(Qt.WA_WState_Hidden):
                     continue
 
                 # Check if widget accepts focus
@@ -129,12 +135,12 @@ class KeyboardNavigationManager:
         return widgets
 
 
-class ListNavigationFilter(QEvent):
+class ListNavigationFilter(QObject):
     """Event filter for enhanced list navigation."""
 
     def __init__(self, list_widget: QListWidget):
         """Initialize the filter."""
-        super().__init__(QEvent.None_)
+        super().__init__(list_widget)
         self.list_widget = list_widget
 
     def eventFilter(self, obj, event):
@@ -195,12 +201,12 @@ class ListNavigationFilter(QEvent):
         return max(1, viewport_height // item_height)
 
 
-class TableNavigationFilter(QEvent):
+class TableNavigationFilter(QObject):
     """Event filter for enhanced table navigation."""
 
     def __init__(self, table_widget: QTableWidget):
         """Initialize the filter."""
-        super().__init__(QEvent.None_)
+        super().__init__(table_widget)
         self.table_widget = table_widget
 
     def eventFilter(self, obj, event):

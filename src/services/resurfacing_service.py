@@ -307,7 +307,7 @@ class ResurfacingService:
             self.settings_dao.set(
                 'last_someday_review_at',
                 now.isoformat(),
-                'datetime',
+                'string',
                 'Last someday review timestamp'
             )
             logger.info(f"Updated last_someday_review_at to {now.isoformat()}")

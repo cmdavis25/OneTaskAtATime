@@ -61,6 +61,9 @@ def test_db():
 
     # Initialize schema
     DatabaseSchema.initialize_database(connection)
+
+    # Apply migrations to ensure all tables exist
+    DatabaseSchema.migrate_to_notification_system(connection)
     connection.commit()
 
     yield connection
