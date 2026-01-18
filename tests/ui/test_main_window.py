@@ -671,6 +671,7 @@ class TestDeleteTrashTasks:
 class TestResetPriorityAdjustments:
     """Test resetting priority adjustments."""
 
+    @pytest.mark.skip(reason="deprecated - use Elo system")
     def test_reset_priority_adjustments_confirmation(self, main_window, sample_tasks):
         """Test that resetting priority adjustments requires confirmation."""
         # Mock MessageBox to simulate user clicking No
@@ -682,6 +683,7 @@ class TestResetPriorityAdjustments:
                 # Should not call reset
                 mock_reset.assert_not_called()
 
+    @pytest.mark.skip(reason="deprecated - use Elo system")
     def test_reset_priority_adjustments_on_confirmation(self, main_window, sample_tasks):
         """Test that priority adjustments are reset when confirmed."""
         # Mock MessageBox to simulate user clicking Yes

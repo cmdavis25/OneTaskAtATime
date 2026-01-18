@@ -5,7 +5,7 @@ Tests the skeleton application and database connection.
 """
 
 import pytest
-from database.connection import DatabaseConnection, get_db
+from src.database.connection import DatabaseConnection, get_db
 import sqlite3
 
 
@@ -37,12 +37,12 @@ class TestApplicationSetup:
     def test_imports(self):
         """Test that main modules can be imported."""
         try:
-            from ui.main_window import MainWindow
+            from src.ui.main_window import MainWindow
             assert MainWindow is not None
         except ImportError as e:
             pytest.fail(f"Failed to import MainWindow: {e}")
 
     def test_main_module(self):
         """Test that main module exists and has main function."""
-        import main
+        import src.main as main
         assert hasattr(main, 'main'), "main.py should have a main() function"

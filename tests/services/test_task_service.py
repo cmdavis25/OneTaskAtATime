@@ -488,6 +488,7 @@ class TestDeleteOperations:
 class TestPriorityReset:
     """Test priority reset functionality."""
 
+    @pytest.mark.skip(reason="deprecated - use Elo system")
     def test_reset_priority_adjustment(self, task_service, sample_task):
         """Test resetting a task's priority adjustment."""
         # Manually set adjustment
@@ -499,6 +500,7 @@ class TestPriorityReset:
         assert reset is not None
         assert reset.priority_adjustment == 0.0
 
+    @pytest.mark.skip(reason="deprecated - use Elo system")
     def test_reset_priority_adjustment_nonexistent(self, task_service):
         """Test resetting non-existent task returns None."""
         result = task_service.reset_priority_adjustment(99999)

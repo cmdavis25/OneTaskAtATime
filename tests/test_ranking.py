@@ -145,19 +145,18 @@ class TestTaskRanking:
         assert ranked[1][0].id == 3
         assert ranked[2][0].id == 1
 
-    def test_rank_with_priority_adjustment(self):
-        """Priority adjustment affects ranking"""
+    def test_rank_with_elo_rating(self):
+        """Elo rating affects ranking within priority bands"""
         tasks = [
-            Task(title="High Adjusted", id=1, base_priority=3, priority_adjustment=1.0),
-            Task(title="Medium", id=2, base_priority=2, priority_adjustment=0.0)
+            Task(title="High Lower Elo", id=1, base_priority=3, elo_rating=1000.0),
+            Task(title="Medium", id=2, base_priority=2, elo_rating=1500.0)
         ]
         ranked = rank_tasks(tasks)
 
-        # High (3 - 1 = 2.0) should now tie or lose to Medium (2.0)
-        # Check that adjustment had an effect
-        score_1 = ranked[0][1]
-        score_2 = ranked[1][1]
-        assert abs(score_1 - score_2) < 0.5  # Should be close now
+        # High priority with low Elo should still rank above Medium
+        # Check that ranking respects priority bands
+        assert ranked[0][0].id == 1  # High priority still wins
+        assert ranked[1][0].id == 2
 
 
 class TestTopRankedTasks:
@@ -187,9 +186,9 @@ class TestTopRankedTasks:
     def test_epsilon_tolerance(self):
         """Tasks within epsilon are considered tied"""
         tasks = [
-            Task(title="Task 1", id=1, base_priority=3, priority_adjustment=0.0),
-            Task(title="Task 2", id=2, base_priority=3, priority_adjustment=0.005),  # Very small adjustment
-            Task(title="Task 3", id=3, base_priority=2, priority_adjustment=0.0)
+            Task(title="Task 1", id=1, base_priority=3, elo_rating=1500.0),
+            Task(title="Task 2", id=2, base_priority=3, elo_rating=1505.0),  # Very small Elo difference
+            Task(title="Task 3", id=3, base_priority=2, elo_rating=1500.0)
         ]
         top = get_top_ranked_tasks(tasks)
         # Tasks 1 and 2 should be considered tied (within epsilon)

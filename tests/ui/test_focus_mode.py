@@ -390,7 +390,7 @@ class TestEffectivePriorityDisplay:
             id=1,
             title="Adjusted Task",
             base_priority=2,
-            priority_adjustment=0.5,
+            elo_rating=1250.0,
             state=TaskState.ACTIVE
         )
 
