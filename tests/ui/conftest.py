@@ -31,10 +31,16 @@ def prevent_dialogs_from_blocking(monkeypatch):
 
     This fixture runs automatically for every test and:
     1. Patches FirstRunDetector to indicate onboarding is complete
-    2. Prevents all QDialog.exec_() calls from blocking
+    2. Patches custom MessageBox static methods to return immediately without user intervention
+    3. Also patches QMessageBox for any code that might use it directly
+    4. Does NOT patch QDialog.exec_() globally to allow tests to control dialog behavior
+
+    Note: Tests should call accept() or reject() directly on dialogs instead of
+    relying on exec() return values.
     """
-    from PyQt5.QtWidgets import QDialog
     from src.services.first_run_detector import FirstRunDetector
+    from src.ui.message_box import MessageBox
+    from PyQt5.QtWidgets import QMessageBox
 
     # Patch is_first_run to always return False
     monkeypatch.setattr(FirstRunDetector, 'is_first_run', lambda self: False)
@@ -42,15 +48,17 @@ def prevent_dialogs_from_blocking(monkeypatch):
     # Patch should_show_tutorial to always return False
     monkeypatch.setattr(FirstRunDetector, 'should_show_tutorial', lambda self: False)
 
-    # Prevent ALL dialogs from blocking by patching QDialog.exec_
-    original_exec = QDialog.exec_
+    # Patch custom MessageBox static methods (used by production code)
+    monkeypatch.setattr(MessageBox, 'information', lambda *args, **kwargs: QMessageBox.Ok)
+    monkeypatch.setattr(MessageBox, 'warning', lambda *args, **kwargs: QMessageBox.Ok)
+    monkeypatch.setattr(MessageBox, 'question', lambda *args, **kwargs: QMessageBox.Yes)
+    monkeypatch.setattr(MessageBox, 'critical', lambda *args, **kwargs: QMessageBox.Ok)
 
-    def mock_exec(self):
-        """Mock exec_ to prevent any dialog from blocking tests."""
-        # Return Rejected (0) to simulate user canceling
-        return 0
-
-    monkeypatch.setattr(QDialog, 'exec_', mock_exec)
+    # Also patch standard QMessageBox as fallback
+    monkeypatch.setattr(QMessageBox, 'information', lambda *args, **kwargs: QMessageBox.Ok)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args, **kwargs: QMessageBox.Ok)
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args, **kwargs: QMessageBox.Yes)
+    monkeypatch.setattr(QMessageBox, 'critical', lambda *args, **kwargs: QMessageBox.Ok)
 
 
 @pytest.fixture
@@ -88,22 +96,59 @@ def mark_onboarding_complete():
 
 
 class MockDatabaseConnection:
-    """Mock DatabaseConnection for testing."""
+    """Mock DatabaseConnection for testing.
+
+    This class wraps a sqlite3.Connection and provides both:
+    1. DatabaseConnection-style interface (get_connection())
+    2. Direct sqlite3.Connection interface (cursor(), execute(), etc.)
+
+    This ensures compatibility with both types of database consumers.
+    """
 
     def __init__(self, conn: sqlite3.Connection):
         self._conn = conn
 
     def get_connection(self):
+        """Return underlying connection (DatabaseConnection interface)."""
         return self._conn
 
     def close(self):
+        """Close the database connection."""
         self._conn.close()
 
     def commit(self):
+        """Commit the current transaction."""
         self._conn.commit()
 
     def rollback(self):
+        """Roll back the current transaction."""
         self._conn.rollback()
+
+    def cursor(self):
+        """Return a cursor object (raw sqlite3.Connection interface)."""
+        return self._conn.cursor()
+
+    def execute(self, *args, **kwargs):
+        """Execute SQL directly (raw sqlite3.Connection interface)."""
+        return self._conn.execute(*args, **kwargs)
+
+    def executemany(self, *args, **kwargs):
+        """Execute SQL for multiple parameter sets."""
+        return self._conn.executemany(*args, **kwargs)
+
+    def executescript(self, *args, **kwargs):
+        """Execute SQL script."""
+        return self._conn.executescript(*args, **kwargs)
+
+    @property
+    def row_factory(self):
+        """Get row factory."""
+        return self._conn.row_factory
+
+    @row_factory.setter
+    def row_factory(self, value):
+        """Set row factory."""
+        self._conn.row_factory = value
 
 
 @pytest.fixture

@@ -28,7 +28,7 @@ def notification_panel(qapp, db_connection):
     # Create mock notification manager
     mock_manager = MagicMock(spec=NotificationManager)
     mock_manager.get_unread_count.return_value = 0
-    mock_manager.get_recent_notifications.return_value = []
+    mock_manager.get_all_notifications.return_value = []  # Fixed: use get_all_notifications instead of get_recent_notifications
 
     panel = NotificationPanel(db_connection.get_connection(), mock_manager)
     yield panel

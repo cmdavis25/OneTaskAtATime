@@ -283,33 +283,36 @@ class TestViewSwitching:
 class TestKeyboardShortcuts:
     """Test keyboard shortcuts."""
 
-    def test_ctrl_1_shows_focus_mode(self, main_window, qtbot):
+    def test_ctrl_1_shows_focus_mode(self, main_window, qtbot, qapp):
         """Test Ctrl+1 switches to Focus Mode."""
         # Switch to Task List first
         main_window._show_task_list()
 
         # Press Ctrl+1
         qtbot.keyClick(main_window, Qt.Key_1, Qt.ControlModifier)
+        qapp.processEvents()  # Ensure event loop processes the shortcut
 
         # Should switch to Focus Mode
         assert main_window.stacked_widget.currentWidget() == main_window.focus_mode
 
-    def test_ctrl_2_shows_task_list(self, main_window, qtbot):
+    def test_ctrl_2_shows_task_list(self, main_window, qtbot, qapp):
         """Test Ctrl+2 switches to Task List."""
         # Should start in Focus Mode
         assert main_window.stacked_widget.currentWidget() == main_window.focus_mode
 
         # Press Ctrl+2
         qtbot.keyClick(main_window, Qt.Key_2, Qt.ControlModifier)
+        qapp.processEvents()  # Ensure event loop processes the shortcut
 
         # Should switch to Task List
         assert main_window.stacked_widget.currentWidget() == main_window.task_list_view
 
-    def test_f5_refreshes_current_view(self, main_window, qtbot):
+    def test_f5_refreshes_current_view(self, main_window, qtbot, qapp):
         """Test F5 refreshes the current view."""
         with patch.object(main_window, '_refresh_focus_task') as mock_refresh:
             # Press F5
             qtbot.keyClick(main_window, Qt.Key_F5, Qt.NoModifier)
+            qapp.processEvents()  # Ensure event loop processes the shortcut
 
             # Should call refresh
             mock_refresh.assert_called_once()

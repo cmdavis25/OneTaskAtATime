@@ -611,7 +611,7 @@ class MainWindow(QMainWindow):
 
     def _on_new_task(self):
         """Handle New Task action."""
-        dialog = TaskFormDialog(parent=self)
+        dialog = TaskFormDialog(db_connection=self.db_connection, parent=self)
         if dialog.exec_():
             task = dialog.get_updated_task()
             if task:

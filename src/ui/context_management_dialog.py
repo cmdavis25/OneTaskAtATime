@@ -103,8 +103,8 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         # List action buttons
         list_button_layout = QHBoxLayout()
 
-        new_btn = QPushButton("+ New")
-        new_btn.setStyleSheet("""
+        self.add_button = QPushButton("+ New")
+        self.add_button.setStyleSheet("""
             QPushButton {
                 background-color: #28a745;
                 color: white;
@@ -116,14 +116,14 @@ class ContextManagementDialog(QDialog, GeometryMixin):
                 background-color: #218838;
             }
         """)
-        new_btn.clicked.connect(self._on_new_context)
-        new_btn.setWhatsThis(
+        self.add_button.clicked.connect(self._on_new_context)
+        self.add_button.setWhatsThis(
             "Create a new context. This clears the form so you can enter details for a new work environment or tool."
         )
-        list_button_layout.addWidget(new_btn)
+        list_button_layout.addWidget(self.add_button)
 
-        delete_btn = QPushButton("Delete")
-        delete_btn.setStyleSheet("""
+        self.delete_button = QPushButton("Delete")
+        self.delete_button.setStyleSheet("""
             QPushButton {
                 background-color: #dc3545;
                 color: white;
@@ -135,17 +135,20 @@ class ContextManagementDialog(QDialog, GeometryMixin):
                 background-color: #c82333;
             }
         """)
-        delete_btn.clicked.connect(self._on_delete_context)
-        delete_btn.setWhatsThis(
+        self.delete_button.clicked.connect(self._on_delete_context)
+        self.delete_button.setWhatsThis(
             "Delete the selected context. Tasks using this context will have their context removed. You'll be asked to confirm before deletion."
         )
-        list_button_layout.addWidget(delete_btn)
+        list_button_layout.addWidget(self.delete_button)
 
         list_button_layout.addStretch()
 
         list_layout.addLayout(list_button_layout)
 
         content_layout.addLayout(list_layout, 1)
+
+        # Initialize button states (will be updated when list selection changes)
+        self.delete_button.setEnabled(False)
 
         # Right side: Edit form
         form_layout = QVBoxLayout()
@@ -199,6 +202,8 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         self.save_btn.setWhatsThis(
             "Save the current context. If editing an existing context, this updates it. If creating a new context, this adds it to the system."
         )
+        self.edit_button = self.save_btn  # Alias for test compatibility
+        self.edit_button.setEnabled(False)  # Initialize as disabled
         form_button_layout.addWidget(self.save_btn)
 
         form_layout.addLayout(form_button_layout)
@@ -212,9 +217,9 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
 
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        bottom_layout.addWidget(close_btn)
+        self.close_button = QPushButton("Close")
+        self.close_button.clicked.connect(self.accept)
+        bottom_layout.addWidget(self.close_button)
 
         layout.addLayout(bottom_layout)
 
@@ -225,6 +230,10 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         """Load all contexts from database."""
         self.contexts = self.context_dao.get_all()
         self._refresh_list()
+
+    def load_contexts(self):
+        """Public method to refresh context list (for test compatibility)."""
+        self._load_contexts()
 
     def _refresh_list(self):
         """Refresh the context list widget."""
@@ -248,7 +257,13 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         """
         if not current:
             self._clear_form()
+            self.edit_button.setEnabled(False)
+            self.delete_button.setEnabled(False)
             return
+
+        # Enable buttons when item is selected
+        self.edit_button.setEnabled(True)
+        self.delete_button.setEnabled(True)
 
         context_id = current.data(Qt.UserRole)
         context = self.context_dao.get_by_id(context_id)
@@ -262,6 +277,8 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         """Handle new context button click."""
         self._clear_form()
         self.context_list.clearSelection()
+        self.edit_button.setEnabled(False)
+        self.delete_button.setEnabled(False)
         self.name_edit.setFocus()
 
     def _on_save_context(self):

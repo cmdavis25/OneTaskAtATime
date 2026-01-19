@@ -106,8 +106,8 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         # List action buttons
         list_button_layout = QHBoxLayout()
 
-        new_btn = QPushButton("+ New")
-        new_btn.setStyleSheet("""
+        self.add_button = QPushButton("+ New")
+        self.add_button.setStyleSheet("""
             QPushButton {
                 background-color: #28a745;
                 color: white;
@@ -119,14 +119,14 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
                 background-color: #218838;
             }
         """)
-        new_btn.clicked.connect(self._on_new_tag)
-        new_btn.setWhatsThis(
+        self.add_button.clicked.connect(self._on_new_tag)
+        self.add_button.setWhatsThis(
             "Create a new project tag. This clears the form so you can enter details for a new tag."
         )
-        list_button_layout.addWidget(new_btn)
+        list_button_layout.addWidget(self.add_button)
 
-        delete_btn = QPushButton("Delete")
-        delete_btn.setStyleSheet("""
+        self.delete_button = QPushButton("Delete")
+        self.delete_button.setStyleSheet("""
             QPushButton {
                 background-color: #dc3545;
                 color: white;
@@ -138,17 +138,20 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
                 background-color: #c82333;
             }
         """)
-        delete_btn.clicked.connect(self._on_delete_tag)
-        delete_btn.setWhatsThis(
+        self.delete_button.clicked.connect(self._on_delete_tag)
+        self.delete_button.setWhatsThis(
             "Delete the selected project tag. This will remove the tag from all tasks that use it. You'll be asked to confirm before deletion."
         )
-        list_button_layout.addWidget(delete_btn)
+        list_button_layout.addWidget(self.delete_button)
 
         list_button_layout.addStretch()
 
         list_layout.addLayout(list_button_layout)
 
         content_layout.addLayout(list_layout, 1)
+
+        # Initialize button states (will be updated when list selection changes)
+        self.delete_button.setEnabled(False)
 
         # Right side: Edit form
         form_layout = QVBoxLayout()
@@ -221,6 +224,8 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         self.save_btn.setWhatsThis(
             "Save the current project tag. If editing an existing tag, this updates it. If creating a new tag, this adds it to the system."
         )
+        self.edit_button = self.save_btn  # Alias for test compatibility
+        self.edit_button.setEnabled(False)  # Initialize as disabled
         form_button_layout.addWidget(self.save_btn)
 
         form_layout.addLayout(form_button_layout)
@@ -234,9 +239,9 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
 
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        bottom_layout.addWidget(close_btn)
+        self.close_button = QPushButton("Close")
+        self.close_button.clicked.connect(self.accept)
+        bottom_layout.addWidget(self.close_button)
 
         layout.addLayout(bottom_layout)
 
@@ -247,6 +252,10 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         """Load all project tags from database."""
         self.tags = self.tag_dao.get_all()
         self._refresh_list()
+
+    def load_tags(self):
+        """Public method to refresh tag list (for test compatibility)."""
+        self._load_tags()
 
     def _refresh_list(self):
         """Refresh the tag list widget."""
@@ -280,7 +289,13 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         """
         if not current:
             self._clear_form()
+            self.edit_button.setEnabled(False)
+            self.delete_button.setEnabled(False)
             return
+
+        # Enable buttons when item is selected
+        self.edit_button.setEnabled(True)
+        self.delete_button.setEnabled(True)
 
         tag_id = current.data(Qt.UserRole)
         tag = self.tag_dao.get_by_id(tag_id)
@@ -306,6 +321,8 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         """Handle new tag button click."""
         self._clear_form()
         self.tag_list.clearSelection()
+        self.edit_button.setEnabled(False)
+        self.delete_button.setEnabled(False)
         self.name_edit.setFocus()
 
     def _on_choose_color(self):

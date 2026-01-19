@@ -330,26 +330,24 @@ class TestCircularDependencies:
     """Test circular dependency detection."""
 
     def test_circular_dependency_detected(self, qapp, db_connection, sample_task, blocking_task, dependency_dao):
-        """Test that circular dependencies are detected and marked."""
-        # Create circular dependency: sample_task <- blocking_task <- sample_task
+        """Test that circular dependencies are prevented by DAO."""
+        # Create first dependency: sample_task <- blocking_task
         dep1 = Dependency(
             blocked_task_id=sample_task.id,
             blocking_task_id=blocking_task.id
         )
         dependency_dao.create(dep1)
 
+        # Attempt to create circular dependency: blocking_task <- sample_task
+        # This should raise ValueError
         dep2 = Dependency(
             blocked_task_id=blocking_task.id,
             blocking_task_id=sample_task.id
         )
-        dependency_dao.create(dep2)
 
-        view = DependencyGraphView(sample_task, db_connection)
-
-        graph_text = view.graph_display.toPlainText()
-        # Should detect circular reference
-        assert "CIRCULAR" in graph_text or "🔄" in graph_text
-        view.close()
+        import pytest
+        with pytest.raises(ValueError, match="circular dependency"):
+            dependency_dao.create(dep2)
 
 
 class TestMaxDepth:

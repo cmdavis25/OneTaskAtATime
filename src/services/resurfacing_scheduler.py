@@ -75,6 +75,11 @@ class ResurfacingScheduler(QObject):
 
         self._is_running = False
 
+    @property
+    def running(self):
+        """Return whether the scheduler is currently running."""
+        return self._is_running
+
     def start(self):
         """
         Start the background scheduler and configure all jobs.
