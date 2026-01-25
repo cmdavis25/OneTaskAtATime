@@ -1,0 +1,11 @@
+# OneTaskAtATime - Development Dependencies
+# This file includes all production dependencies plus build and development tools
+
+# Production dependencies
+-r requirements.txt
+
+# Build tools
+pyinstaller>=5.0.0
+pillow>=10.0.0
+
+# Note: Testing tools (pytest, pytest-qt, pytest-cov) are already in requirements.txt

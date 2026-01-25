@@ -340,8 +340,11 @@ sent to external servers.</p>
             self.clear_button.show()
         else:
             self.clear_button.hide()
-            # Restore original content when search is cleared
+            # Restore original content and tab visibility when search is cleared
             self._restore_original_content()
+            # Restore all tabs to visible
+            for i in range(self.tab_widget.count()):
+                self.tab_widget.setTabVisible(i, True)
             return
 
         # Perform search
@@ -380,6 +383,23 @@ sent to external servers.</p>
                     self.tab_widget.setTabText(i, f"{base_title} ({match_count})")
                 else:
                     self.tab_widget.setTabText(i, base_title)
+
+        # Hide tabs with zero matches (but keep at least one tab visible)
+        tabs_with_matches = sum(1 for count in tab_match_counts.values() if count > 0)
+
+        if tabs_with_matches > 0:
+            # Hide tabs with no matches
+            for i in range(self.tab_widget.count()):
+                current_title = self.tab_widget.tabText(i)
+                base_title = current_title.split(' (')[0]
+
+                if base_title in tab_match_counts:
+                    match_count = tab_match_counts[base_title]
+                    self.tab_widget.setTabVisible(i, match_count > 0)
+        else:
+            # If all tabs have zero matches, keep all tabs visible
+            for i in range(self.tab_widget.count()):
+                self.tab_widget.setTabVisible(i, True)
 
         # Update placeholder text with match count
         if total_matches > 0:
