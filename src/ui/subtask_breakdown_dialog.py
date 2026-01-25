@@ -211,14 +211,18 @@ class SubtaskBreakdownDialog(QDialog, GeometryMixin):
                 # Update the list widget
                 self._refresh_task_list()
 
-    def _on_edit_task(self):
+    def _on_edit_task(self, item=None):
         """Edit the selected task."""
-        selected_items = self.task_list.selectedItems()
-        if not selected_items:
-            return
+        # If item provided (from double-click), use it
+        # Otherwise, use the current selection
+        if item is None:
+            selected_items = self.task_list.selectedItems()
+            if not selected_items:
+                return
+            item = selected_items[0]
 
-        # Get the index of the selected item
-        current_row = self.task_list.row(selected_items[0])
+        # Get the index of the item
+        current_row = self.task_list.row(item)
         if current_row < 0 or current_row >= len(self.created_tasks):
             return
 

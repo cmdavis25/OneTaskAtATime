@@ -61,6 +61,32 @@ def prevent_dialogs_from_blocking(monkeypatch):
     monkeypatch.setattr(QMessageBox, 'critical', lambda *args, **kwargs: QMessageBox.Ok)
 
 
+@pytest.fixture(autouse=True)
+def auto_close_dialogs(qtbot):
+    """
+    Auto-close any QDialog that appears during tests to prevent manual intervention.
+
+    This is a safety net that ensures even if a dialog escapes mocking, it will
+    automatically accept and close immediately, allowing tests to continue running
+    without manual intervention.
+
+    This fixture patches QDialog.exec_ globally for the duration of each test.
+    """
+    from PyQt5.QtWidgets import QDialog
+    from PyQt5.QtCore import QTimer
+
+    original_exec = QDialog.exec_
+
+    def auto_exec(self):
+        """Auto-accept dialog immediately and return."""
+        QTimer.singleShot(0, self.accept)
+        return original_exec(self)
+
+    QDialog.exec_ = auto_exec
+    yield
+    QDialog.exec_ = original_exec
+
+
 @pytest.fixture
 def mark_onboarding_complete():
     """

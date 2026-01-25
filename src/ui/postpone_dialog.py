@@ -124,6 +124,9 @@ class PostponeDialog(QDialog, GeometryMixin):
 
         self._init_ui()
 
+        # Enforce mode-based visibility after UI initialization
+        self._update_visibility_for_mode()
+
         # Initialize visibility state for tests by temporarily showing the dialog
         # This allows isVisible() to return correct values for widgets in layouts
         self.show()
@@ -304,6 +307,27 @@ class PostponeDialog(QDialog, GeometryMixin):
         self.delegate_person_edit.setVisible(False)
         self.followup_date_edit = QDateEdit()
         self.followup_date_edit.setVisible(False)
+
+    def _update_visibility_for_mode(self):
+        """Update widget visibility based on current mode (defer or delegate)."""
+        if self.action_type == "defer":
+            # Show defer-specific widgets
+            if hasattr(self, 'start_date_edit'):
+                self.start_date_edit.setVisible(True)
+            # Hide delegate-specific widgets
+            if hasattr(self, 'delegate_person_edit'):
+                self.delegate_person_edit.setVisible(False)
+            if hasattr(self, 'followup_date_edit'):
+                self.followup_date_edit.setVisible(False)
+        else:  # delegate
+            # Show delegate-specific widgets
+            if hasattr(self, 'delegate_person_edit'):
+                self.delegate_person_edit.setVisible(True)
+            if hasattr(self, 'followup_date_edit'):
+                self.followup_date_edit.setVisible(True)
+            # Hide defer-specific widgets
+            if hasattr(self, 'start_date_edit'):
+                self.start_date_edit.setVisible(False)
 
     def _on_blocker_toggled(self, checked: bool):
         """Show/hide blocker description field when blocker reason is toggled."""

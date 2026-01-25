@@ -60,4 +60,4 @@ collecting ... Traceback (most recent call last):
 ValueError: I/O operation on closed file.
 collected 726 items
 
-============================ no tests ran in 0.42s ============================
+============================ no tests ran in 0.54s ============================

@@ -1218,12 +1218,23 @@ class TaskListView(QWidget):
     def _on_new_task(self):
         """Handle new task button click."""
         from .task_form_dialog import TaskFormDialog
+        from ..models.dependency import Dependency
 
-        dialog = TaskFormDialog(parent=self)
+        dialog = TaskFormDialog(db_connection=self.db_connection, parent=self)
         if dialog.exec_():
             task = dialog.get_updated_task()
             if task:
                 created_task = self.task_service.create_task(task)
+
+                # Save dependencies if any were selected
+                if hasattr(dialog, 'dependencies') and dialog.dependencies:
+                    for blocking_task_id in dialog.dependencies:
+                        dependency = Dependency(
+                            blocked_task_id=created_task.id,
+                            blocking_task_id=blocking_task_id
+                        )
+                        self.dependency_dao.create(dependency)
+
                 # Record task creation in history
                 self.task_history_service.record_task_created(created_task)
                 self.refresh_tasks()
@@ -1245,7 +1256,7 @@ class TaskListView(QWidget):
 
         from .task_form_dialog import TaskFormDialog
 
-        dialog = TaskFormDialog(task=task, parent=self)
+        dialog = TaskFormDialog(task=task, db_connection=self.db_connection, parent=self)
         if dialog.exec_():
             updated_task = dialog.get_updated_task()
             if updated_task:

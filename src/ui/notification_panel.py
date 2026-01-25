@@ -400,7 +400,13 @@ class NotificationPanel(QWidget):
             message=message,
             notification_type=NotificationType.INFO
         )
+        # Track notification for test compatibility
+        self._notification_items.append({'title': title, 'message': message})
+
+        # Update count label immediately
         self._refresh_badge()
+        # Ensure count_label (alias) is updated with local count
+        self.count_label.setText(str(len(self._notification_items)))
 
     def dismiss_notification(self, notification_id: int):
         """Dismiss a notification (for test compatibility)."""

@@ -10,25 +10,33 @@ import tempfile
 import os
 from pathlib import Path
 from src.database.schema import DatabaseSchema
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox, QDialog
 
 
 @pytest.fixture(scope="session", autouse=True)
-def suppress_qt_messages():
+def suppress_qt_dialogs():
     """
-    Globally suppress QMessageBox dialogs during testing.
+    Globally suppress all Qt dialogs during testing.
 
-    This prevents "OK" dialogs from popping up and requiring user interaction.
+    This prevents dialogs (QMessageBox, QDialog, etc.) from popping up
+    and requiring user interaction during automated testing.
     """
     # Store original methods
     original_information = QMessageBox.information
     original_warning = QMessageBox.warning
     original_critical = QMessageBox.critical
+    original_question = QMessageBox.question
+    original_exec = QDialog.exec_
 
-    # Replace with no-op functions
+    # Replace with no-op or auto-reject functions
     QMessageBox.information = lambda *args, **kwargs: None
     QMessageBox.warning = lambda *args, **kwargs: None
     QMessageBox.critical = lambda *args, **kwargs: None
+    QMessageBox.question = lambda *args, **kwargs: QMessageBox.No
+
+    # Auto-reject all QDialog.exec_() calls (returns QDialog.Rejected = 0)
+    # Individual tests can override this by mocking specific dialog instances
+    QDialog.exec_ = lambda self: QDialog.Rejected
 
     yield
 
@@ -36,6 +44,8 @@ def suppress_qt_messages():
     QMessageBox.information = original_information
     QMessageBox.warning = original_warning
     QMessageBox.critical = original_critical
+    QMessageBox.question = original_question
+    QDialog.exec_ = original_exec
 
 
 @pytest.fixture(scope="function")

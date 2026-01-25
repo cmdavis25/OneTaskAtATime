@@ -339,9 +339,9 @@ class TestEditingTasks:
             mock_instance.exec_.return_value = QDialog.Rejected
             mock_form.return_value = mock_instance
 
-            # Simulate double click by calling the connected method
+            # Simulate double click by passing the item to the connected method
             item = dialog.task_list.item(0)
-            dialog._on_edit_task()
+            dialog._on_edit_task(item)
 
             # Dialog should be opened
             mock_form.assert_called_once()

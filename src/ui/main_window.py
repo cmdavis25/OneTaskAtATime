@@ -28,6 +28,9 @@ from .activated_tasks_dialog import ActivatedTasksDialog
 from .export_dialog import ExportDialog
 from .import_dialog import ImportDialog
 from .reset_confirmation_dialog import ResetConfirmationDialog
+from .analytics_view import AnalyticsView
+from .help_dialog import HelpDialog
+from .shortcuts_dialog import ShortcutsDialog
 from ..services.task_service import TaskService
 from ..services.comparison_service import ComparisonService
 from ..services.postpone_workflow_service import PostponeWorkflowService
@@ -201,12 +204,13 @@ class MainWindow(QMainWindow):
     Phase 4: Full task management interface with multiple views.
     """
 
-    def __init__(self, app=None, test_mode=False):
+    def __init__(self, app=None, test_mode=False, db_connection=None):
         """Initialize the main window.
 
         Args:
             app: QApplication instance for theme management
             test_mode: If True, skips Welcome Wizard and auto-ranking dialogs for testing
+            db_connection: Optional DatabaseConnection for testing (uses new connection if None)
         """
         super().__init__()
         self.app = app
@@ -214,7 +218,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("OneTaskAtATime")
 
         # Initialize database and services
-        self.db_connection = DatabaseConnection()
+        self.db_connection = db_connection if db_connection else DatabaseConnection()
         self.settings_dao = SettingsDAO(self.db_connection.get_connection())
         self.task_service = TaskService(self.db_connection)
         self.comparison_service = ComparisonService(self.db_connection)
@@ -363,6 +367,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.task_list_view)
 
         # Connect Focus Mode signals
+        self.focus_mode.task_created.connect(self._refresh_focus_task)
         self.focus_mode.task_completed.connect(self._on_task_completed)
         self.focus_mode.task_deferred.connect(self._on_task_deferred)
         self.focus_mode.task_delegated.connect(self._on_task_delegated)
@@ -618,7 +623,7 @@ class MainWindow(QMainWindow):
                 created_task = self.task_service.create_task(task)
 
                 # Save dependencies if any were selected
-                if dialog.dependencies:
+                if hasattr(dialog, 'dependencies') and dialog.dependencies:
                     from ..models.dependency import Dependency
                     for blocking_task_id in dialog.dependencies:
                         dependency = Dependency(
@@ -629,7 +634,8 @@ class MainWindow(QMainWindow):
 
                 # Record task creation in history
                 self.task_history_service.record_task_created(created_task)
-                self._refresh_focus_task()
+                # Refresh the current view (only refreshes focus mode if it's active)
+                self._refresh_current_view()
                 self.statusBar().showMessage("Task created successfully", 3000)
 
     def _on_task_completed(self, task_id: int):

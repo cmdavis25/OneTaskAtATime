@@ -212,14 +212,15 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
         self.reviewable_tasks = task_dao.get_delegated_tasks_for_followup(current_date, days_before=0)
 
         # Calculate importance for sorting
+        importance_scores = {}
         if self.reviewable_tasks:
-            calculate_importance_for_tasks(self.reviewable_tasks, current_date)
+            importance_scores = calculate_importance_for_tasks(self.reviewable_tasks, current_date)
 
             # Sort by follow-up date (earliest/most overdue first)
             self.reviewable_tasks.sort(
                 key=lambda t: (
                     t.follow_up_date if t.follow_up_date else date(9999, 12, 31),
-                    -t.importance
+                    -importance_scores.get(t.id, 0.0)
                 )
             )
 

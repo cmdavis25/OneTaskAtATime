@@ -547,13 +547,25 @@ class FocusModeWidget(QWidget):
         from ..services.task_service import TaskService
         from ..services.task_history_service import TaskHistoryService
         from ..database.task_history_dao import TaskHistoryDAO
+        from ..database.dependency_dao import DependencyDAO
+        from ..models.dependency import Dependency
 
-        dialog = TaskFormDialog(parent=self)
+        dialog = TaskFormDialog(db_connection=self.db_connection, parent=self)
         if dialog.exec_():
             task = dialog.get_updated_task()
             if task:
                 task_service = TaskService(self.db_connection)
                 created_task = task_service.create_task(task)
+
+                # Save dependencies if any were selected
+                if hasattr(dialog, 'dependencies') and dialog.dependencies:
+                    dependency_dao = DependencyDAO(self.db_connection.get_connection())
+                    for blocking_task_id in dialog.dependencies:
+                        dependency = Dependency(
+                            blocked_task_id=created_task.id,
+                            blocking_task_id=blocking_task_id
+                        )
+                        dependency_dao.create(dependency)
 
                 # Record task creation in history
                 task_history_dao = TaskHistoryDAO(self.db_connection.get_connection())

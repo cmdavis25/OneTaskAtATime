@@ -162,6 +162,22 @@ class TaskRankingItem(QFrame):
         self.adjustSize()
         self.updateGeometry()
 
+    def set_mode(self, mode: str):
+        """
+        Set mode indicator for this item (test compatibility alias).
+
+        Args:
+            mode: Mode string - "selection", "movement", or empty/None to clear
+        """
+        if mode == "selection":
+            self.mode_label.setText("SELECT")
+            self.mode_label.setVisible(True)
+        elif mode == "movement":
+            self.mode_label.setText("MOVE")
+            self.mode_label.setVisible(True)
+        else:
+            self.mode_label.setVisible(False)
+
 
 class SequentialRankingDialog(QDialog, GeometryMixin):
     """
@@ -444,8 +460,21 @@ class SequentialRankingDialog(QDialog, GeometryMixin):
         Get the list of tasks in ranked order.
 
         Returns:
-            List of tasks ordered from highest to lowest priority
+            List of tasks ordered from highest to lowest priority (new tasks only)
         """
+        # If ranked_tasks is empty, extract from list widget
+        if not self.ranked_tasks:
+            ranked_order = []
+            for i in range(self.ranking_list.count()):
+                item = self.ranking_list.item(i)
+                task = item.data(Qt.UserRole)
+                is_existing = item.data(Qt.UserRole + 1)
+
+                # Only include new tasks (exclude existing_tasks)
+                if not is_existing:
+                    ranked_order.append(task)
+            return ranked_order
+
         return self.ranked_tasks
 
     def eventFilter(self, obj, event):
