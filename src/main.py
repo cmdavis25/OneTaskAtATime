@@ -6,8 +6,19 @@ executing one task at a time using GTD-inspired principles.
 """
 
 import sys
+import os
+
+# Add src directory to path for PyInstaller compatibility
+if getattr(sys, 'frozen', False):
+    # Running as compiled executable
+    application_path = sys._MEIPASS
+else:
+    # Running as script
+    application_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, application_path)
+
 from PyQt5.QtWidgets import QApplication
-from .ui.main_window import MainWindow
+from src.ui.main_window import MainWindow
 
 
 def main():

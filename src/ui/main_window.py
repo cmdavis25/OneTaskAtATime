@@ -1351,16 +1351,17 @@ class MainWindow(QMainWindow):
 
     def _restore_window_geometry(self):
         """Restore saved window position, size, and maximized state."""
-        # Set minimum size to prevent button text clipping in Task List
+        # Set minimum size to prevent UI element squashing
         # Minimum width accounts for 7 buttons + spacing + margins
-        self.setMinimumSize(1125, 600)
+        # Minimum height prevents Focus Mode and Task List from overlapping
+        self.setMinimumSize(1125, 800)
 
         try:
             saved_geometry = self.settings_dao.get('window_geometry_main')
 
             if not saved_geometry:
                 # First run - use defaults
-                self.setGeometry(100, 100, 1000, 700)
+                self.setGeometry(100, 100, 1200, 850)
                 return
 
             # Validate screen still exists
