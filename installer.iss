@@ -56,8 +56,9 @@ PrivilegesRequired=admin
 
 ; UI Configuration
 WizardStyle=modern
-WizardImageFile=compiler:WizModernImage-IS.bmp
-WizardSmallImageFile=compiler:WizModernSmallImage-IS.bmp
+; Using default Inno Setup wizard images
+; WizardImageFile=compiler:WizModernImage-IS.bmp
+; WizardSmallImageFile=compiler:WizModernSmallImage-IS.bmp
 
 ; Uninstall configuration
 UninstallDisplayName={#MyAppName}

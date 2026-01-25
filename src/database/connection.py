@@ -6,6 +6,7 @@ Provides singleton SQLite database connection management for OneTaskAtATime.
 
 import sqlite3
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 from .schema import DatabaseSchema
@@ -35,15 +36,29 @@ class DatabaseConnection:
         """
         Establish connection to SQLite database.
 
-        Creates the database file in the resources directory if it doesn't exist.
+        Creates the database file in the appropriate directory:
+        - When installed: %APPDATA%\OneTaskAtATime\
+        - When running from source: project's resources directory
+
         Enables foreign key constraints for referential integrity.
         """
-        # Ensure resources directory exists
-        resources_dir = Path(__file__).parent.parent.parent / "resources"
-        resources_dir.mkdir(exist_ok=True)
+        # Determine the appropriate data directory
+        if getattr(sys, 'frozen', False):
+            # Running as PyInstaller bundle (installed application)
+            # Use AppData directory for persistent, writable storage
+            app_data = os.environ.get('APPDATA')
+            if not app_data:
+                raise RuntimeError("APPDATA environment variable not found")
+            data_dir = Path(app_data) / "OneTaskAtATime"
+        else:
+            # Running from source - use project's resources directory
+            data_dir = Path(__file__).parent.parent.parent / "resources"
+
+        # Ensure data directory exists
+        data_dir.mkdir(exist_ok=True)
 
         # Database file path
-        db_path = resources_dir / "onetaskatatime.db"
+        db_path = data_dir / "onetaskatatime.db"
 
         # Connect to database
         self._connection = sqlite3.connect(
