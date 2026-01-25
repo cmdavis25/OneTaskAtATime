@@ -5,7 +5,224 @@
 
 ---
 
-## Recent Documentation Updates: PHASE10_STATUS.md Created (2026-01-25)
+## Recent Documentation Updates: README.md Enhancement with Screenshot Placeholders (2026-01-25)
+
+### Overview
+Enhanced README.md with comprehensive screenshot placeholders and improved structure to better showcase OneTaskAtATime's key features. Added a new "Key Features & Screenshots" section with 8 screenshot placeholders and detailed descriptions, reorganized the Getting Started section, and added a Usage section with keyboard shortcuts.
+
+### Documents Modified
+
+#### README.md
+**Status:** ✅ Updated - Enhanced with Screenshots and Improved Structure
+
+**Major Additions:**
+
+1. **New "Key Features & Screenshots" Section (58 lines)**
+   - 8 screenshot placeholders with detailed captions:
+     - Focus Mode (single-task view with importance ranking)
+     - Task List (comprehensive management with filters)
+     - Priority Comparison (Elo-based side-by-side ranking)
+     - Task Creation & Editing (full form with all fields)
+     - Defer & Delegate Workflows (postpone reasons and dependencies)
+     - Dependency Visualization (tree structure graph)
+     - Settings & Customization (6-tab configuration)
+     - Resurfacing & Notifications (automation and alerts)
+   - Each screenshot includes context about what it demonstrates
+   - All placeholders use consistent naming: `screenshots/feature-name.png`
+
+2. **Restructured Table of Contents**
+   - Added "Key Features & Screenshots" section
+   - Split "Quick Start" into organized subsections:
+     - Prerequisites
+     - Installation Options (2 methods)
+     - Quick Start (simplified steps)
+   - Added new "Usage" section with subsections:
+     - Basic Workflow
+     - Key Keyboard Shortcuts
+
+3. **New "Usage" Section (27 lines)**
+   - Basic Workflow (6-step process):
+     1. Start in Focus Mode
+     2. Take Action
+     3. Add Tasks
+     4. Manage Tasks
+     5. Compare Priorities
+     6. Review Regularly
+   - Key Keyboard Shortcuts (8 essential shortcuts):
+     - Ctrl+N (New Task)
+     - Ctrl+F (Focus Mode)
+     - Ctrl+L (Task List)
+     - Ctrl+, (Settings)
+     - Ctrl+E (Export)
+     - Ctrl+I (Import)
+     - Ctrl+? (Show All Shortcuts)
+   - Reference to USER_GUIDE.md for comprehensive instructions
+
+4. **Improved "Getting Started" Section**
+   - Reorganized Prerequisites to clarify Python requirement (source only)
+   - Added "Installation Options" with 2 clear paths:
+     - Option 1: Windows Installer (Recommended) with link to Releases page
+     - Option 2: Run from Source with link to INSTALLATION_GUIDE.md
+   - Streamlined Quick Start with clearer step-by-step instructions
+   - Added "First-Time Users" subsection for seed data
+   - Improved links to BUILD_INSTALLER.md and INSTALLATION_GUIDE.md
+
+**Document Structure Improvements:**
+- Moved from dense, text-heavy format to visual, feature-focused presentation
+- Screenshots positioned early (after About, before Getting Started) to entice users
+- Clear separation between "what it is" (screenshots) and "how to get it" (installation)
+- Usage section bridges gap between installation and full documentation
+
+### Supporting Files Created
+
+#### screenshots/README.md
+**Status:** ✅ Created - Screenshot Guidelines Document (52 lines)
+
+**Content:**
+- **Required Screenshots List**: 8 screenshots with descriptions
+- **Screenshot Guidelines**:
+  - Resolution: 1920x1080 or similar
+  - Format: PNG for quality and transparency
+  - Theme: Light/dark theme versions
+  - Content: Realistic but clean sample data
+  - Focus: Highlight key features
+  - Annotations: Subtle highlighting if needed
+- **Naming Convention**: Lowercase with hyphens
+- **Recommended Tools**:
+  - Screenshot: Windows Snipping Tool, ShareX, Greenshot
+  - Annotations: Paint.NET, GIMP
+
+**Purpose:**
+- Provides clear guidelines for future screenshot creation
+- Documents what each screenshot should show
+- Ensures consistency in naming and format
+- Creates directory structure for screenshots folder
+
+### README.md Content Summary
+
+**Before Changes:**
+- Dense About section (71 lines) explaining problems and solutions
+- Quick Start section with installation steps
+- No visual elements or feature highlights
+- Jump from philosophy to installation
+
+**After Changes:**
+- Same comprehensive About section (preserved technical detail)
+- NEW: Key Features & Screenshots (58 lines) showcasing 8 core features
+- Improved Getting Started with 2 installation paths
+- NEW: Usage section with workflow and shortcuts
+- Better flow: About → Visual Features → Installation → Usage → Development
+
+**Total Lines Added:** ~100 lines
+**New Sections:** 2 (Key Features & Screenshots, Usage)
+**Screenshot Placeholders:** 8
+**Documentation Links Added:** 3 (BUILD_INSTALLER.md, USER_GUIDE.md references)
+
+### README.md Structure Comparison
+
+**Previous Structure:**
+```
+1. Header & Badges
+2. Table of Contents
+3. About the Project (4 problems/solutions)
+4. Quick Start
+   - Prerequisites
+   - Installation
+   - Manual Setup
+5. Development
+   - Database Architecture
+   - Running Tests
+   - Project Structure
+   - Current Development Status
+```
+
+**New Structure:**
+```
+1. Header & Badges
+2. Table of Contents
+3. About the Project (4 problems/solutions)
+4. Key Features & Screenshots ← NEW
+   - 8 feature showcases with placeholders
+5. Getting Started ← RENAMED & IMPROVED
+   - Prerequisites
+   - Installation Options (2 paths)
+   - Quick Start (streamlined)
+6. Usage ← NEW
+   - Basic Workflow
+   - Key Keyboard Shortcuts
+7. Development (unchanged)
+   - Database Architecture
+   - Running Tests
+   - Project Structure
+   - Current Development Status
+```
+
+### Key Benefits
+
+**For Users:**
+- Visual preview of features before installation
+- Clear understanding of core functionality
+- Quick reference for common tasks (keyboard shortcuts)
+- Multiple installation paths clearly explained
+
+**For Contributors:**
+- Screenshot guidelines ensure consistency
+- Clear documentation structure for future additions
+- Links to comprehensive guides (USER_GUIDE.md, INSTALLATION_GUIDE.md)
+
+**For Project:**
+- More professional presentation
+- Better first impression for GitHub visitors
+- Improved discoverability of features
+- Ready for screenshot additions (Phase 10)
+
+### Screenshot Placeholders Created
+
+1. **focus-mode.png** - Core single-task view with importance ranking
+2. **task-list.png** - Full task management with filters and columns
+3. **priority-comparison.png** - Elo-based side-by-side comparison
+4. **task-form.png** - Comprehensive task creation/editing form
+5. **postpone-dialog.png** - Defer workflow with reason capture
+6. **dependency-graph.png** - Tree-based dependency visualization
+7. **settings-dialog.png** - Multi-tab configuration interface
+8. **notification-panel.png** - Background automation and alerts
+
+### Next Steps for Screenshot Implementation
+
+**When Screenshots Are Ready:**
+1. Capture 8 screenshots following guidelines in `screenshots/README.md`
+2. Save as PNG files in `screenshots/` directory
+3. Use recommended resolution (1920x1080)
+4. Consider capturing both light and dark theme versions
+5. Add subtle annotations if needed to highlight key features
+6. No changes needed to README.md (placeholders already in place)
+
+**Phase 10 Integration:**
+- Screenshots can be captured during demo material creation
+- Consider creating a composite image showing app in action
+- May want to add screenshots to USER_GUIDE.md as well
+
+### Documentation Consistency Verification
+
+**Cross-References Verified:**
+- ✅ Links to BUILD_INSTALLER.md (confirmed exists)
+- ✅ Links to INSTALLATION_GUIDE.md (confirmed exists)
+- ✅ Links to USER_GUIDE.md (confirmed exists)
+- ✅ Links to database_explanation.md (confirmed exists)
+- ✅ Links to implementation_plan.md (confirmed exists)
+- ✅ Phase status files (PHASE0-PHASE9) referenced correctly
+- ✅ GitHub Releases link included (for installer downloads)
+
+**Terminology Consistency:**
+- ✅ "Focus Mode" used consistently (not "focus mode" or "Focus View")
+- ✅ "Task List" vs "Task List view" usage standardized
+- ✅ "Elo rating system" terminology consistent with CLAUDE.md
+- ✅ Keyboard shortcuts match actual implementation
+- ✅ Feature descriptions align with USER_GUIDE.md
+
+---
+
+## Previous Documentation Updates: PHASE10_STATUS.md Created (2026-01-25)
 
 ### Overview
 Created comprehensive Phase 10: Release status report documenting all release preparation work completed to date. Phase 10 is currently 60% complete with 3 of 5 major components finished: Help Dialog Enhancement, Windows Installer Infrastructure, and User Documentation.

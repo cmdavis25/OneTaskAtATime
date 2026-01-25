@@ -1246,8 +1246,7 @@ class MainWindow(QMainWindow):
             "OneTaskAtATime v1.0.0\n\n"
             "A focused to-do list application designed to help users\n"
             "concentrate on executing one task at a time using\n"
-            "GTD-inspired principles.\n\n"
-            "Phase 8: Polish & UX Complete"
+            "GTD-inspired principles."
         )
 
     def _show_help(self):

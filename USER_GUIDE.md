@@ -89,7 +89,7 @@ When you first launch OneTaskAtATime:
 **What to do first:**
 1. Press `Ctrl+N` to create your first task
 2. Add 3-5 tasks to get started
-3. Press `Ctrl+F` to enter Focus Mode
+3. Press `Ctrl+2` to switch to Task List, `Ctrl+1` to switch back to Focus Mode
 4. Start working on your highest-priority task
 
 ---
@@ -138,11 +138,11 @@ When you first launch OneTaskAtATime:
 
 ### Editing an Existing Task
 
-**Keyboard Shortcut:** `Ctrl+E` (when task selected in Task List)
+**Keyboard Shortcut:** Double-click or right-click → Edit Task
 
 **Steps:**
-1. Select a task in Task List View (`Ctrl+L`)
-2. Press `Ctrl+E` or right-click → **Edit Task**
+1. Select a task in Task List View (`Ctrl+2`)
+2. Double-click the task or right-click → **Edit Task**
 3. Modify any fields
 4. Click **OK** to save changes
 
@@ -161,7 +161,7 @@ When you first launch OneTaskAtATime:
 3. Task moves to **Trash** state (not permanently deleted)
 
 **Recovering from Trash:**
-1. Open Task List (`Ctrl+L`)
+1. Open Task List (`Ctrl+2`)
 2. Filter by State: **Trash**
 3. Right-click task → **Set State → Active**
 
@@ -333,7 +333,7 @@ Tasks move through different states based on your actions and the current date. 
 - Tasks waiting for external events
 
 **How to defer a task:**
-1. Edit task (`Ctrl+E`)
+1. Edit task (double-click or right-click → Edit)
 2. Set **Start Date** to future date
 3. Click OK—state automatically changes to Deferred
 
@@ -399,7 +399,7 @@ Tasks move through different states based on your actions and the current date. 
 - In Task List: Right-click → **Mark Complete**
 
 **Viewing completed tasks:**
-1. Open Task List (`Ctrl+L`)
+1. Open Task List (`Ctrl+2`)
 2. Filter by State: **Completed**
 3. Sort by Completion Date to see recent completions
 
@@ -457,10 +457,10 @@ Focus Mode is a distraction-free view showing:
 
 ### Entering Focus Mode
 
-**Keyboard Shortcut:** `Ctrl+F`
+**Keyboard Shortcut:** `Ctrl+1`
 
 **Steps:**
-1. Press `Ctrl+F` from any view
+1. Press `Ctrl+1` from any view
 2. OR click **View → Focus Mode**
 3. The highest-importance task appears
 
@@ -591,7 +591,7 @@ See [Postpone Handling and Dependencies](#6-postpone-handling-and-dependencies) 
 ### Focus Mode Workflow Example
 
 **Morning routine:**
-1. Open app (`Ctrl+F` if not already in Focus Mode)
+1. Open app (`Ctrl+1` if not already in Focus Mode)
 2. See top task: "Prepare Q1 presentation"
 3. Work on presentation
 4. Click **Complete** (`Alt+C`) when done
@@ -746,7 +746,7 @@ When threshold exceeded, app asks:
 ### Dependency Management
 
 **Creating dependencies:**
-1. Edit task (`Ctrl+E`)
+1. Edit task (double-click or right-click → Edit)
 2. Click **Add Dependency** button
 3. Select existing task(s) or create new task
 4. Click OK
@@ -858,7 +858,7 @@ The app runs background checks at configurable intervals:
 
 ### Notification Panel
 
-**Accessing:** Click notification icon in status bar or press `Ctrl+Shift+N`
+**Accessing:** Click notification icon in status bar
 
 **Features:**
 - View all resurfacing notifications
@@ -899,10 +899,10 @@ The Task List View provides a comprehensive table of all your tasks with powerfu
 
 ### Accessing Task List
 
-**Keyboard Shortcut:** `Ctrl+L`
+**Keyboard Shortcut:** `Ctrl+2`
 
 **Steps:**
-1. Press `Ctrl+L`
+1. Press `Ctrl+2`
 2. OR click **View → Task List**
 
 [Screenshot: Task List View]
@@ -978,7 +978,7 @@ The Task List View provides a comprehensive table of all your tasks with powerfu
 
 Right-click any task to access:
 
-- **Edit Task** (`Ctrl+E`): Open edit dialog
+- **Edit Task**: Open edit dialog
 - **Mark Complete**: Change state to Completed
 - **Set State →** Submenu with all states
 - **Add Dependency**: Link to upstream task
@@ -1145,10 +1145,10 @@ OneTaskAtATime provides robust data export, import, and backup capabilities to p
 
 **Purpose:** Create human-readable backup of all your data
 
-**Keyboard Shortcut:** `Ctrl+E`
+**Keyboard Shortcut:** `Ctrl+Shift+E`
 
 **Steps:**
-1. Click **File → Export Data** or press `Ctrl+E`
+1. Click **File → Export Data** or press `Ctrl+Shift+E`
 2. Choose save location
 3. Enter filename (default: `onetaskattime_export_YYYY-MM-DD.json`)
 4. Click **Save**
@@ -1188,10 +1188,10 @@ OneTaskAtATime provides robust data export, import, and backup capabilities to p
 
 **Purpose:** Restore data from export or merge data from another installation
 
-**Keyboard Shortcut:** `Ctrl+I`
+**Keyboard Shortcut:** `Ctrl+Shift+I`
 
 **Steps:**
-1. Click **File → Import Data** or press `Ctrl+I`
+1. Click **File → Import Data** or press `Ctrl+Shift+I`
 2. Select JSON export file
 3. **Import Preview Dialog** appears showing:
    - Export date and version
@@ -1464,13 +1464,16 @@ OneTaskAtATime is designed for keyboard-driven productivity. Master these shortc
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+N` | New Task |
-| `Ctrl+F` | Switch to Focus Mode |
-| `Ctrl+L` | Switch to Task List |
-| `Ctrl+E` | Export Data |
-| `Ctrl+I` | Import Data |
+| `Ctrl+1` | Switch to Focus Mode |
+| `Ctrl+2` | Switch to Task List |
+| `Ctrl+F` | Search Tasks |
+| `Ctrl+Shift+E` | Export Data |
+| `Ctrl+Shift+I` | Import Data |
+| `Ctrl+Shift+A` | Postpone Analytics |
 | `Ctrl+,` | Open Settings |
 | `Ctrl+?` | Keyboard Shortcuts Help |
 | `F1` | Open Help Dialog |
+| `F5` | Refresh View |
 | `Ctrl+Q` | Quit Application |
 
 ### Navigation Shortcuts
@@ -1481,7 +1484,7 @@ OneTaskAtATime is designed for keyboard-driven productivity. Master these shortc
 | `Shift+Tab` | Move to previous field/control |
 | `Enter` | Confirm/OK in dialogs |
 | `Esc` | Cancel/Close dialog |
-| `Ctrl+Tab` | Switch between Focus Mode and Task List |
+| `Ctrl+1` / `Ctrl+2` | Switch between Focus Mode and Task List |
 
 ### Focus Mode Shortcuts
 
@@ -1498,11 +1501,11 @@ OneTaskAtATime is designed for keyboard-driven productivity. Master these shortc
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+E` | Edit selected task |
 | `Delete` | Move selected task to Trash |
 | `Ctrl+A` | Select all tasks |
 | `Ctrl+C` | Copy selected task details |
 | `Ctrl+F` | Focus search box |
+| `Ctrl+H` | View task history (right-click menu) |
 | `↑` / `↓` | Navigate task list |
 | `Enter` | Open selected task in edit dialog |
 | `Shift+Click` | Range select tasks |
@@ -1518,14 +1521,6 @@ OneTaskAtATime is designed for keyboard-driven productivity. Master these shortc
 | `Shift+Tab` | Previous field |
 | `Alt+[Letter]` | Activate control with underlined letter |
 | `Shift+F1` | WhatsThis help mode (then click field) |
-
-### Notification Panel Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Shift+N` | Open Notification Panel |
-| `Delete` | Dismiss selected notification |
-| `Ctrl+A` | Select all notifications |
 
 ### Comparison Dialog Shortcuts
 
@@ -1558,10 +1553,10 @@ Get the most out of OneTaskAtATime with these proven strategies.
 
 **How:**
 1. Launch app
-2. Press `Ctrl+F` to enter Focus Mode
+2. Press `Ctrl+1` to enter Focus Mode
 3. Work on the task shown
 4. Use action buttons to advance
-5. Only switch to Task List (`Ctrl+L`) when you need to review, search, or bulk-edit
+5. Only switch to Task List (`Ctrl+2`) when you need to review, search, or bulk-edit
 
 **Avoid:** Opening Task List and scrolling endlessly trying to decide what to work on.
 
@@ -1650,7 +1645,7 @@ Get the most out of OneTaskAtATime with these proven strategies.
 
 **Automation:**
 1. Set calendar reminder every Sunday at 6 PM
-2. Press `Ctrl+E` to export
+2. Press `Ctrl+Shift+E` to export
 3. Save to cloud storage folder (auto-synced to Dropbox/OneDrive)
 4. Keep last 4 weeks of exports
 
@@ -1922,18 +1917,18 @@ New to OneTaskAtATime? Follow this checklist to get up and running quickly.
 - [ ] Add due dates to time-sensitive tasks
 - [ ] Create 2-3 contexts (`@computer`, `@phone`, `@office`)
 - [ ] Assign contexts to tasks
-- [ ] Enter Focus Mode (`Ctrl+F`)
+- [ ] Enter Focus Mode (`Ctrl+1`)
 - [ ] Complete or defer your first task
 
 ### Week 1: Build Habits
 
-- [ ] Start each work session in Focus Mode (`Ctrl+F`)
+- [ ] Start each work session in Focus Mode (`Ctrl+1`)
 - [ ] Create tasks as they arise (`Ctrl+N`)
 - [ ] Use action buttons to process tasks (Complete, Defer, Delegate, Someday, Trash)
 - [ ] When postponing, select honest reasons (blocker, dependencies, subtasks)
 - [ ] Break down at least one complex task into subtasks
 - [ ] Make your first Elo comparison (when prompted)
-- [ ] Export data for first backup (`Ctrl+E`)
+- [ ] Export data for first backup (`Ctrl+Shift+E`)
 
 ### Week 2: Optimize
 

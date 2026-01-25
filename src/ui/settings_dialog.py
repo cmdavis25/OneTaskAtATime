@@ -59,7 +59,7 @@ class SettingsDialog(QDialog, GeometryMixin):
     def _init_ui(self):
         """Initialize the user interface."""
         self.setWindowTitle("Application Settings")
-        self.setMinimumSize(600, 500)
+        self.setMinimumSize(600, 640)
 
         # Enable WhatsThis help button
         self.setWindowFlags(self.windowFlags() | Qt.WindowContextHelpButtonHint)

@@ -12,15 +12,18 @@ Many users spend too much time managing task *lists*, when they should just pick
 ## Table of Contents
 
 - [About the Project](#about-the-project)
-- [Quick Start](#quick-start)
+- [Key Features & Screenshots](#key-features--screenshots)
+- [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Manual Setup](#manual-setup)
+  - [Installation Options](#installation-options)
+  - [Quick Start](#quick-start)
+- [Usage](#usage)
+  - [Basic Workflow](#basic-workflow)
+  - [Key Keyboard Shortcuts](#key-keyboard-shortcuts)
 - [Development](#development)
   - [Database Architecture](#database-architecture)
   - [Running Tests](#running-tests)
   - [Project Structure](#project-structure)
-  - [Current Development Status](#current-development-status)
 
 ## About the Project
 
@@ -69,62 +72,139 @@ Note: In a true dogmatic GTD system, a user would have an inbox for all of their
     - If a user responds (with a button) that they encountered a blocker, the interface should prompt the user to create a new task to log and address that blocker.
     - If a user responds (with a button) that the task depends on completion of one or more tasks, the interface should prompt the user to choose or create the upstream task(s).
 
-## Quick Start
+## Key Features & Screenshots
+
+### Focus Mode - The Core Experience
+*One task at a time, zero distractions.*
+
+![Focus Mode](screenshots/focus-mode.png)
+
+The heart of OneTaskAtATime: a clean, single-task view that eliminates choice paralysis. The app intelligently selects your most important task using the Elo-based importance ranking system (Priority × Urgency). Take action immediately with buttons for Complete, Defer, Delegate, Someday/Maybe, or Trash.
+
+### Task List - Comprehensive Management
+*Full control when you need it.*
+
+![Task List View](screenshots/task-list.png)
+
+Switch to Task List view (Ctrl+2) for comprehensive task management. View all tasks with sortable columns for importance, priority, due date, state, and more. Multi-select filtering by state and context tags helps you focus on relevant tasks.
+
+### Priority Comparison - Intelligent Ranking
+*Let the app learn your priorities.*
+
+![Priority Comparison Dialog](screenshots/priority-comparison.png)
+
+When multiple tasks have equal importance, the app presents side-by-side comparisons. Your choices update Elo ratings within strict base priority bands, ensuring High tasks always rank above Medium, and Medium above Low—while refining the order within each tier.
+
+### Task Creation & Editing
+*Capture every detail.*
+
+![Task Form](screenshots/task-form.png)
+
+Comprehensive task forms capture everything you need: description, notes, base priority, due date, start date (for deferral), contexts, project tags, and dependencies. The interface guides you through proper task definition while keeping the process quick and intuitive.
+
+### Defer & Delegate Workflows
+*Track dependencies and blockers.*
+
+![Postpone Dialog](screenshots/postpone-dialog.png)
+
+When you defer a task, the app asks why. Choose from multiple subtasks (break it down), encountered blocker (create a blocking task), or add dependencies. This captures critical information about what's holding you back and surfaces patterns over time.
+
+### Dependency Visualization
+*Understand task relationships.*
+
+![Dependency Graph](screenshots/dependency-graph.png)
+
+View task dependency chains in a clear tree structure. See which tasks block others, auto-detect circular dependencies before they become problems, and export graphs for documentation. Right-click any task with dependencies to explore the full chain.
+
+### Settings & Customization
+*Make it your own.*
+
+![Settings Dialog](screenshots/settings-dialog.png)
+
+Extensive customization options across 6 tabs: configure resurfacing intervals for deferred and delegated tasks, enable Windows toast notifications or in-app notification panel, choose light/dark themes with custom font sizes, and tune advanced Elo algorithm parameters.
+
+### Resurfacing & Notifications
+*Never lose track of important tasks.*
+
+![Notification Panel](screenshots/notification-panel.png)
+
+Background automation ensures deferred tasks activate on their start date, delegated tasks prompt follow-ups, and Someday/Maybe items get periodic reviews. Choose Windows native notifications, an in-app notification panel, or both. All intervals are user-configurable.
+
+## Getting Started
 
 ### Prerequisites
-- Python 3.10 or higher
-- Windows 10/11 (primary target platform)
+- **Python 3.10 or higher** (for running from source)
+- **Windows 10/11** (primary target platform)
 
-### Installation
+### Installation Options
+
+**Option 1: Windows Installer (Recommended)**
+
+Download and run the latest `.exe` installer from the [Releases](https://github.com/cmdavis25/OneTaskAtATime/releases) page. The installer includes everything you need—no Python installation required.
+
+For building your own installer, see [BUILD_INSTALLER.md](BUILD_INSTALLER.md).
+
+**Option 2: Run from Source**
+
+See detailed instructions in [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md).
+
+### Quick Start
+
+**Running from Source:**
 
 1. Clone this repository:
+   ```bash
+   git clone https://github.com/cmdavis25/OneTaskAtATime.git
+   cd OneTaskAtATime
+   ```
+
+2. Run the automated setup script:
+   ```bash
+   setup.bat
+   ```
+   This creates a virtual environment and installs all dependencies.
+
+3. Activate the environment and launch the app:
+   ```bash
+   onetask_env\Scripts\activate
+   python -m src.main
+   ```
+
+**First-Time Users:**
+
+On first launch, the app creates an empty database. To explore features with sample data, run:
 ```bash
-git clone https://github.com/cmdavis25/OneTaskAtATime.git
-```
-```bash
-cd OneTaskAtATime
+python -m src.database.seed_data
 ```
 
-2. Run the setup script:
-```bash
-setup.bat
-```
+For detailed setup instructions, troubleshooting, and manual installation, see [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md).
 
-This will:
-- Create a Python virtual environment
-- Install all required dependencies
-- Set up the project structure
+## Usage
 
-3. Activate the virtual environment:
-```bash
-onetask_env\Scripts\activate
-```
+### Basic Workflow
 
-4. Run the application:
-```bash
-python -m src.main
-```
+1. **Start in Focus Mode**: The app opens to Focus Mode, showing your most important task
+2. **Take Action**: Click Complete when done, or defer/delegate/postpone as needed
+3. **Add Tasks**: Press Ctrl+N to create new tasks with priority, due date, and tags
+4. **Manage Tasks**: Switch to Task List (Ctrl+2) for full task management
+5. **Compare Priorities**: When ties occur, the app prompts you to compare tasks side-by-side
+6. **Review Regularly**: The app automatically reminds you about deferred and delegated tasks
 
-### Manual Setup
+### Key Keyboard Shortcuts
 
-If you prefer manual setup:
+- **Ctrl+N**: New Task
+- **Ctrl+1**: Switch to Focus Mode
+- **Ctrl+2**: Switch to Task List
+- **Ctrl+F**: Search Tasks
+- **Ctrl+,**: Open Settings
+- **Ctrl+Shift+E**: Export Data
+- **Ctrl+Shift+I**: Import Data
+- **Ctrl+Shift+A**: Postpone Analytics
+- **Ctrl+?**: Show All Shortcuts
+- **F1**: Help Contents
+- **F5**: Refresh
 
-```bash
-# Create virtual environment
-python -m venv onetask_env
-```
-```bash
-# Activate virtual environment
-onetask_env\Scripts\activate
-```
-```bash
-# Install dependencies
-pip install -r requirements.txt
-```
-```bash
-# Run application
-python -m src.main
-```
+For comprehensive usage instructions, see [USER_GUIDE.md](USER_GUIDE.md).
 
 ## Development
 
@@ -190,279 +270,3 @@ OneTaskAtATime/
 ├── resources/             # Database and assets
 └── requirements.txt       # Python dependencies
 ```
-
-### Current Development Status
-
-**Phase 0: Project Setup** ✅ COMPLETE
-
-The project skeleton is now in place with:
-- Project directory structure
-- PyQt5 application framework
-- SQLite database connection module
-- Basic main window with menu bar
-- pytest configuration and test framework
-
-See [PHASE0_STATUS.md](PHASE0_STATUS.md) for details.
-
-**Phase 1: Data Layer** ✅ COMPLETE
-
-The database layer is fully functional with:
-- Complete SQLite schema (8 tables, 12 indexes)
-- Data models (Task, Context, ProjectTag, Dependency, etc.)
-- Full DAO layer with CRUD operations
-- Circular dependency detection
-- Type-safe settings storage
-- 59 comprehensive unit tests
-- Seed data script for development
-
-See [PHASE1_STATUS.md](PHASE1_STATUS.md) for details.
-
-**Phase 2: MVP Focus Mode** ✅ COMPLETE
-
-The core Focus Mode feature is now functional with:
-- Priority and urgency calculation algorithms (Importance = Priority × Urgency)
-- Task ranking system with tie detection
-- Single-task display UI with clean, distraction-free design
-- Action buttons (Complete, Defer, Delegate, Someday, Trash)
-- Postpone dialogs with reason capture
-- Basic task creation form
-- Service layer coordinating business logic
-- 43 comprehensive unit tests (100% pass rate)
-
-See [PHASE2_STATUS.md](PHASE2_STATUS.md) for details.
-
-**Phase 3: Comparison-Based Priority Resolution** ✅ COMPLETE
-
-The Elo-based comparison ranking system is now fully functional with:
-- Side-by-side task comparison dialog with clean UI
-- Elo rating system with tiered base priority bands
-- Standard Elo formula with configurable K-factors (32 for new tasks, 16 for established)
-- Comparison history tracking in database
-- Manual Elo rating reset with user warnings
-- Automatic reset when base priority changes
-- Full integration with Focus Mode workflow
-- 20+ comprehensive unit tests (100% pass rate)
-
-See [PHASE3_STATUS.md](PHASE3_STATUS.md) for details.
-
-**Phase 4: Task Management Interface** ✅ COMPLETE
-
-The comprehensive task management interface is fully functional with:
-- Task list view with sorting, filtering, and search (9 columns with user-adjustable widths)
-- Enhanced task form with all fields (contexts, tags, dates, delegation)
-- Context management dialog (CRUD with list/form layout)
-- Project tag management dialog (CRUD with color picker integration)
-- Dependency selection dialog (circular dependency prevention)
-- Tag assignment UI in New Task and Edit Task forms (project tags and context tags)
-- Dependency assignment UI in task forms (select/create predecessors)
-- Multi-select State filter supporting multiple state selections
-- Context tag filtering UI element with dropdown selection
-- Importance column displaying calculated priority scores
-- Start Date column for deferred task visibility
-- Multi-column sorting capability
-- View switching between Focus Mode and Task List (Ctrl+F/Ctrl+L)
-- Management menu for contexts and tags
-- 18 comprehensive UI tests (100% pass rate)
-
-See [PHASE4_STATUS.md](PHASE4_STATUS.md) for details.
-
-**Phase 5: Dependency & Blocker System** ✅ COMPLETE
-
-The postpone workflow system is now fully functional with core workflows AND enhanced features:
-
-**Core Workflows:**
-- Postpone history tracking in database (PostponeHistoryDAO)
-- Three integrated workflows triggered from postpone dialog:
-  - Blocker creation (new or existing task with field inheritance)
-  - Dependency management (link to existing upstream tasks)
-  - Subtask breakdown (split complex tasks with optional deletion)
-- Field inheritance patterns (priority, urgency, organization preserved)
-- Visual dependency indicators in task list (⛔ icon with tooltips)
-- Inline workflow execution (blocker/dependency/subtask dialogs appear within defer flow)
-- Postpone recording integrated into defer and delegate operations
-
-**Enhanced Features:**
-- **Pattern Detection & Reflection System**: Mandatory reflection dialogs when postpone patterns detected (2nd+ same reason or 3rd+ total postpones)
-- **Dependency Graph Visualization**: Text-based tree view of task dependency chains with circular detection (right-click → "View Dependency Graph")
-- **Analytics Dashboard**: 4-panel postpone analytics (reason breakdown, most postponed tasks, recent activity, action summary)
-- **Disposition Actions**: Direct state changes from reflection (Someday/Maybe, Trash) to resolve chronic patterns
-- **Smart Time Formatting**: Relative time display ("2 hr ago", "Yesterday at 3:00 PM")
-- **Export Functionality**: Save dependency graphs to text files
-
-See [PHASE5_STATUS.md](PHASE5_STATUS.md) for complete details.
-
-**Phase 6: Task Resurfacing and Notification System** ✅ COMPLETE
-
-The automated resurfacing and notification system is now fully functional:
-
-**Background Automation:**
-- **APScheduler Integration**: 4 automated background jobs (deferred checks, delegated follow-ups, someday reviews, postponement analysis)
-- **Immediate Startup Checks**: Runs deferred/delegated checks on app launch
-- **Dynamic Settings Reload**: Intervals adjustable without restart
-- **Graceful Shutdown**: Clean scheduler shutdown on app close
-
-**Dual Notification Channels:**
-- **Windows Toast Notifications**: Native OS notifications (Windows 10/11)
-- **In-App Notification Panel**: Cross-platform panel with unread badge, expandable list, per-notification actions
-- **User-Configurable**: Enable/disable each channel independently
-
-**Resurfacing Features:**
-- **Deferred Task Auto-Activation**: Tasks with start_date ≤ today automatically activate (hourly check, configurable)
-- **Delegated Task Reminders**: Follow-up prompts on/after follow_up_date (daily at 9 AM, configurable)
-- **Someday/Maybe Reviews**: Periodic review dialog every N days (default: 7 days, configurable)
-- **Postponement Intervention**: Pattern detection with notifications when threshold exceeded (default: 3 postponements)
-
-**Review Dialogs:**
-- **ReviewDelegatedDialog**: Review delegated tasks with Activate/Complete/Extend actions
-- **ReviewSomedayDialog**: Review Someday tasks with Activate/Keep/Trash actions
-- **ActivatedTasksDialog**: Display auto-activated deferred tasks with details
-- **SettingsDialog**: 4-tab comprehensive settings (Resurfacing, Notifications, Triggers, Intervention)
-
-**Database & Services:**
-- **Notifications Table**: Persistent notification storage with read/unread tracking
-- **17 New Settings**: Complete configuration for intervals, channels, and thresholds
-- **NotificationManager**: Centralized notification creation and delivery
-- **ResurfacingService**: Business logic for all resurfacing scenarios
-
-**Integration:**
-- Settings menu item (Ctrl+,) for runtime configuration
-- Focus Mode and Task List auto-refresh on state changes
-- No UI blocking during background jobs
-- Thread-safe Qt signal communication
-
-See [PHASE6_STATUS.md](PHASE6_STATUS.md) for complete details.
-
-**Phase 7: Settings & Customization** ✅ COMPLETE
-
-The final phase delivers comprehensive data management and customization features:
-
-**Theme System:**
-- **Light/Dark Themes**: Professional Qt stylesheets with complete widget coverage
-- **System Detection**: Automatic Windows theme detection via registry
-- **Font Customization**: Adjustable base font size (8-16pt)
-- **Instant Application**: Theme changes apply immediately on settings save
-
-**Data Export:**
-- **JSON Export**: Full database export with structured schema (tasks, contexts, tags, dependencies, comparisons, history, notifications, settings)
-- **Database Backup**: Direct SQLite file backup for disaster recovery
-- **Progress Tracking**: Threaded export with real-time progress bar
-- **Metadata Preservation**: Export date, app version, schema version tracking
-- **File Menu Integration**: Quick access via Ctrl+E
-
-**Data Import:**
-- **Replace Mode**: Nuclear replacement of all data with validation
-- **Merge Mode**: Smart ID conflict resolution with automatic remapping
-- **Schema Validation**: Version compatibility checking (reject newer schemas)
-- **File Preview**: Summary display before import (date, version, counts)
-- **Transaction Safety**: Automatic rollback on error
-- **Relationship Preservation**: Maintains all foreign key references during merge
-- **File Menu Integration**: Quick access via Ctrl+I
-
-**Nuclear Reset:**
-- **Multi-Step Verification**: Triple confirmation process
-  1. Real-time deletion summary
-  2. Type "RESET" exactly
-  3. Acknowledge permanence checkbox
-  4. Final system warning dialog
-- **Selective Deletion**: Choose to preserve contexts, tags, and/or settings
-- **Detailed Reporting**: Shows counts of deleted items
-- **Transaction-Based**: Safe atomic operation with rollback protection
-- **Tools Menu Integration**: No keyboard shortcut (prevents accidents)
-
-**Advanced Settings:**
-- **Elo K-Factors**: Tune comparison sensitivity for new (16-64) and established (8-32) tasks
-- **Threshold Configuration**: Set comparison count before K-factor transition (5-20)
-- **Epsilon Tuning**: Adjust tie detection threshold (0.001-0.1)
-- **Visual Reference**: Read-only Elo band ranges display
-- **Reset to Defaults**: One-click restoration of recommended values
-
-**Settings Dialog Expansion:**
-- **6 Total Tabs**: Resurfacing, Notifications, Triggers, Intervention, Theme, Advanced
-- **30+ Settings**: Complete application configuration
-- **Tooltips**: Helpful guidance for advanced features
-- **Persistent Storage**: All settings saved to database
-
-**Testing:**
-- **50+ Unit Tests**: Comprehensive coverage of ExportService, ImportService, DataResetService
-- **Export/Import Roundtrip**: Verified data integrity
-- **Edge Case Handling**: Empty databases, missing files, schema mismatches
-- **Transaction Testing**: Rollback safety verification
-
-See [PHASE7_STATUS.md](PHASE7_STATUS.md) for complete details.
-
-**Phase 8: Advanced UI Enhancements & Accessibility** ✅ COMPLETE
-
-Advanced user interface improvements for enhanced productivity and accessibility:
-
-**Keyboard Navigation System:**
-- Intelligent tab order management across all dialogs
-- Custom keyboard navigation for list and table widgets
-- Focus indicators showing active element
-- Accessibility support for keyboard-only users
-
-**Advanced Settings & Visual Feedback:**
-- Real-time keyboard shortcut display (Ctrl+? dialog)
-- Tooltips with keyboard shortcut hints
-- WhatsThis context help system
-- Visual feedback for all user interactions
-
-See [PHASE8_STATUS.md](PHASE8_STATUS.md) for complete details.
-
-**Phase 9: Testing & QA** ✅ COMPLETE
-
-Comprehensive testing infrastructure and quality assurance:
-
-**Test Coverage:**
-- 1,096 total test cases across 27+ test files
-- 77.4% overall pass rate (848 passing)
-- Non-UI tests: 99.1% pass rate (production-ready)
-- E2E tests: 100% (47/47 passing)
-- Commands: 100% (118/118 passing)
-- Database: 100% (110/110 passing)
-- Services: ~99% (353/357 passing)
-
-**Testing Achievements:**
-- Complete E2E test framework with reusable fixtures
-- 47 end-to-end workflow tests (all critical user journeys)
-- Performance benchmarking infrastructure (10,000+ tasks)
-- Bug discovery and resolution (25 bugs, 100% fixed)
-- 268+ new UI unit tests
-- 91 new service tests
-
-See [PHASE9_STATUS.md](PHASE9_STATUS.md) for complete details.
-
----
-
-## Application Complete & Production-Ready
-
-**OneTaskAtATime** is now feature-complete and thoroughly tested with all 9 planned phases implemented:
-
-✅ Phase 0: Project Setup
-✅ Phase 1: Data Layer
-✅ Phase 2: MVP Focus Mode
-✅ Phase 3: Comparison-Based Priority Resolution
-✅ Phase 4: Task Management Interface
-✅ Phase 5: Dependency & Blocker System
-✅ Phase 6: Task Resurfacing and Notification System
-✅ Phase 7: Settings & Customization
-✅ Phase 8: Advanced UI Enhancements & Accessibility
-✅ **Phase 9: Testing & QA**
-
-**Total Project Stats:**
-- **~18,000+ lines of code**
-- **1,096 comprehensive test cases** (77.4% pass rate)
-- **Complete GTD-inspired task management system**
-- **Professional UI with light/dark themes**
-- **Full data portability and backup capabilities**
-- **Production-ready non-UI test coverage (99.1%)**
-
-**Future Enhancements (Potential):**
-- Advanced analytics dashboard (completion trends, time-to-completion metrics)
-- Search and filter enhancements (full-text search, saved filter presets)
-- Scheduled automatic backups
-- Cloud backup integration
-- Theme editor and custom theme creation
-- Export filtering (date ranges, specific states)
-- Keyboard shortcut customization
-
-See [implementation_plan.md](implementation_plan.md) for the full development roadmap.
