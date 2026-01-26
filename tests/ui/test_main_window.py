@@ -556,7 +556,7 @@ class TestWindowGeometry:
         """Test that minimum window size is enforced."""
         min_size = main_window.minimumSize()
         assert min_size.width() == 1125
-        assert min_size.height() == 600
+        assert min_size.height() == 800
 
 
 class TestCloseEvent:

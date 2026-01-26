@@ -321,7 +321,7 @@ class ProjectTagManagementDialog(QDialog, GeometryMixin):
         """Handle new tag button click."""
         self._clear_form()
         self.tag_list.clearSelection()
-        self.edit_button.setEnabled(False)
+        self.edit_button.setEnabled(True)  # Enable Save button for new tag
         self.delete_button.setEnabled(False)
         self.name_edit.setFocus()
 

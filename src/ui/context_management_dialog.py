@@ -277,7 +277,7 @@ class ContextManagementDialog(QDialog, GeometryMixin):
         """Handle new context button click."""
         self._clear_form()
         self.context_list.clearSelection()
-        self.edit_button.setEnabled(False)
+        self.edit_button.setEnabled(True)  # Enable Save button for new context
         self.delete_button.setEnabled(False)
         self.name_edit.setFocus()
 

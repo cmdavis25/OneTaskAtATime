@@ -15,6 +15,7 @@ a = Analysis(
     datas=[
         ('resources\\themes\\*.qss', 'resources\\themes'),
         ('resources\\icon.ico', 'resources'),
+        ('resources\\Logo.png', 'resources'),
     ],
     hiddenimports=[
         'PyQt5.QtCore',

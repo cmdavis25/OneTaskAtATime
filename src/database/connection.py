@@ -37,7 +37,7 @@ class DatabaseConnection:
         Establish connection to SQLite database.
 
         Creates the database file in the appropriate directory:
-        - When installed: %APPDATA%\OneTaskAtATime\
+        - When installed: %APPDATA%\\OneTaskAtATime\\
         - When running from source: project's resources directory
 
         Enables foreign key constraints for referential integrity.

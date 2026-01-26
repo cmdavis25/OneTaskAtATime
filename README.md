@@ -1,9 +1,11 @@
 # OneTaskAtATime
+<img src="resources/Logo.png" alt="Logo" width="10%"/>
+
 **A focused, no-frills to-do list desktop application for Windows**
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![PyQt5](https://img.shields.io/badge/GUI-PyQt5-green.svg)](https://pypi.org/project/PyQt5/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](LICENSE)
 
 Many users spend too much time managing task *lists*, when they should just pick a single task and execute it. The overarching goal of this app is to aid the user in focusing on one task.
 
@@ -142,11 +144,11 @@ Background automation ensures deferred tasks activate on their start date, deleg
 
 Download and run the latest `.exe` installer from the [Releases](https://github.com/cmdavis25/OneTaskAtATime/releases) page. The installer includes everything you need—no Python installation required.
 
-For building your own installer, see [BUILD_INSTALLER.md](BUILD_INSTALLER.md).
+For building your own installer, see [BUILD_INSTALLER.md](docs/user_guides/BUILD_INSTALLER.md).
 
 **Option 2: Run from Source**
 
-See detailed instructions in [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md).
+See detailed instructions in [INSTALLATION_GUIDE.md](docs/user_guides/INSTALLATION_GUIDE.md).
 
 ### Quick Start
 
@@ -204,7 +206,7 @@ For detailed setup instructions, troubleshooting, and manual installation, see [
 - **F1**: Help Contents
 - **F5**: Refresh
 
-For comprehensive usage instructions, see [USER_GUIDE.md](USER_GUIDE.md).
+For comprehensive usage instructions, see [USER_GUIDE.md](docs/user_guides/USER_GUIDE.md).
 
 ## Development
 
@@ -231,7 +233,7 @@ The application uses an **SQLite database** with **8 tables** that work together
 - Circular dependency detection using depth-first search
 - 12 strategic indexes for query performance
 
-See [database_explanation.md](database_explanation.md) for complete schema details, relationship diagrams, and data flow examples.
+See [database_explanation.md](docs/user_guides/database_explanation.md) for complete schema details, relationship diagrams, and data flow examples.
 
 ### Running Tests
 

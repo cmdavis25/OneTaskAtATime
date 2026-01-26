@@ -227,11 +227,13 @@ class TestTaskDAO:
         task = Task(title="Test Task", base_priority=3)
         created_task = task_dao.create(task)
 
-        # Test effective priority
-        assert created_task.get_effective_priority() == 3.0
-
-        created_task.priority_adjustment = 0.5
+        # Test effective priority with Elo system
+        # High priority (base=3) with default Elo (1500) maps to midpoint of [2.0, 3.0]
         assert created_task.get_effective_priority() == 2.5
+
+        # Test with different Elo rating
+        created_task.elo_rating = 2000  # Maximum Elo
+        assert created_task.get_effective_priority() == 3.0
 
         # Test state methods
         assert created_task.is_active() is True

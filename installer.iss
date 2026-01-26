@@ -81,11 +81,13 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 ; Main executable and all files from PyInstaller dist folder
 Source: "dist\OneTaskAtATime\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Additional documentation files (if they exist in root)
+; Additional documentation files
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('README.md')
-Source: "USER_GUIDE.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('USER_GUIDE.md')
-Source: "CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('CHANGELOG.md')
-Source: "INSTALLATION_GUIDE.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('INSTALLATION_GUIDE.md')
+Source: "docs\user_guides\USER_GUIDE.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('docs\user_guides\USER_GUIDE.md')
+Source: "docs\user_guides\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('docs\user_guides\CHANGELOG.md')
+Source: "docs\user_guides\INSTALLATION_GUIDE.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('docs\user_guides\INSTALLATION_GUIDE.md')
+Source: "docs\user_guides\TROUBLESHOOTING.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('docs\user_guides\TROUBLESHOOTING.md')
+Source: "docs\user_guides\BUILD_INSTALLER.md"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists('docs\user_guides\BUILD_INSTALLER.md')
 
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 

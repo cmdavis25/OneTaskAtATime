@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QApplication, QPushButton, QSizePolicy, QWhatsThis
 )
 from PyQt5.QtCore import Qt, QTimer, QObject, QEvent
-from PyQt5.QtGui import QFont, QCursor
+from PyQt5.QtGui import QFont, QCursor, QPixmap
 from .focus_mode import FocusModeWidget
 from .task_form_dialog import TaskFormDialog
 from .task_form_enhanced import EnhancedTaskFormDialog
@@ -1239,15 +1239,79 @@ class MainWindow(QMainWindow):
 
     def _show_about(self):
         """Show about dialog."""
-        MessageBox.information(
-            self,
-            self.db_connection.get_connection(),
-            "About OneTaskAtATime",
-            "OneTaskAtATime v1.0.0\n\n"
-            "A focused to-do list application designed to help users\n"
-            "concentrate on executing one task at a time using\n"
+        import os
+
+        # Create custom dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("About OneTaskAtATime")
+        dialog.setModal(True)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+
+        # Add logo
+        logo_label = QLabel()
+        logo_label.setFixedSize(64, 64)
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "resources", "Logo.png")
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            scaled_pixmap = pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_label.setPixmap(scaled_pixmap)
+        logo_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(logo_label, 0, Qt.AlignCenter)
+
+        # Add title
+        title_label = QLabel("OneTaskAtATime")
+        title_font = QFont()
+        title_font.setPointSize(16)
+        title_font.setBold(True)
+        title_label.setFont(title_font)
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+
+        # Add version
+        version_label = QLabel("Version 1.0.0")
+        version_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(version_label)
+
+        # Add spacing
+        layout.addSpacing(10)
+
+        # Add description
+        desc_label = QLabel(
+            "A focused to-do list application designed to help users "
+            "concentrate on executing one task at a time using "
             "GTD-inspired principles."
         )
+        desc_label.setAlignment(Qt.AlignLeft)
+        desc_label.setWordWrap(True)
+        layout.addWidget(desc_label)
+
+        # Add spacing
+        layout.addSpacing(10)
+
+        # Add license
+        license_label = QLabel("Licensed under CC BY-NC 4.0")
+        license_label.setAlignment(Qt.AlignLeft)
+        layout.addWidget(license_label)
+
+        # Add spacing before button
+        layout.addSpacing(15)
+
+        # Add OK button
+        ok_button = QPushButton("OK")
+        ok_button.clicked.connect(dialog.accept)
+        ok_button.setFixedWidth(100)
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(ok_button)
+        button_layout.addStretch()
+        layout.addLayout(button_layout)
+
+        dialog.setLayout(layout)
+        dialog.setFixedSize(dialog.sizeHint())
+        dialog.exec_()
 
     def _show_help(self):
         """Show help dialog (Phase 8)."""

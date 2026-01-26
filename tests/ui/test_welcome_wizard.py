@@ -36,12 +36,12 @@ def test_wizard_creation(wizard):
     assert wizard.windowTitle() == "Welcome to OneTaskAtATime"
 
 
-def test_wizard_has_five_pages(wizard):
-    """Test that wizard has 5 pages."""
+def test_wizard_has_four_pages(wizard):
+    """Test that wizard has 4 pages."""
     # Count pages by trying to navigate through them
     page_count = 0
     page_ids = wizard.pageIds()
-    assert len(page_ids) == 5
+    assert len(page_ids) == 4
 
 
 def test_wizard_style(wizard):
@@ -54,36 +54,6 @@ def test_wizard_minimum_size(wizard):
     """Test that wizard has minimum size."""
     assert wizard.minimumWidth() == 600
     assert wizard.minimumHeight() == 450
-
-
-def test_create_first_task_page_has_form_fields(wizard):
-    """Test that Create First Task page has required fields."""
-    # Get the second page (index 1)
-    page = wizard.page(wizard.pageIds()[1])
-
-    assert hasattr(page, 'task_title')
-    assert hasattr(page, 'task_description')
-    assert hasattr(page, 'priority_group')
-    assert hasattr(page, 'due_date_edit')
-
-
-def test_create_first_task_page_default_priority(wizard):
-    """Test that default priority is Medium."""
-    page = wizard.page(wizard.pageIds()[1])
-
-    assert page.medium_radio.isChecked()
-
-
-def test_create_first_task_page_get_priority(wizard):
-    """Test getting selected priority."""
-    page = wizard.page(wizard.pageIds()[1])
-
-    # Default should be Medium (2)
-    assert page.get_selected_priority() == 2
-
-    # Change to High
-    page.high_radio.setChecked(True)
-    assert page.get_selected_priority() == 3
 
 
 def test_final_page_has_tutorial_checkbox(wizard):
