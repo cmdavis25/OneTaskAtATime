@@ -106,14 +106,40 @@ class ResurfacingService:
 
                 if notify_enabled:
                     from ..models.notification import NotificationType
+                    import json
 
-                    self.notification_manager.create_notification(
-                        type=NotificationType.INFO,
-                        title="Tasks Ready to Work",
-                        message=f"{len(activated_tasks)} deferred task(s) are now active.",
-                        action_type='open_focus',
-                        action_data={'task_ids': [t.id for t in activated_tasks]}
-                    )
+                    # Check if an unread notification already exists for these tasks
+                    task_ids_set = set(t.id for t in activated_tasks)
+                    unread_notifications = self.notification_manager.get_unread_notifications()
+
+                    notification_exists = False
+                    for notif in unread_notifications:
+                        if notif.action_type == 'open_focus' and notif.action_data:
+                            try:
+                                # Parse action_data (it's stored as JSON string)
+                                if isinstance(notif.action_data, str):
+                                    existing_data = json.loads(notif.action_data)
+                                else:
+                                    existing_data = notif.action_data
+
+                                existing_task_ids = set(existing_data.get('task_ids', []))
+                                # If the notification contains the same task IDs, don't create a duplicate
+                                if existing_task_ids == task_ids_set:
+                                    notification_exists = True
+                                    logger.info(f"Notification already exists for activated tasks {task_ids_set}")
+                                    break
+                            except (json.JSONDecodeError, AttributeError):
+                                continue
+
+                    # Only create notification if one doesn't already exist
+                    if not notification_exists:
+                        self.notification_manager.create_notification(
+                            type=NotificationType.INFO,
+                            title="Tasks Ready to Work",
+                            message=f"{len(activated_tasks)} deferred task(s) are now active.",
+                            action_type='open_focus',
+                            action_data={'task_ids': [t.id for t in activated_tasks]}
+                        )
             except Exception as e:
                 logger.error(f"Error creating notification: {e}", exc_info=True)
 
@@ -163,14 +189,40 @@ class ResurfacingService:
 
                 if notify_enabled:
                     from ..models.notification import NotificationType
+                    import json
 
-                    self.notification_manager.create_notification(
-                        type=NotificationType.INFO,
-                        title="Follow-up Required",
-                        message=f"{len(followup_tasks)} delegated task(s) have reached their follow-up date.",
-                        action_type='open_review_delegated',
-                        action_data={'task_ids': [t.id for t in followup_tasks]}
-                    )
+                    # Check if an unread notification already exists for these tasks
+                    task_ids_set = set(t.id for t in followup_tasks)
+                    unread_notifications = self.notification_manager.get_unread_notifications()
+
+                    notification_exists = False
+                    for notif in unread_notifications:
+                        if notif.action_type == 'open_review_delegated' and notif.action_data:
+                            try:
+                                # Parse action_data (it's stored as JSON string)
+                                if isinstance(notif.action_data, str):
+                                    existing_data = json.loads(notif.action_data)
+                                else:
+                                    existing_data = notif.action_data
+
+                                existing_task_ids = set(existing_data.get('task_ids', []))
+                                # If the notification contains the same task IDs, don't create a duplicate
+                                if existing_task_ids == task_ids_set:
+                                    notification_exists = True
+                                    logger.info(f"Notification already exists for delegated tasks {task_ids_set}")
+                                    break
+                            except (json.JSONDecodeError, AttributeError):
+                                continue
+
+                    # Only create notification if one doesn't already exist
+                    if not notification_exists:
+                        self.notification_manager.create_notification(
+                            type=NotificationType.INFO,
+                            title="Follow-up Required",
+                            message=f"{len(followup_tasks)} delegated task(s) have reached their follow-up date.",
+                            action_type='open_review_delegated',
+                            action_data={'task_ids': [t.id for t in followup_tasks]}
+                        )
             except Exception as e:
                 logger.error(f"Error creating notification: {e}", exc_info=True)
 
@@ -249,21 +301,47 @@ class ResurfacingService:
 
                     if notify_enabled:
                         from ..models.notification import NotificationType
+                        import json
+
+                        # Get unread notifications once to check for duplicates
+                        unread_notifications = self.notification_manager.get_unread_notifications()
 
                         for suggestion in intervention_suggestions:
                             # Get task for title
                             task = self.task_dao.get_by_id(suggestion.task_id)
                             if task:
-                                self.notification_manager.create_notification(
-                                    type=NotificationType.WARNING,
-                                    title="Task Needs Attention",
-                                    message=f"Task '{task.title}' postponed {suggestion.pattern_count} times. Review?",
-                                    action_type='open_postpone_analytics',
-                                    action_data={
-                                        'task_id': suggestion.task_id,
-                                        'pattern_count': suggestion.pattern_count
-                                    }
-                                )
+                                # Check if an unread notification already exists for this task
+                                notification_exists = False
+                                for notif in unread_notifications:
+                                    if notif.action_type == 'open_postpone_analytics' and notif.action_data:
+                                        try:
+                                            # Parse action_data (it's stored as JSON string)
+                                            if isinstance(notif.action_data, str):
+                                                existing_data = json.loads(notif.action_data)
+                                            else:
+                                                existing_data = notif.action_data
+
+                                            existing_task_id = existing_data.get('task_id')
+                                            # If the notification is for the same task, don't create a duplicate
+                                            if existing_task_id == suggestion.task_id:
+                                                notification_exists = True
+                                                logger.info(f"Notification already exists for postpone intervention task {suggestion.task_id}")
+                                                break
+                                        except (json.JSONDecodeError, AttributeError):
+                                            continue
+
+                                # Only create notification if one doesn't already exist
+                                if not notification_exists:
+                                    self.notification_manager.create_notification(
+                                        type=NotificationType.WARNING,
+                                        title="Task Needs Attention",
+                                        message=f"Task '{task.title}' postponed {suggestion.pattern_count} times. Review?",
+                                        action_type='open_postpone_analytics',
+                                        action_data={
+                                            'task_id': suggestion.task_id,
+                                            'pattern_count': suggestion.pattern_count
+                                        }
+                                    )
 
                 except Exception as e:
                     logger.error(f"Error creating intervention notifications: {e}", exc_info=True)

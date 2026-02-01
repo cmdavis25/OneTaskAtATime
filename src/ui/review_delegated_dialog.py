@@ -5,7 +5,6 @@ Allows users to review delegated tasks that have reached their follow-up date.
 Provides actions to activate, complete, extend, or re-delegate tasks.
 """
 
-import sqlite3
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
@@ -19,6 +18,7 @@ from datetime import date, timedelta
 from ..models.task import Task, TaskState
 from ..services.task_service import TaskService
 from ..algorithms.priority import calculate_importance_for_tasks
+from ..database.connection import DatabaseConnection
 from .geometry_mixin import GeometryMixin
 from .message_box import MessageBox
 
@@ -32,12 +32,12 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
     on selected tasks.
     """
 
-    def __init__(self, db_connection: sqlite3.Connection, tasks: List[Task] = None, parent=None):
+    def __init__(self, db_connection: DatabaseConnection, tasks: List[Task] = None, parent=None):
         """
         Initialize the review dialog.
 
         Args:
-            db_connection: Database connection instance
+            db_connection: DatabaseConnection instance
             tasks: Optional list of tasks to review (if None, will fetch from DB)
             parent: Parent widget
         """
@@ -48,7 +48,7 @@ class ReviewDelegatedDialog(QDialog, GeometryMixin):
         self.selected_task_ids: Set[int] = set()
 
         # Initialize geometry persistence
-        self._init_geometry_persistence(db_connection, default_width=1000, default_height=600)
+        self._init_geometry_persistence(db_connection.get_connection(), default_width=1000, default_height=600)
 
         self._init_ui()
         if not tasks:

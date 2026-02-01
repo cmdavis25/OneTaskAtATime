@@ -286,6 +286,11 @@ class MainWindow(QMainWindow):
         if not self.test_mode and self.first_run_detector.is_first_run():
             QTimer.singleShot(500, self._show_welcome_wizard)
 
+        # Run scheduler startup checks after UI is fully initialized
+        # Delayed to avoid race conditions during window construction
+        if not self.test_mode:
+            QTimer.singleShot(1000, self._run_startup_checks)
+
         # Load initial task
         self._refresh_focus_task()
 
@@ -1170,6 +1175,18 @@ class MainWindow(QMainWindow):
             self._on_someday_review_triggered
         )
 
+    def _run_startup_checks(self):
+        """Run scheduler startup checks after UI is fully initialized."""
+        try:
+            # Check for deferred tasks ready to activate
+            self.resurfacing_scheduler.check_deferred_tasks()
+            # Check for delegated tasks needing follow-up
+            self.resurfacing_scheduler.check_delegated_tasks()
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error during startup checks: {e}", exc_info=True)
+
     def _on_deferred_tasks_activated(self, tasks):
         """Handle deferred tasks auto-activation (Phase 6)."""
         if tasks:
@@ -1184,7 +1201,7 @@ class MainWindow(QMainWindow):
             # Skip dialog in test mode to prevent blocking
             self._refresh_focus_task()
             return
-        dialog = ReviewDelegatedDialog(self.db_connection.get_connection(), tasks, self)
+        dialog = ReviewDelegatedDialog(self.db_connection, tasks, self)
         dialog.exec_()
         self._refresh_focus_task()
 
@@ -1225,7 +1242,7 @@ class MainWindow(QMainWindow):
             tasks = [t for t in tasks if t is not None]
 
             if tasks:
-                dialog = ReviewDelegatedDialog(self.db_connection.get_connection(), tasks, self)
+                dialog = ReviewDelegatedDialog(self.db_connection, tasks, self)
                 dialog.exec_()
                 self._refresh_focus_task()
 

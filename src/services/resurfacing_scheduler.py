@@ -102,10 +102,8 @@ class ResurfacingScheduler(QObject):
 
         logger.info("Resurfacing scheduler started successfully")
 
-        # Run immediate checks on startup (don't wait for first interval)
-        logger.info("Running immediate startup checks...")
-        self._job_check_deferred_tasks()
-        self._job_check_delegated_tasks()
+        # NOTE: Immediate startup checks are now triggered by MainWindow after UI is ready
+        # to avoid race conditions during initialization
 
     def stop(self):
         """
