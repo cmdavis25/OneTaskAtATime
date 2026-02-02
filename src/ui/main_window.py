@@ -4,6 +4,7 @@ Main Window - Primary application window for OneTaskAtATime
 Provides the main application container with menu bar and navigation.
 """
 
+import os
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QMenuBar, QMenu, QAction, QStatusBar, QMessageBox, QStackedWidget, QDialog,
@@ -37,6 +38,8 @@ from ..services.postpone_workflow_service import PostponeWorkflowService
 from ..services.notification_manager import NotificationManager
 from ..services.toast_notification_service import ToastNotificationService
 from ..services.resurfacing_scheduler import ResurfacingScheduler
+from ..services.due_date_notification_service import DueDateNotificationService
+from ..services.database_path_service import DatabasePathService
 from ..services.theme_service import ThemeService
 from ..services.task_history_service import TaskHistoryService
 from ..services.error_service import ErrorService
@@ -235,6 +238,9 @@ class MainWindow(QMainWindow):
             self.notification_manager
         )
 
+        # Initialize due date notification service
+        self.due_date_service = DueDateNotificationService(self.db_connection)
+
         # Initialize Phase 7 services (theme system)
         if self.app:
             self.theme_service = ThemeService(self.db_connection.get_connection(), self.app)
@@ -267,6 +273,7 @@ class MainWindow(QMainWindow):
         # Start background scheduler (skip in test mode to avoid dialog interference)
         if not self.test_mode:
             self.resurfacing_scheduler.start()
+            self.due_date_service.start()
 
         # Connect undo/redo signals to update menu state
         self.undo_manager.can_undo_changed.connect(self._update_undo_action)
@@ -417,6 +424,13 @@ class MainWindow(QMainWindow):
         import_action.setStatusTip("Import data from JSON backup")
         import_action.triggered.connect(self._import_data)
         file_menu.addAction(import_action)
+
+        file_menu.addSeparator()
+
+        switch_db_action = QAction("Switch &Database...", self)
+        switch_db_action.setStatusTip("Switch to a different database file")
+        switch_db_action.triggered.connect(self._switch_database)
+        file_menu.addAction(switch_db_action)
 
         file_menu.addSeparator()
 
@@ -1429,6 +1443,211 @@ class MainWindow(QMainWindow):
                 self.task_list_view.refresh_tasks()
             self.statusBar().showMessage("All data has been reset", 5000)
 
+    def _switch_database(self):
+        """Switch to a different database file immediately."""
+        from PyQt5.QtWidgets import QFileDialog
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Get database file from user
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Database File",
+            "",
+            "Database Files (*.db);;All Files (*.*)"
+        )
+
+        if not file_path:
+            return  # User cancelled
+
+        # Validate the database
+        is_valid, error_msg = DatabaseConnection.validate_database_file(file_path)
+        if not is_valid:
+            MessageBox.critical(
+                self,
+                self.db_connection.get_connection(),
+                "Invalid Database",
+                f"The selected file is not a valid OneTaskAtATime database:\n\n{error_msg}"
+            )
+            return
+
+        # Check if it's the same database
+        current_path = self.db_connection.get_current_database_path()
+        if current_path and os.path.abspath(file_path) == os.path.abspath(current_path):
+            MessageBox.information(
+                self,
+                self.db_connection.get_connection(),
+                "Same Database",
+                "You are already using this database."
+            )
+            return
+
+        # Confirm switch
+        result = MessageBox.question(
+            self,
+            self.db_connection.get_connection(),
+            "Switch Database?",
+            f"Are you sure you want to switch to this database?\n\n"
+            f"New database: {file_path}\n\n"
+            f"Your current database will not be modified.\n"
+            f"The application will reload with the new database."
+        )
+
+        if result != QMessageBox.Yes:
+            return
+
+        try:
+            # Stop background services before switching
+            if hasattr(self, 'resurfacing_scheduler'):
+                self.resurfacing_scheduler.shutdown(wait=False, timeout=2)
+            if hasattr(self, 'due_date_service'):
+                self.due_date_service.stop()
+
+            # Switch to the new database
+            success, message = self.db_connection.switch_database(file_path)
+
+            if not success:
+                MessageBox.critical(
+                    self,
+                    self.db_connection.get_connection(),
+                    "Switch Failed",
+                    f"Failed to switch database:\n\n{message}"
+                )
+                # Restart services with old database
+                if hasattr(self, 'resurfacing_scheduler'):
+                    self.resurfacing_scheduler.start()
+                if hasattr(self, 'due_date_service'):
+                    self.due_date_service.start()
+                return
+
+            # Update settings DAO to use new connection
+            self.settings_dao = SettingsDAO(self.db_connection.get_connection())
+
+            # Save the custom database path in the NEW database's settings
+            self.settings_dao.set('custom_database_path', file_path, 'string', 'Path to custom database file')
+
+            # Also save to registry/config for startup
+            path_service = DatabasePathService()
+            path_service.save_database_path(file_path)
+
+            # Reinitialize all services with new connection
+            self._reinitialize_services()
+
+            # Refresh all UI views
+            self._refresh_all_views()
+
+            # Show success message
+            self.statusBar().showMessage(f"Switched to database: {file_path}", 10000)
+
+            logger.info(f"Successfully switched to database: {file_path}")
+
+        except Exception as e:
+            logger.error(f"Error switching database: {e}", exc_info=True)
+            MessageBox.critical(
+                self,
+                self.db_connection.get_connection(),
+                "Error",
+                f"An error occurred while switching databases:\n\n{str(e)}"
+            )
+
+    def _reinitialize_services(self):
+        """Reinitialize all services after database switch."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Reinitialize DAOs
+            self.task_dao = TaskDAO(self.db_connection.get_connection())
+            self.dependency_dao = DependencyDAO(self.db_connection.get_connection())
+
+            # Reinitialize services
+            self.task_service = TaskService(self.db_connection)
+            self.comparison_service = ComparisonService(self.db_connection)
+            self.postpone_workflow_service = PostponeWorkflowService(self.db_connection.get_connection())
+
+            # Reinitialize notification system
+            self.notification_manager = NotificationManager(self.db_connection.get_connection())
+            self.toast_service = ToastNotificationService(self.db_connection.get_connection())
+            self.notification_manager.set_toast_service(self.toast_service)
+
+            # Reinitialize and restart schedulers
+            self.resurfacing_scheduler = ResurfacingScheduler(
+                self.db_connection.get_connection(),
+                self.notification_manager
+            )
+            self.due_date_service = DueDateNotificationService(self.db_connection)
+
+            if not self.test_mode:
+                self.resurfacing_scheduler.start()
+                self.due_date_service.start()
+
+            # Reinitialize history service
+            task_history_dao = TaskHistoryDAO(self.db_connection.get_connection())
+            self.task_history_service = TaskHistoryService(task_history_dao)
+
+            logger.info("All services reinitialized successfully")
+
+        except Exception as e:
+            logger.error(f"Error reinitializing services: {e}", exc_info=True)
+            raise
+
+    def _refresh_all_views(self):
+        """Refresh all UI views after database switch."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Update task list view to use new connection and services
+            if hasattr(self, 'task_list_view'):
+                # Update the task list view's services to use new connection
+                self.task_list_view.db_connection = self.db_connection
+                self.task_list_view.task_service = self.task_service
+                self.task_list_view.task_dao = self.task_dao
+                self.task_list_view.dependency_dao = self.dependency_dao
+
+                # Reinitialize indicator service with new connection
+                settings_dao_for_indicators = SettingsDAO(self.db_connection.get_connection())
+                from ..services.due_date_indicator_service import DueDateIndicatorService
+                self.task_list_view.indicator_service = DueDateIndicatorService(settings_dao_for_indicators)
+
+                # Clear context and tag filters when switching databases
+                # (old filters may reference IDs that don't exist in new database)
+                self.task_list_view.active_context_filters.clear()
+                self.task_list_view.active_tag_filters.clear()
+
+                # Reload contexts and tags
+                self.task_list_view._load_contexts()
+                self.task_list_view._load_project_tags()
+                self.task_list_view.refresh_tasks()
+
+            # Update focus mode widget to use new connection
+            if hasattr(self, 'focus_mode_widget'):
+                self.focus_mode_widget.db_connection = self.db_connection
+
+                # Reinitialize indicator service with new connection
+                settings_dao_for_indicators = SettingsDAO(self.db_connection.get_connection())
+                from ..services.due_date_indicator_service import DueDateIndicatorService
+                self.focus_mode_widget.indicator_service = DueDateIndicatorService(settings_dao_for_indicators)
+
+                # Reload contexts and tags
+                self.focus_mode_widget._load_contexts()
+                self.focus_mode_widget._load_project_tags()
+
+            # Refresh focus task
+            self._refresh_focus_task()
+
+            # Update notification panel to use new connection
+            if hasattr(self, 'notification_panel'):
+                # Notification panel needs to use new notification manager
+                self.notification_panel.notification_manager = self.notification_manager
+                self.notification_panel._refresh_badge()
+
+            logger.info("All views refreshed successfully")
+
+        except Exception as e:
+            logger.error(f"Error refreshing views: {e}", exc_info=True)
+
     def _restore_window_geometry(self):
         """Restore saved window position, size, and maximized state."""
         # Set minimum size to prevent UI element squashing
@@ -1559,6 +1778,10 @@ class MainWindow(QMainWindow):
 
         # Shutdown scheduler gracefully (Phase 6)
         self.resurfacing_scheduler.shutdown(wait=True, timeout=5)
+
+        # Shutdown due date notification service
+        if hasattr(self, 'due_date_service'):
+            self.due_date_service.stop()
 
         # Close database connection
         self.db_connection.close()

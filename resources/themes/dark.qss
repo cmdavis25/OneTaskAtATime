@@ -144,7 +144,7 @@ QLineEdit:disabled {
 }
 
 QLineEdit::placeholder {
-    color: #808080;
+    color: #c0c0c0;
 }
 
 /* Text Edits */

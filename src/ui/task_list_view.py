@@ -20,11 +20,13 @@ from ..database.connection import DatabaseConnection
 from ..services.task_service import TaskService
 from ..services.task_history_service import TaskHistoryService
 from ..services.undo_manager import UndoManager
+from ..services.due_date_indicator_service import DueDateIndicatorService
 from ..database.context_dao import ContextDAO
 from ..database.project_tag_dao import ProjectTagDAO
 from ..database.dependency_dao import DependencyDAO
 from ..database.task_history_dao import TaskHistoryDAO
 from ..database.task_dao import TaskDAO
+from ..database.settings_dao import SettingsDAO
 from ..algorithms.priority import calculate_urgency_for_tasks, calculate_importance
 from ..commands import (
     EditTaskCommand,
@@ -81,6 +83,10 @@ class TaskListView(QWidget):
         # Initialize task history service
         task_history_dao = TaskHistoryDAO(db_connection.get_connection())
         self.task_history_service = TaskHistoryService(task_history_dao)
+
+        # Initialize due date indicator service
+        settings_dao = SettingsDAO(db_connection.get_connection())
+        self.indicator_service = DueDateIndicatorService(settings_dao)
 
         self.tasks: List[Task] = []
         self.contexts = {}  # Map of context_id -> context_name
@@ -271,6 +277,12 @@ class TaskListView(QWidget):
         self.search_box.setPlaceholderText("Search tasks...")
         self.search_box.setMaximumWidth(300)
         self.search_box.setFocusPolicy(Qt.StrongFocus)
+
+        # Set placeholder text color explicitly for dark theme compatibility
+        from PyQt5.QtGui import QPalette, QColor
+        palette = self.search_box.palette()
+        palette.setColor(QPalette.PlaceholderText, QColor("#c0c0c0"))
+        self.search_box.setPalette(palette)
         self.search_box.setWhatsThis(
             "Type here to search tasks by title or description. The task list will filter "
             "in real-time as you type. Use Ctrl+F to focus this search box from anywhere."
@@ -783,8 +795,15 @@ class TaskListView(QWidget):
 
     def refresh_tasks(self):
         """Refresh the task list from the database."""
+        import logging
+        logger = logging.getLogger(__name__)
+
         # Get all tasks
         self.tasks = self.task_service.get_all_tasks()
+        logger.info(f"[TASK_LIST] Retrieved {len(self.tasks)} tasks from database")
+        if self.tasks:
+            logger.info(f"[TASK_LIST] Sample tasks: {[t.title for t in self.tasks[:3]]}")
+
         # Reload contexts and tags in case they changed
         self._load_contexts()
         self._load_project_tags()
@@ -910,6 +929,9 @@ class TaskListView(QWidget):
 
     def _apply_filters(self):
         """Apply current filters and update the table."""
+        import logging
+        logger = logging.getLogger(__name__)
+
         # Get filter values
         search_text = self.search_box.text().lower()
 
@@ -919,48 +941,63 @@ class TaskListView(QWidget):
             if checkbox.isChecked()
         ]
 
+        logger.info(f"[TASK_LIST] Starting with {len(self.tasks)} tasks")
+        logger.info(f"[TASK_LIST] Selected states: {[s.value for s in selected_states]}")
+
         # Filter tasks
         filtered_tasks = self.tasks
 
         # Filter by selected states
         if selected_states:
             filtered_tasks = [t for t in filtered_tasks if t.state in selected_states]
+            logger.info(f"[TASK_LIST] After state filter: {len(filtered_tasks)} tasks")
 
         # Filter by context (if any filters are active)
         if self.active_context_filters:
+            logger.info(f"[TASK_LIST] Active context filters: {self.active_context_filters}")
             filtered_tasks = [
                 t for t in filtered_tasks
                 if (t.context_id is None and "NONE" in self.active_context_filters) or
                    (t.context_id in self.active_context_filters)
             ]
+            logger.info(f"[TASK_LIST] After context filter: {len(filtered_tasks)} tasks")
 
         # Filter by project tags (if any filters are active)
         if self.active_tag_filters:
+            logger.info(f"[TASK_LIST] Active tag filters: {self.active_tag_filters}")
             filtered_tasks = [
                 t for t in filtered_tasks
                 if t.project_tags and any(tag_id in self.active_tag_filters for tag_id in t.project_tags)
             ]
+            logger.info(f"[TASK_LIST] After tag filter: {len(filtered_tasks)} tasks")
 
         # Filter by dependencies
         if self.hide_tasks_with_dependencies:
+            logger.info(f"[TASK_LIST] Hiding tasks with dependencies")
             filtered_tasks = [
                 t for t in filtered_tasks
                 if not self._task_has_dependencies(t)
             ]
+            logger.info(f"[TASK_LIST] After dependency filter: {len(filtered_tasks)} tasks")
 
         # Filter by search text
         if search_text:
+            logger.info(f"[TASK_LIST] Search text: '{search_text}'")
             filtered_tasks = [
                 t for t in filtered_tasks
                 if search_text in t.title.lower() or
                    (t.description and search_text in t.description.lower())
             ]
+            logger.info(f"[TASK_LIST] After search filter: {len(filtered_tasks)} tasks")
+
+        logger.info(f"[TASK_LIST] Final filtered count: {len(filtered_tasks)} tasks")
 
         # Apply sorting
         filtered_tasks = self._apply_sorting(filtered_tasks)
 
         # Update table
         self._populate_table(filtered_tasks)
+        logger.info(f"[TASK_LIST] Table populated with {len(filtered_tasks)} tasks")
 
         # Emit count signal for status bar
         self.task_count_changed.emit(f"Showing {len(filtered_tasks)} of {len(self.tasks)} tasks")
@@ -1057,6 +1094,14 @@ class TaskListView(QWidget):
             recurring_symbol = "🔁" if task.is_recurring else ""
             recurring_tooltip = self._format_recurrence_pattern(task.recurrence_pattern) if task.is_recurring else ""
 
+            # Get due date indicator
+            indicator = self.indicator_service.get_indicator(task)
+            indicator_with_label = self.indicator_service.get_indicator_with_label(task)
+            due_date_text = task.due_date.strftime("%Y-%m-%d") if task.due_date else ""
+            if indicator:
+                due_date_text = f"{indicator} {due_date_text}"
+            due_date_tooltip = indicator_with_label[1] if indicator_with_label[1] else None
+
             column_data = {
                 "ID": (str(task.id), task.id, None),
                 "Recurring": (recurring_symbol, None, recurring_tooltip),
@@ -1066,7 +1111,7 @@ class TaskListView(QWidget):
                 "Priority": (priority_names.get(task.base_priority, "Unknown"), task.base_priority, None),
                 "Effective Priority": (f"{task.get_effective_priority():.2f}", task.get_effective_priority(), None),
                 "Start Date": (task.start_date.strftime("%Y-%m-%d") if task.start_date else "", task.start_date if task.start_date else date.max, None),
-                "Due Date": (task.due_date.strftime("%Y-%m-%d") if task.due_date else "", task.due_date if task.due_date else date.max, None),
+                "Due Date": (due_date_text, task.due_date if task.due_date else date.max, due_date_tooltip),
                 "State": (task.state.value.title(), None, None),
                 "Context": (self.contexts.get(task.context_id, "") if task.context_id else "", None, None),
                 "Project Tags": (", ".join([self.project_tags.get(tag_id, f"Tag#{tag_id}") for tag_id in task.project_tags]), None, None),

@@ -15,6 +15,8 @@ from typing import Optional, Set
 from ..models.task import Task
 from ..models.enums import TaskState
 from ..database.connection import DatabaseConnection
+from ..database.settings_dao import SettingsDAO
+from ..services.due_date_indicator_service import DueDateIndicatorService
 from .message_box import MessageBox
 
 
@@ -60,6 +62,10 @@ class FocusModeWidget(QWidget):
         self.active_tag_filters: Set[int] = set()  # Set of tag IDs
         self.contexts = {}  # Map of context_id -> context_name
         self.project_tags = {}  # Map of tag_id -> tag_name
+
+        # Initialize due date indicator service
+        settings_dao = SettingsDAO(db_connection.get_connection())
+        self.indicator_service = DueDateIndicatorService(settings_dao)
 
         self._load_contexts()
         self._load_project_tags()
@@ -449,9 +455,13 @@ class FocusModeWidget(QWidget):
             eff_pri = task.get_effective_priority()
             metadata_parts.append(f"(Effective: {eff_pri:.2f})")
 
-        # Due date
+        # Due date with indicator
         if task.due_date:
-            metadata_parts.append(f"Due: {task.due_date.strftime('%Y-%m-%d')}")
+            indicator = self.indicator_service.get_indicator(task)
+            due_text = f"Due: {task.due_date.strftime('%Y-%m-%d')}"
+            if indicator:
+                due_text = f"{indicator} {due_text}"
+            metadata_parts.append(due_text)
 
         self.task_metadata_label.setText(" | ".join(metadata_parts))
 

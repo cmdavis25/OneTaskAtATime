@@ -325,7 +325,47 @@ class DatabaseSchema:
             ('tutorial_shown', 'false', 'boolean',
              'Whether interactive tutorial has been shown'),
             ('undo_stack_max_size', '50', 'integer',
-             'Maximum number of undo operations to keep in history')
+             'Maximum number of undo operations to keep in history'),
+
+            # Logging settings
+            ('logging_enabled', 'true', 'boolean',
+             'Enable application logging'),
+            ('logging_level', 'INFO', 'string',
+             'Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)'),
+            ('log_retention_days', '30', 'integer',
+             'Days to retain log files'),
+            ('log_max_file_size_mb', '10', 'integer',
+             'Maximum log file size in MB before rotation'),
+
+            # Due date indicator settings
+            ('due_date_indicators_enabled', 'true', 'boolean',
+             'Show visual indicators for task due dates'),
+            ('due_soon_threshold_days', '3', 'integer',
+             'Days threshold for "due soon" indicator'),
+            ('overdue_symbol', '❗', 'string',
+             'Symbol for overdue tasks'),
+            ('due_today_symbol', '⚠️', 'string',
+             'Symbol for tasks due today'),
+            ('due_soon_symbol', '◆', 'string',
+             'Symbol for tasks due soon'),
+
+            # Due date notification settings
+            ('due_date_notifications_enabled', 'true', 'boolean',
+             'Enable due date notifications'),
+            ('due_date_check_interval_minutes', '60', 'integer',
+             'Minutes between due date checks'),
+            ('notify_overdue_tasks', 'true', 'boolean',
+             'Notify about overdue tasks'),
+            ('notify_due_today_tasks', 'true', 'boolean',
+             'Notify about tasks due today'),
+            ('notify_due_soon_tasks', 'true', 'boolean',
+             'Notify about tasks due soon'),
+            ('due_soon_notification_days', '3', 'integer',
+             'Days ahead to notify for upcoming due dates'),
+
+            # Database settings
+            ('custom_database_path', '', 'string',
+             'Path to custom database file (empty for default)')
         ]
 
     @staticmethod
