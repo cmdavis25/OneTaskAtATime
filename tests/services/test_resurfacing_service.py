@@ -64,6 +64,7 @@ def mock_notification_manager():
     """Create a mock notification manager."""
     mock = Mock()
     mock.create_notification = Mock()
+    mock.get_unread_notifications = Mock(return_value=[])
     return mock
 
 

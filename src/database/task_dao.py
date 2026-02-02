@@ -48,9 +48,9 @@ class TaskDAO:
                 due_date, state, start_date, delegated_to, follow_up_date,
                 completed_at, context_id, last_resurfaced_at, resurface_count,
                 is_recurring, recurrence_pattern, recurrence_parent_id, share_elo_rating,
-                shared_elo_rating, shared_comparison_count, recurrence_end_date, occurrence_count,
+                shared_elo_rating, shared_comparison_count, recurrence_end_date, max_occurrences, occurrence_count,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task.title,
@@ -75,6 +75,7 @@ class TaskDAO:
                 task.shared_elo_rating,
                 task.shared_comparison_count,
                 task.recurrence_end_date.isoformat() if task.recurrence_end_date else None,
+                task.max_occurrences,
                 task.occurrence_count,
                 now.isoformat(),
                 now.isoformat()
@@ -109,7 +110,7 @@ class TaskDAO:
                    due_date, state, start_date, delegated_to, follow_up_date,
                    completed_at, context_id, last_resurfaced_at, resurface_count,
                    is_recurring, recurrence_pattern, recurrence_parent_id, share_elo_rating,
-                   shared_elo_rating, shared_comparison_count, recurrence_end_date, occurrence_count,
+                   shared_elo_rating, shared_comparison_count, recurrence_end_date, max_occurrences, occurrence_count,
                    created_at, updated_at
             FROM tasks
             WHERE id = ?
@@ -150,7 +151,7 @@ class TaskDAO:
                        due_date, state, start_date, delegated_to, follow_up_date,
                        completed_at, context_id, last_resurfaced_at, resurface_count,
                        is_recurring, recurrence_pattern, recurrence_parent_id, share_elo_rating,
-                       shared_elo_rating, shared_comparison_count, recurrence_end_date, occurrence_count,
+                       shared_elo_rating, shared_comparison_count, recurrence_end_date, max_occurrences, occurrence_count,
                        created_at, updated_at
                 FROM tasks
                 WHERE state = ?
@@ -165,7 +166,7 @@ class TaskDAO:
                        due_date, state, start_date, delegated_to, follow_up_date,
                        completed_at, context_id, last_resurfaced_at, resurface_count,
                        is_recurring, recurrence_pattern, recurrence_parent_id, share_elo_rating,
-                       shared_elo_rating, shared_comparison_count, recurrence_end_date, occurrence_count,
+                       shared_elo_rating, shared_comparison_count, recurrence_end_date, max_occurrences, occurrence_count,
                        created_at, updated_at
                 FROM tasks
                 ORDER BY created_at DESC
@@ -209,7 +210,7 @@ class TaskDAO:
                 completed_at = ?, context_id = ?, last_resurfaced_at = ?,
                 resurface_count = ?, is_recurring = ?, recurrence_pattern = ?,
                 recurrence_parent_id = ?, share_elo_rating = ?, shared_elo_rating = ?,
-                shared_comparison_count = ?, recurrence_end_date = ?, occurrence_count = ?,
+                shared_comparison_count = ?, recurrence_end_date = ?, max_occurrences = ?, occurrence_count = ?,
                 updated_at = ?
             WHERE id = ?
             """,
@@ -236,6 +237,7 @@ class TaskDAO:
                 task.shared_elo_rating,
                 task.shared_comparison_count,
                 task.recurrence_end_date.isoformat() if task.recurrence_end_date else None,
+                task.max_occurrences,
                 task.occurrence_count,
                 now.isoformat(),
                 task.id
@@ -293,7 +295,7 @@ class TaskDAO:
                    due_date, state, start_date, delegated_to, follow_up_date,
                    completed_at, context_id, last_resurfaced_at, resurface_count,
                    is_recurring, recurrence_pattern, recurrence_parent_id, share_elo_rating,
-                   shared_elo_rating, shared_comparison_count, recurrence_end_date, occurrence_count,
+                   shared_elo_rating, shared_comparison_count, recurrence_end_date, max_occurrences, occurrence_count,
                    created_at, updated_at
             FROM tasks
             WHERE state = 'deferred' AND start_date <= ?
@@ -332,7 +334,7 @@ class TaskDAO:
                    due_date, state, start_date, delegated_to, follow_up_date,
                    completed_at, context_id, last_resurfaced_at, resurface_count,
                    is_recurring, recurrence_pattern, recurrence_parent_id, share_elo_rating,
-                   shared_elo_rating, shared_comparison_count, recurrence_end_date, occurrence_count,
+                   shared_elo_rating, shared_comparison_count, recurrence_end_date, max_occurrences, occurrence_count,
                    created_at, updated_at
             FROM tasks
             WHERE state = 'delegated' AND follow_up_date <= ?
@@ -384,9 +386,10 @@ class TaskDAO:
             shared_elo_rating=row[20],
             shared_comparison_count=row[21],
             recurrence_end_date=date.fromisoformat(row[22]) if row[22] else None,
-            occurrence_count=row[23],
-            created_at=datetime.fromisoformat(row[24]) if row[24] else None,
-            updated_at=datetime.fromisoformat(row[25]) if row[25] else None
+            max_occurrences=row[23],
+            occurrence_count=row[24],
+            created_at=datetime.fromisoformat(row[25]) if row[25] else None,
+            updated_at=datetime.fromisoformat(row[26]) if row[26] else None
         )
 
     def _get_project_tag_ids(self, task_id: int) -> List[int]:

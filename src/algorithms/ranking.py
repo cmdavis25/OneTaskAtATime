@@ -156,6 +156,10 @@ def get_next_focus_task(
     Uses base_priority as tiebreaker for cross-tier ties.
     Returns None if multiple tasks in same tier are tied (requires comparison).
 
+    IMPORTANT: Urgency normalization uses ALL active tasks, not just actionable ones,
+    to ensure consistency with Task List view and prevent ranking changes due to
+    filtering (e.g., blocked tasks being excluded).
+
     Args:
         tasks: List of all tasks
         today: Reference date for urgency calculation (defaults to today)
@@ -171,8 +175,23 @@ def get_next_focus_task(
     if not actionable:
         return None
 
-    # Get top-ranked tasks
-    top_tasks = get_top_ranked_tasks(actionable, today)
+    # Calculate importance using ALL active tasks for urgency normalization
+    # This ensures consistency with Task List and prevents ranking changes
+    # when tasks are blocked/unblocked
+    from ..models.enums import TaskState
+    active_tasks = [t for t in tasks if t.state == TaskState.ACTIVE]
+    importance_scores = calculate_importance_for_tasks(active_tasks, today)
+
+    # Rank actionable tasks using the consistent importance scores
+    ranked = [(task, importance_scores.get(task.id, 0.0)) for task in actionable if task.id is not None]
+    ranked.sort(key=lambda x: x[1], reverse=True)
+
+    if not ranked:
+        return None
+
+    # Get top score and find all tasks within epsilon
+    top_score = ranked[0][1]
+    top_tasks = [task for task, score in ranked if abs(score - top_score) <= IMPORTANCE_EPSILON]
 
     if not top_tasks:
         return None
@@ -181,15 +200,22 @@ def get_next_focus_task(
     if len(top_tasks) == 1:
         return top_tasks[0]
 
-    # Multiple tasks tied - check if they're in same tier
-    tied_by_tier = get_tied_tasks(actionable, today, context_filter, tag_filters)
-    if len(tied_by_tier) >= 2:
-        # Multiple tasks in same tier → need comparison
-        return None
+    # Multiple tasks tied - check if they're in the same base_priority tier
+    # Group tied tasks by base_priority
+    from collections import defaultdict
+    by_priority = defaultdict(list)
+    for task in top_tasks:
+        by_priority[task.base_priority].append(task)
 
-    # Tied across different tiers → use base_priority as tiebreaker
-    # Higher base_priority wins (3 > 2 > 1)
-    return max(top_tasks, key=lambda t: t.base_priority)
+    # Check if any priority tier has 2+ tied tasks (requires comparison)
+    for priority in [3, 2, 1]:  # High, Medium, Low
+        if len(by_priority[priority]) >= 2:
+            # Multiple tasks in same tier → need comparison
+            return None
+
+    # Tasks tied across different tiers → pick the one with highest importance
+    # Already have them ranked, so return the first one
+    return top_tasks[0]
 
 
 def get_tied_tasks(
@@ -207,6 +233,9 @@ def get_tied_tasks(
 
     This ensures comparisons respect priority bands (High/Medium/Low separation).
 
+    IMPORTANT: Urgency normalization uses ALL active tasks, not just actionable ones,
+    to ensure consistency with Task List view.
+
     Args:
         tasks: List of all tasks
         today: Reference date for urgency calculation (defaults to today)
@@ -222,8 +251,22 @@ def get_tied_tasks(
     if len(actionable) < 2:
         return []
 
-    # Get top-ranked tasks
-    top_tasks = get_top_ranked_tasks(actionable, today)
+    # Calculate importance using ALL active tasks for urgency normalization
+    # This ensures consistency with Task List and Focus Mode
+    from ..models.enums import TaskState
+    active_tasks = [t for t in tasks if t.state == TaskState.ACTIVE]
+    importance_scores = calculate_importance_for_tasks(active_tasks, today)
+
+    # Rank actionable tasks using the consistent importance scores
+    ranked = [(task, importance_scores.get(task.id, 0.0)) for task in actionable if task.id is not None]
+    ranked.sort(key=lambda x: x[1], reverse=True)
+
+    if not ranked:
+        return []
+
+    # Get top score and find all tasks within epsilon
+    top_score = ranked[0][1]
+    top_tasks = [task for task, score in ranked if abs(score - top_score) <= IMPORTANCE_EPSILON]
 
     if len(top_tasks) < 2:
         return []

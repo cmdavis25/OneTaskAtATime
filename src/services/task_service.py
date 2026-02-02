@@ -489,11 +489,6 @@ class TaskService:
         if not completed_task.is_recurring or not completed_task.recurrence_pattern:
             return None
 
-        # Check if series should continue
-        completion_date = date.today()
-        if not RecurrenceService.should_continue_recurrence(completed_task, completion_date):
-            return None
-
         # Parse recurrence pattern
         try:
             pattern = RecurrencePattern.from_json(completed_task.recurrence_pattern)
@@ -503,8 +498,17 @@ class TaskService:
 
         # Calculate next due date from the original due date (or today if no due date)
         # This ensures consistent scheduling regardless of when task is completed
+        completion_date = date.today()
         base_date = completed_task.due_date if completed_task.due_date else completion_date
         next_due_date = RecurrenceService.calculate_next_occurrence_date(pattern, base_date)
+
+        # Check if the next due date would exceed the end date
+        if completed_task.recurrence_end_date and next_due_date > completed_task.recurrence_end_date:
+            return None
+
+        # Check if we've reached the maximum number of occurrences
+        if completed_task.max_occurrences and completed_task.occurrence_count + 1 >= completed_task.max_occurrences:
+            return None
 
         # Get shared Elo values if applicable
         shared_elo, shared_count = RecurrenceService.get_shared_elo_values(completed_task)

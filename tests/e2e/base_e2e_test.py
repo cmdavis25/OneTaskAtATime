@@ -123,9 +123,9 @@ class BaseE2ETest:
         # Patch DatabaseConnection to use test database
         original_connect = DatabaseConnection._connect
 
-        def mock_connect(self):
+        def mock_connect():
             """Use test database instead of production database."""
-            self._connection = test_db_connection
+            DatabaseConnection._connection = test_db_connection
 
         monkeypatch.setattr(DatabaseConnection, '_connect', mock_connect)
 

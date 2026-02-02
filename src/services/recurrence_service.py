@@ -84,6 +84,7 @@ class RecurrenceService:
             recurrence_parent_id=task.recurrence_parent_id or task.id,
             share_elo_rating=task.share_elo_rating,
             recurrence_end_date=task.recurrence_end_date,
+            max_occurrences=task.max_occurrences,
             occurrence_count=task.occurrence_count + 1,
 
             # Handle Elo rating based on sharing preference

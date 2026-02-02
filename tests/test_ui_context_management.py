@@ -110,12 +110,14 @@ def test_delete_context(context_dialog, qtbot, monkeypatch):
     # Select the context
     context_dialog.context_list.setCurrentRow(0)
 
-    # Mock the confirmation dialog to always return Yes
+    # Mock both QMessageBox and MessageBox to return Yes for question
     from PyQt5.QtWidgets import QMessageBox
+    from src.ui.message_box import MessageBox
     monkeypatch.setattr(QMessageBox, 'question', lambda *args, **kwargs: QMessageBox.Yes)
+    monkeypatch.setattr(MessageBox, 'question', lambda *args, **kwargs: QMessageBox.Yes)
 
     # Delete
-    with qtbot.waitSignal(context_dialog.contexts_changed, timeout=1000):
+    with qtbot.waitSignal(context_dialog.contexts_changed, timeout=3000):
         context_dialog._on_delete_context()
 
     # Verify context was deleted

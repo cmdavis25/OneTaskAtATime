@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QTextEdit, QComboBox, QFormLayout,
     QCheckBox, QListWidget, QListWidgetItem, QGroupBox, QScrollArea,
-    QWidget, QMessageBox, QCalendarWidget, QSpinBox
+    QWidget, QMessageBox, QCalendarWidget, QSpinBox, QRadioButton
 )
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import QIcon
@@ -550,30 +550,69 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         )
         recurrence_options_layout.addRow("", self.share_elo_check)
 
-        # End date (optional)
-        end_date_layout = QHBoxLayout()
-        self.has_recurrence_end_check = QCheckBox("Stop recurring after")
-        self.has_recurrence_end_check.stateChanged.connect(self._on_recurrence_end_toggled)
-        self.has_recurrence_end_check.setWhatsThis(
-            "Enable this to set an end date for the recurring task. After this date, "
-            "no new occurrences will be created. Leave unchecked for tasks that repeat indefinitely."
+        # Series limit (optional) - date-based OR count-based
+        limit_layout = QVBoxLayout()
+        limit_layout.setSpacing(8)
+
+        # Checkbox to enable/disable limits
+        self.has_series_limit_check = QCheckBox("Limit recurring series")
+        self.has_series_limit_check.stateChanged.connect(self._on_series_limit_toggled)
+        self.has_series_limit_check.setWhatsThis(
+            "Enable this to limit when the recurring task series will end. "
+            "You can choose to limit by date (stop after a specific date) "
+            "or by count (stop after a certain number of occurrences)."
         )
-        end_date_layout.addWidget(self.has_recurrence_end_check)
+        limit_layout.addWidget(self.has_series_limit_check)
+
+        # Radio buttons for limit type
+        limit_type_layout = QHBoxLayout()
+        limit_type_layout.setContentsMargins(20, 0, 0, 0)  # Indent under checkbox
+
+        self.limit_by_date_radio = QRadioButton("End on date:")
+        self.limit_by_date_radio.setChecked(True)  # Default selection
+        self.limit_by_date_radio.toggled.connect(self._on_limit_type_changed)
+        self.limit_by_date_radio.setEnabled(False)
+        limit_type_layout.addWidget(self.limit_by_date_radio)
 
         self.recurrence_end_date_edit = QLineEdit()
         self.recurrence_end_date_edit.setPlaceholderText("YYYY-MM-DD")
         self.recurrence_end_date_edit.setMaximumWidth(120)
         self.recurrence_end_date_edit.setEnabled(False)
-        end_date_layout.addWidget(self.recurrence_end_date_edit)
+        limit_type_layout.addWidget(self.recurrence_end_date_edit)
 
         self.recurrence_end_calendar_btn = QPushButton("📅")
         self.recurrence_end_calendar_btn.setMaximumWidth(40)
         self.recurrence_end_calendar_btn.setEnabled(False)
         self.recurrence_end_calendar_btn.clicked.connect(lambda: self._show_calendar(self.recurrence_end_date_edit))
-        end_date_layout.addWidget(self.recurrence_end_calendar_btn)
+        limit_type_layout.addWidget(self.recurrence_end_calendar_btn)
 
-        end_date_layout.addStretch()
-        recurrence_options_layout.addRow("End date:", end_date_layout)
+        limit_type_layout.addStretch()
+        limit_layout.addLayout(limit_type_layout)
+
+        # Count-based limit option
+        count_limit_layout = QHBoxLayout()
+        count_limit_layout.setContentsMargins(20, 0, 0, 0)  # Indent under checkbox
+
+        self.limit_by_count_radio = QRadioButton("End after:")
+        self.limit_by_count_radio.toggled.connect(self._on_limit_type_changed)
+        self.limit_by_count_radio.setEnabled(False)
+        count_limit_layout.addWidget(self.limit_by_count_radio)
+
+        self.max_occurrences_spin = QSpinBox()
+        self.max_occurrences_spin.setMinimum(1)
+        self.max_occurrences_spin.setMaximum(999)
+        self.max_occurrences_spin.setValue(10)
+        self.max_occurrences_spin.setMaximumWidth(80)
+        self.max_occurrences_spin.setEnabled(False)
+        count_limit_layout.addWidget(self.max_occurrences_spin)
+
+        count_limit_label = QLabel("occurrences")
+        count_limit_layout.addWidget(count_limit_label)
+
+        count_limit_layout.addStretch()
+        limit_layout.addLayout(count_limit_layout)
+
+        recurrence_options_layout.addRow("", limit_layout)
 
         self.recurrence_options_widget.setLayout(recurrence_options_layout)
         self.recurrence_options_widget.setEnabled(False)  # Disabled by default
@@ -581,7 +620,8 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
 
         # Info label
         self.recurrence_info_label = QLabel(
-            "Note: Recurring tasks must have a due date. The next occurrence will be created when you complete this task."
+            "Note: Recurring tasks must have a due date. The next occurrence will be created when you complete this task. "
+            "You can optionally limit the series by end date or by number of occurrences."
         )
         self.recurrence_info_label.setWordWrap(True)
         self.recurrence_info_label.setStyleSheet("color: #666; font-size: 9pt; padding: 8px; background-color: #f8f9fa;")
@@ -765,11 +805,34 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
                     f"Advanced pattern configured:\n{pattern.to_human_readable()}"
                 )
 
-    def _on_recurrence_end_toggled(self, state: int):
-        """Enable/disable recurrence end date field based on checkbox."""
+    def _on_series_limit_toggled(self, state: int):
+        """Enable/disable series limit options based on checkbox."""
         enabled = state == Qt.Checked
-        self.recurrence_end_date_edit.setEnabled(enabled)
-        self.recurrence_end_calendar_btn.setEnabled(enabled)
+        self.limit_by_date_radio.setEnabled(enabled)
+        self.limit_by_count_radio.setEnabled(enabled)
+
+        # Enable/disable the appropriate input fields based on which radio is selected
+        if enabled:
+            self._on_limit_type_changed()
+        else:
+            # Disable all input fields when limit is unchecked
+            self.recurrence_end_date_edit.setEnabled(False)
+            self.recurrence_end_calendar_btn.setEnabled(False)
+            self.max_occurrences_spin.setEnabled(False)
+
+    def _on_limit_type_changed(self):
+        """Enable/disable date/count fields based on selected radio button."""
+        if not self.has_series_limit_check.isChecked():
+            return
+
+        # Enable date fields if date radio is selected
+        date_selected = self.limit_by_date_radio.isChecked()
+        self.recurrence_end_date_edit.setEnabled(date_selected)
+        self.recurrence_end_calendar_btn.setEnabled(date_selected)
+
+        # Enable count field if count radio is selected
+        count_selected = self.limit_by_count_radio.isChecked()
+        self.max_occurrences_spin.setEnabled(count_selected)
 
     def _show_calendar(self, date_field: QLineEdit):
         """Show calendar widget and populate the date field with selected date."""
@@ -1119,10 +1182,15 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
             if self.task.share_elo_rating:
                 self.share_elo_check.setChecked(True)
 
-            # End date
+            # Series limit - check if either end date or max occurrences is set
             if self.task.recurrence_end_date:
-                self.has_recurrence_end_check.setChecked(True)
+                self.has_series_limit_check.setChecked(True)
+                self.limit_by_date_radio.setChecked(True)
                 self.recurrence_end_date_edit.setText(self.task.recurrence_end_date.strftime("%Y-%m-%d"))
+            elif self.task.max_occurrences:
+                self.has_series_limit_check.setChecked(True)
+                self.limit_by_count_radio.setChecked(True)
+                self.max_occurrences_spin.setValue(self.task.max_occurrences)
 
     def _on_save_clicked(self):
         """Validate and save the task."""
@@ -1255,6 +1323,7 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
         recurrence_pattern = None
         recurrence_end_date = None
         share_elo_rating = False
+        max_occurrences = None
 
         if is_recurring:
             # Validate that due date is set
@@ -1295,31 +1364,38 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
             # Get Elo sharing preference
             share_elo_rating = self.share_elo_check.isChecked()
 
-            # Get end date
-            if self.has_recurrence_end_check.isChecked():
-                end_date_str = self.recurrence_end_date_edit.text().strip()
-                if end_date_str:
-                    try:
-                        parts = end_date_str.split('-')
-                        recurrence_end_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
+            # Get series limit (end date OR max occurrences, mutually exclusive)
+            if self.has_series_limit_check.isChecked():
+                if self.limit_by_date_radio.isChecked():
+                    # Date-based limit
+                    end_date_str = self.recurrence_end_date_edit.text().strip()
+                    if end_date_str:
+                        try:
+                            parts = end_date_str.split('-')
+                            recurrence_end_date = date(int(parts[0]), int(parts[1]), int(parts[2]))
 
-                        # Validate end date is after due date
-                        if recurrence_end_date <= due_date:
+                            # Validate end date is after due date
+                            if recurrence_end_date <= due_date:
+                                MessageBox.warning(
+                                    self,
+                                    self.db_connection.get_connection() if self.db_connection else None,
+                                    "Invalid End Date",
+                                    "Recurrence end date must be after the due date."
+                                )
+                                return None
+                        except (ValueError, IndexError):
                             MessageBox.warning(
                                 self,
                                 self.db_connection.get_connection() if self.db_connection else None,
-                                "Invalid End Date",
-                                "Recurrence end date must be after the due date."
+                                "Invalid Date",
+                                "Recurrence end date must be in YYYY-MM-DD format."
                             )
                             return None
-                    except (ValueError, IndexError):
-                        MessageBox.warning(
-                            self,
-                            self.db_connection.get_connection() if self.db_connection else None,
-                            "Invalid Date",
-                            "Recurrence end date must be in YYYY-MM-DD format."
-                        )
-                        return None
+                else:
+                    # Count-based limit
+                    max_occurrences = self.max_occurrences_spin.value()
+                    # Don't set end date when using count-based limit
+                    recurrence_end_date = None
 
         if self.is_new:
             # Create new task
@@ -1337,7 +1413,8 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
                 is_recurring=is_recurring,
                 recurrence_pattern=recurrence_pattern,
                 share_elo_rating=share_elo_rating,
-                recurrence_end_date=recurrence_end_date
+                recurrence_end_date=recurrence_end_date,
+                max_occurrences=max_occurrences
             )
         else:
             # Update existing task
@@ -1356,5 +1433,6 @@ class EnhancedTaskFormDialog(QDialog, GeometryMixin):
             task.recurrence_pattern = recurrence_pattern
             task.share_elo_rating = share_elo_rating
             task.recurrence_end_date = recurrence_end_date
+            task.max_occurrences = max_occurrences
 
         return task

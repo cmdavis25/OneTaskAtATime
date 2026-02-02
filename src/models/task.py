@@ -96,6 +96,7 @@ class Task:
     shared_elo_rating: Optional[float] = None  # Shared pool if enabled
     shared_comparison_count: Optional[int] = None  # Shared count
     recurrence_end_date: Optional[date] = None  # Optional stop date
+    max_occurrences: Optional[int] = None  # Maximum number of occurrences (None = unlimited)
     occurrence_count: int = 0  # Tracks iteration number
 
     def get_effective_priority(self) -> float:

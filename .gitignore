@@ -47,6 +47,9 @@ htmlcov/
 resources/*.db
 resources/*.db-journal
 
+# User-specific configuration
+resources/config.json
+
 # OS
 .DS_Store
 Thumbs.db

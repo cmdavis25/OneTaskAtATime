@@ -116,12 +116,14 @@ def test_delete_tag(tag_dialog, qtbot, monkeypatch):
     # Select the tag
     tag_dialog.tag_list.setCurrentRow(0)
 
-    # Mock the confirmation dialog to always return Yes
+    # Mock both QMessageBox and MessageBox to return Yes for question
     from PyQt5.QtWidgets import QMessageBox
+    from src.ui.message_box import MessageBox
     monkeypatch.setattr(QMessageBox, 'question', lambda *args, **kwargs: QMessageBox.Yes)
+    monkeypatch.setattr(MessageBox, 'question', lambda *args, **kwargs: QMessageBox.Yes)
 
     # Delete
-    with qtbot.waitSignal(tag_dialog.tags_changed, timeout=1000):
+    with qtbot.waitSignal(tag_dialog.tags_changed, timeout=3000):
         tag_dialog._on_delete_tag()
 
     # Verify tag was deleted

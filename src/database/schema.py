@@ -118,6 +118,8 @@ class DatabaseSchema:
                 -- Shared comparison count across series
                 recurrence_end_date DATE,
                 -- Optional date when recurrence stops
+                max_occurrences INTEGER,
+                -- Maximum number of occurrences (NULL = unlimited)
                 occurrence_count INTEGER DEFAULT 0,
                 -- Number of times this task has recurred
 
@@ -540,9 +542,9 @@ class DatabaseSchema:
         """
         cursor = db_connection.cursor()
 
-        # Check if migration is already complete
+        # Check if migration is already complete by checking for the newest column
         try:
-            cursor.execute("SELECT is_recurring FROM tasks LIMIT 1")
+            cursor.execute("SELECT max_occurrences FROM tasks LIMIT 1")
             migration_done = True
         except sqlite3.OperationalError:
             migration_done = False
@@ -561,6 +563,7 @@ class DatabaseSchema:
             "ALTER TABLE tasks ADD COLUMN shared_elo_rating REAL",
             "ALTER TABLE tasks ADD COLUMN shared_comparison_count INTEGER",
             "ALTER TABLE tasks ADD COLUMN recurrence_end_date DATE",
+            "ALTER TABLE tasks ADD COLUMN max_occurrences INTEGER",
             "ALTER TABLE tasks ADD COLUMN occurrence_count INTEGER DEFAULT 0"
         ]
 
